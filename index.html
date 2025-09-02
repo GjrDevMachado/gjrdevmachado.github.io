@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão v9.0 - Papelaria & 3D (Online)</title>
+    <title>Sistema de Gestão v9.2 - Papelaria & 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -135,8 +135,39 @@
     <div id="modal-edit-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Produto</h3><form id="edit-product-form" class="space-y-4"><input type="hidden" name="productId"><input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productPrice" placeholder="Preço de Venda (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productCost" placeholder="Custo do Produto (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productStock" placeholder="Estoque Atual" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></form><div class="flex justify-between items-center mt-6"><button type="button" id="delete-product-btn" class="px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Excluir Produto</button><div class="flex gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div></div>
 
     <!-- Modal: Adicionar/Editar Matéria-Prima -->
-    <div id="modal-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-2xl mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Estoque</h3><form id="add-raw-material-form" class="mb-6 pb-6 border-b border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-4 gap-4 items-end"><input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><button type="submit" class="sm:col-span-4 px-4 py-2 bg-[var(--secondary-600)] text-white rounded-lg">Adicionar Item</button></form><div id="raw-materials-list" class="max-h-64 overflow-y-auto"></div></div></div>
-    <div id="modal-edit-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-2xl mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Item de Estoque</h3><form id="edit-raw-material-form" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end"><input type="hidden" name="rawMaterialId"><input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-raw-material-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div>
+    <div id="modal-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal">
+            <h3 class="text-2xl font-bold mb-6">Gerir Estoque</h3>
+            <form id="add-raw-material-form" class="mb-6 pb-6 border-b border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
+                <input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
+                <input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <button type="submit" class="sm:col-span-2 md:col-span-3 px-4 py-2 bg-[var(--secondary-600)] text-white rounded-lg">Adicionar Item</button>
+            </form>
+            <div id="raw-materials-list" class="max-h-64 overflow-y-auto"></div>
+        </div>
+    </div>
+    <div id="modal-edit-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal">
+            <h3 class="text-2xl font-bold mb-6">Editar Item de Estoque</h3>
+            <form id="edit-raw-material-form" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
+                <input type="hidden" name="rawMaterialId">
+                <input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
+                <input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+            </form>
+            <div class="flex justify-end gap-4 mt-6">
+                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button>
+                <button type="submit" form="edit-raw-material-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal: Relatórios -->
     <div id="modal-relatorios" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-5xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-4 flex-shrink-0">Relatórios</h3><div class="border-b border-[var(--border-color)] flex-shrink-0"><nav id="report-tabs" class="-mb-px flex flex-nowrap space-x-4 sm:space-x-8 overflow-x-auto pb-2" aria-label="Tabs"><button data-tab="vendas" class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Vendas</button><button data-tab="vendas-cliente" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Vendas por Cliente</button><button data-tab="estoque-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque de Produtos</button><button data-tab="estoque-materias" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque</button></nav></div><div class="flex-grow overflow-y-auto"><div id="tab-vendas" class="tab-content py-4"><div class="mb-4 flex justify-center gap-2" id="report-period-buttons"><button data-period="daily" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Hoje</button><button data-period="weekly" class="period-button active px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">7 Dias</button><button data-period="monthly" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Este Mês</button><button data-period="annual" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Anual</button></div><div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4"></div><canvas id="salesChart"></canvas><div id="transactions-list" class="mt-4"></div><div id="annual-summary-table" class="mt-4 hidden"></div></div><div id="tab-vendas-cliente" class="tab-content hidden py-4"></div><div id="tab-estoque-produtos" class="tab-content hidden py-4"></div><div id="tab-estoque-materias" class="tab-content hidden py-4"></div></div></div></div>
@@ -267,7 +298,6 @@
     // ===================================================================================
     // CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM
     // Cole a URL do seu App da Web do Google Apps Script aqui.
-    // Se não for usar esta função, pode deixar como está.
     // ===================================================================================
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbiXuGirSCuAG4atOy9hPdGo_ZXlubcXPbUJnfxihWRPmM_4z5thJeqVZ_23H1_9246g/exec';
 
@@ -284,7 +314,6 @@
     let confirmCallback = null;
     let autoSaveInterval = null;
     let isAutoSaveEnabled = false;
-
 
     // --- DADOS INICIAIS (VAZIOS) ---
     const sampleProducts = [];
@@ -310,17 +339,13 @@
         try {
             const productsData = JSON.parse(localStorage.getItem('products'));
             products = (productsData) ? productsData : sampleProducts;
-            
             const rawMaterialsData = JSON.parse(localStorage.getItem('rawMaterials'));
             rawMaterials = (rawMaterialsData) ? rawMaterialsData : sampleRawMaterials;
-            
             customers = JSON.parse(localStorage.getItem('customers')) || [{ id: 1, name: 'Cliente Balcão', contact: '' }];
             transactions = JSON.parse(localStorage.getItem('transactions')) || [];
             cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
-            
             const savedTheme = localStorage.getItem('theme') || 'light';
             applyTheme(savedTheme);
-
         } catch (error) {
             console.error("Erro ao carregar dados locais:", error);
             showToast("Erro ao carregar dados. A utilizar valores padrão.", "error");
@@ -345,52 +370,30 @@
     // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
     function formatCurrency(value) { return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
     
-    function toggleLoading(isLoading) {
-        document.getElementById('loading-overlay').classList.toggle('hidden', !isLoading);
-    }
+    function toggleLoading(isLoading) { document.getElementById('loading-overlay').classList.toggle('hidden', !isLoading); }
     
     function renderProducts(filter = '') {
         const productGrid = document.getElementById('product-grid');
         productGrid.innerHTML = '';
         const filteredProducts = products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
-        
-        if (filteredProducts.length === 0) {
-            productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado. Adicione um novo produto para começar.</p>`;
-            return;
-        }
-
+        if (filteredProducts.length === 0) { productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado. Adicione um novo produto para começar.</p>`; return; }
         filteredProducts.forEach(product => {
             const disabled = product.stock <= 0;
             const card = document.createElement('div');
             card.className = `product-card p-4 rounded-lg shadow cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-secondary)]'}`;
             card.innerHTML = `<h3 class="font-bold truncate">${product.name}</h3><p class="text-[var(--primary-600)] font-semibold">${formatCurrency(product.price)}</p><p class="text-sm text-[var(--text-secondary)]">Estoque: ${product.stock}</p>`;
-            if (!disabled) {
-                card.onclick = () => addToCart(product.id);
-            }
+            if (!disabled) { card.onclick = () => addToCart(product.id); }
             productGrid.appendChild(card);
         });
     }
 
     function renderCart() {
         const cartItems = document.getElementById('cart-items');
-        if (cart.length === 0) {
-            cartItems.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-8">O caixa está vazio.</p>';
-        } else {
+        if (cart.length === 0) { cartItems.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-8">O caixa está vazio.</p>'; } 
+        else {
             cartItems.innerHTML = '';
             cart.forEach((item, index) => {
-                cartItems.innerHTML += `
-                <div class="flex justify-between items-center bg-[var(--bg-tertiary)] p-3 rounded-lg">
-                    <div>
-                        <p class="font-semibold">${item.name}</p>
-                        <p class="text-sm text-[var(--text-secondary)]">${formatCurrency(item.price)}</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button data-index="${index}" class="decrease-qty-btn w-6 h-6 bg-gray-200 rounded-full font-bold">-</button>
-                        <span>${item.quantity}</span>
-                        <button data-index="${index}" class="increase-qty-btn w-6 h-6 bg-gray-200 rounded-full font-bold">+</button>
-                        <button data-index="${index}" class="remove-from-cart-btn text-[var(--danger-500)] hover:text-[var(--danger-600)] ml-2"><i class="fas fa-trash-alt"></i></button>
-                    </div>
-                </div>`;
+                cartItems.innerHTML += `<div class="flex justify-between items-center bg-[var(--bg-tertiary)] p-3 rounded-lg"><div><p class="font-semibold">${item.name}</p><p class="text-sm text-[var(--text-secondary)]">${formatCurrency(item.price)}</p></div><div class="flex items-center gap-3"><button data-index="${index}" class="decrease-qty-btn w-6 h-6 bg-gray-200 rounded-full font-bold">-</button><span>${item.quantity}</span><button data-index="${index}" class="increase-qty-btn w-6 h-6 bg-gray-200 rounded-full font-bold">+</button><button data-index="${index}" class="remove-from-cart-btn text-[var(--danger-500)] hover:text-[var(--danger-600)] ml-2"><i class="fas fa-trash-alt"></i></button></div></div>`;
             });
         }
         document.getElementById('checkout-button').disabled = cart.length === 0;
@@ -400,14 +403,12 @@
     function renderRawMaterials() {
         const list = document.getElementById('raw-materials-list');
         list.innerHTML = '';
-        if (rawMaterials.length === 0) {
-            list.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhum item de estoque registado.</p>`;
-            return;
-        }
+        if (rawMaterials.length === 0) { list.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhum item de estoque registado.</p>`; return; }
+        list.innerHTML = `<div class="grid grid-cols-7 items-center p-2 border-b font-bold text-sm text-[var(--text-secondary)]"><p class="col-span-2">Nome</p><p>Fornecedor</p><p>Data</p><p>Qtd.</p><p>Custo Unit.</p><p class="text-right">Ações</p></div>`;
         rawMaterials.forEach(rm => {
             const lowStock = rm.stock <= 10;
             const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0;
-            list.innerHTML += `<div class="grid grid-cols-5 items-center p-2 border-b border-[var(--border-color)] ${lowStock ? 'bg-yellow-100 text-yellow-800' : ''}"><p class="col-span-2">${rm.name}</p><p class="text-sm">${rm.stock} ${rm.unit}</p><p class="text-sm font-semibold">${formatCurrency(unitCost)}/${rm.unit}</p><div class="justify-self-end"><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></div>`;
+            list.innerHTML += `<div class="grid grid-cols-7 items-center p-2 border-b border-[var(--border-color)] text-sm ${lowStock ? 'bg-yellow-100 text-yellow-800' : ''}"><p class="col-span-2 font-medium">${rm.name}</p><p>${rm.supplier || 'N/A'}</p><p>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</p><p>${rm.stock} ${rm.unit}</p><p class="font-semibold">${formatCurrency(unitCost)}</p><div class="justify-self-end"><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></div>`;
         });
     }
 
@@ -427,11 +428,8 @@
         document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
         document.getElementById(`tab-${tabName}`).classList.remove('hidden');
         document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
-        
         if (tabName === 'vendas-cliente') renderSalesByCustomerReport();
-        else if (tabName === 'vendas' || tabName === 'estoque-produtos' || tabName === 'estoque-materias') {
-            renderReports(currentReportPeriod);
-        }
+        else if (['vendas', 'estoque-produtos', 'estoque-materias'].includes(tabName)) renderReports(currentReportPeriod);
     }
 
     function renderReports(period = 'weekly') {
@@ -439,13 +437,9 @@
             const now = new Date();
             const annualSummaryTable = document.getElementById('annual-summary-table');
             const transactionsList = document.getElementById('transactions-list');
-            
-            let filteredTransactions;
-            let startDate;
-
+            let filteredTransactions, startDate;
             if (period === 'annual') {
                 startDate = new Date(now.getFullYear(), 0, 1);
-                filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
                 transactionsList.classList.add('hidden');
                 annualSummaryTable.classList.remove('hidden');
             } else {
@@ -454,23 +448,16 @@
                 switch(period) {
                     case 'daily': startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break;
                     case 'monthly': startDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
-                    default: startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); startDate.setDate(startDate.getDate() - 6); break;
+                    default: startDate = new Date(); startDate.setDate(startDate.getDate() - 6); break;
                 }
-                filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
             }
-
+            filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
+            
             const salesSummary = document.getElementById('sales-summary');
-            const totalRevenue = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
-            const totalCost = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((sum, t) => sum + (t.cost || 0), 0);
+            const totalRevenue = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((s, t) => s + t.amount, 0);
+            const totalCost = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((s, t) => s + (t.cost || 0), 0);
             const profit = totalRevenue - totalCost;
-            const profitPercentage = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
-
-            salesSummary.innerHTML = `
-                <div class="flex-1 p-2"><p class="text-sm text-[var(--text-secondary)]">Receita Bruta</p><p class="text-lg font-bold text-[var(--primary-600)]">${formatCurrency(totalRevenue)}</p></div>
-                <div class="flex-1 p-2"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div>
-                <div class="flex-1 p-2"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div>
-                <div class="flex-1 p-2"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${profitPercentage.toFixed(2)}%</p></div>
-            `;
+            salesSummary.innerHTML = `<div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Receita Bruta</p><p class="text-lg font-bold text-[var(--primary-600)]">${formatCurrency(totalRevenue)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${(totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0).toFixed(2)}%</p></div>`;
 
             if (period !== 'annual') {
                 transactionsList.innerHTML = '';
@@ -513,7 +500,7 @@
                     transactionsList.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(t.amount)}</p>${profitHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
                 });
             }
-
+            
             const salesData = {
                 labels: [],
                 datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ]
@@ -570,26 +557,24 @@
             salesChart = new Chart(ctx, { type: 'bar', data: salesData, options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } } });
             
             const stockProductsList = document.getElementById('tab-estoque-produtos');
-            stockProductsList.innerHTML = `<table class="w-full text-left"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Produto</th><th>Estoque</th><th>Custo</th><th>Preço</th><th>Lucro</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
+            stockProductsList.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Produto</th><th>Estoque</th><th>Custo</th><th>Preço</th><th>Lucro</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
             const productTbody = stockProductsList.querySelector('tbody');
             products.forEach(p => {
                 const profit = p.price - p.cost;
-                productTbody.innerHTML += `<tr><td class="p-2">${p.name}</td><td>${p.stock} un.</td><td>${formatCurrency(p.cost)}</td><td>${formatCurrency(p.price)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td><button data-id="${p.id}" class="edit-product-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button></td></tr>`;
+                productTbody.innerHTML += `<tr><td class="p-2">${p.name}</td><td>${p.stock} un.</td><td>${formatCurrency(p.cost)}</td><td>${formatCurrency(p.price)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td><button data-id="${p.id}" class="edit-product-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button></td></tr>`;
             });
             
             const stockMaterialsList = document.getElementById('tab-estoque-materias');
-            stockMaterialsList.innerHTML = `<table class="w-full text-left"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Insumo</th><th>Estoque</th><th>Custo Unitário</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
+            stockMaterialsList.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Insumo</th><th>Fornecedor</th><th>Data Receb.</th><th>Estoque</th><th>Custo Unitário</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
             const materialTbody = stockMaterialsList.querySelector('tbody');
             rawMaterials.forEach(rm => {
                 const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0;
-                materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><div class="flex"><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></td></tr>`;
+                materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.supplier || 'N/A'}</td><td>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`;
             });
-        } catch (error) {
-            console.error("Erro ao renderizar relatórios:", error);
-            showToast("Ocorreu um erro ao gerar o relatório.", "error");
-        }
-    }
 
+        } catch (error) { console.error("Erro ao renderizar relatórios:", error); showToast("Ocorreu um erro ao gerar o relatório.", "error"); }
+    }
+    
     function renderSalesByCustomerReport() {
         const container = document.getElementById('tab-vendas-cliente');
         const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
@@ -718,9 +703,9 @@
         renderProducts(); showToast('Novo produto adicionado!'); saveData();
     }
     
-    function addRawMaterial(name, stock, unit, totalCost) {
+    function addRawMaterial(name, stock, unit, totalCost, supplier, receiptDate) {
         if (rawMaterials.some(rm => rm.name.toLowerCase() === name.toLowerCase())) { showToast('Insumo já registado!', 'error'); return; }
-        rawMaterials.push({ id: Date.now(), name, stock: parseFloat(stock), unit, totalCost: parseFloat(totalCost) });
+        rawMaterials.push({ id: Date.now(), name, stock: parseFloat(stock), unit, totalCost: parseFloat(totalCost), supplier, receiptDate });
         renderRawMaterials(); showToast('Insumo adicionado!'); saveData();
     }
 
@@ -809,7 +794,13 @@
     function openEditRawMaterialModal(materialId) {
         const material = rawMaterials.find(rm => rm.id === materialId); if (!material) return;
         const form = document.getElementById('edit-raw-material-form');
-        form.elements.rawMaterialId.value = material.id; form.elements.rawMaterialName.value = material.name; form.elements.rawMaterialStock.value = material.stock; form.elements.rawMaterialUnit.value = material.unit; form.elements.rawMaterialTotalCost.value = material.totalCost;
+        form.elements.rawMaterialId.value = material.id;
+        form.elements.rawMaterialName.value = material.name;
+        form.elements.rawMaterialSupplier.value = material.supplier || '';
+        form.elements.rawMaterialStock.value = material.stock;
+        form.elements.rawMaterialUnit.value = material.unit;
+        form.elements.rawMaterialTotalCost.value = material.totalCost;
+        form.elements.rawMaterialReceiptDate.value = material.receiptDate ? new Date(material.receiptDate).toISOString().slice(0, 10) : '';
         openModal('modal-edit-materiaprima');
     }
     function openEditCustomerModal(customerId) {
@@ -1077,9 +1068,8 @@
         // Submissão de Formulários
         document.getElementById('add-product-form').addEventListener('submit', function(e) { e.preventDefault(); addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productStock.value); this.reset(); closeModal('modal-produto'); });
         document.getElementById('edit-product-form').addEventListener('submit', function(e) { e.preventDefault(); const p = products.find(p => p.id == this.elements.productId.value); if(p) { Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), stock: parseInt(this.elements.productStock.value) }); renderProducts(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-produto'); showToast('Produto atualizado!'); saveData(); } });
-        document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value) }); renderRawMaterials(); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
-        document.getElementById('edit-customer-form').addEventListener('submit', function(e) { e.preventDefault(); const c = customers.find(c => c.id == this.elements.customerId.value); if(c) { Object.assign(c, { name: this.elements.customerName.value, contact: this.elements.customerContact.value }); renderCustomers(); closeModal('modal-edit-cliente'); showToast('Cliente atualizado!'); saveData(); } });
-        document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value); this.reset(); });
+        document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
+        document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
         document.getElementById('add-customer-form').addEventListener('submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
         document.getElementById('cash-flow-form').addEventListener('submit', function(e) { e.preventDefault(); handleCashFlow(this.elements.cashFlowType.value, parseFloat(this.elements.cashFlowAmount.value), this.elements.cashFlowDescription.value); this.reset(); closeModal('modal-caixa'); });
         document.getElementById('payment-form').addEventListener('submit', processPaidSale);

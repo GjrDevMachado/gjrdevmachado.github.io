@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão v9.2 - Papelaria & 3D (Online)</title>
+    <title>Sistema de Gestão v9.4 - Papelaria & 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,7 +51,7 @@
         .badge-pix { background-color: #cffafe; color: #0e7490; }
         .badge-credito { background-color: #dbeafe; color: #1e40af; }
         #modal-edit-produto, #modal-edit-materiaprima, #modal-edit-cliente, #modal-venda-antiga, #modal-importar-vendas { z-index: 110; }
-        #modal-venda-detalhes { z-index: 115; }
+        #modal-venda-detalhes, #modal-cliente-detalhes { z-index: 115; }
         #modal-confirm { z-index: 120; }
         #loading-overlay { z-index: 9999; }
         .toggle-checkbox:checked { right: 0; border-color: var(--secondary-500); background-color: white; }
@@ -170,7 +170,7 @@
     </div>
 
     <!-- Modal: Relatórios -->
-    <div id="modal-relatorios" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-5xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-4 flex-shrink-0">Relatórios</h3><div class="border-b border-[var(--border-color)] flex-shrink-0"><nav id="report-tabs" class="-mb-px flex flex-nowrap space-x-4 sm:space-x-8 overflow-x-auto pb-2" aria-label="Tabs"><button data-tab="vendas" class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Vendas</button><button data-tab="vendas-cliente" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Vendas por Cliente</button><button data-tab="estoque-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque de Produtos</button><button data-tab="estoque-materias" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque</button></nav></div><div class="flex-grow overflow-y-auto"><div id="tab-vendas" class="tab-content py-4"><div class="mb-4 flex justify-center gap-2" id="report-period-buttons"><button data-period="daily" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Hoje</button><button data-period="weekly" class="period-button active px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">7 Dias</button><button data-period="monthly" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Este Mês</button><button data-period="annual" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Anual</button></div><div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4"></div><canvas id="salesChart"></canvas><div id="transactions-list" class="mt-4"></div><div id="annual-summary-table" class="mt-4 hidden"></div></div><div id="tab-vendas-cliente" class="tab-content hidden py-4"></div><div id="tab-estoque-produtos" class="tab-content hidden py-4"></div><div id="tab-estoque-materias" class="tab-content hidden py-4"></div></div></div></div>
+    <div id="modal-relatorios" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-5xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-4 flex-shrink-0">Relatórios</h3><div class="border-b border-[var(--border-color)] flex-shrink-0"><nav id="report-tabs" class="-mb-px flex flex-nowrap space-x-4 sm:space-x-8 overflow-x-auto pb-2" aria-label="Tabs"><button data-tab="vendas" class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Vendas</button><button data-tab="vendas-cliente" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Vendas por Cliente</button><button data-tab="estoque-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque de Produtos</button><button data-tab="estoque-materias" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque</button></nav></div><div class="flex-grow overflow-y-auto"><div id="tab-vendas" class="tab-content py-4"><div class="mb-4 flex justify-center gap-2" id="report-period-buttons"><button data-period="daily" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Hoje</button><button data-period="weekly" class="period-button active px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">7 Dias</button><button data-period="monthly" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Este Mês</button><button data-period="annual" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Anual</button></div><div id="month-year-selector" class="hidden my-4 flex justify-center gap-4 items-center"><select id="report-month-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select><select id="report-year-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select></div><div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4"></div><canvas id="salesChart"></canvas><div id="transactions-list" class="mt-4"></div><div id="annual-summary-table" class="mt-4 hidden"></div></div><div id="tab-vendas-cliente" class="tab-content hidden py-4"></div><div id="tab-estoque-produtos" class="tab-content hidden py-4"></div><div id="tab-estoque-materias" class="tab-content hidden py-4"></div></div></div></div>
 
     <!-- Modal: Adicionar/Editar Clientes -->
     <div id="modal-clientes" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Clientes</h3><form id="add-customer-form" class="mb-6 pb-6 border-b border-[var(--border-color)]"><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" name="customerName" placeholder="Nome do Cliente" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="customerContact" placeholder="Contacto (Telefone/Email)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"></div><button type="submit" class="mt-4 w-full md:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg">Adicionar Cliente</button></form><div id="customers-list" class="max-h-64 overflow-y-auto"></div></div></div>
@@ -288,6 +288,18 @@
         <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal flex flex-col max-h-[90vh]">
             <div id="sale-details-content" class="flex-grow overflow-y-auto"><h3 class="text-2xl font-bold mb-2">Detalhes da Venda</h3><div class="text-sm text-[var(--text-secondary)] mb-4"><p><strong>ID da Transação:</strong> <span id="details-id"></span></p><p><strong>Data:</strong> <span id="details-date"></span></p><p><strong>Cliente:</strong> <span id="details-customer"></span></p></div><table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Produto</th><th class="p-2 text-center">Qtd.</th><th class="p-2 text-right">Preço Unit.</th><th class="p-2 text-right">Total</th></tr></thead><tbody id="details-items-table"></tbody></table><div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm"><div class="flex justify-between"><span>Subtotal:</span> <span id="details-subtotal"></span></div><div class="flex justify-between"><span>Custo Total:</span> <span id="details-cost" class="text-red-600"></span></div><div class="flex justify-between font-bold"><span>Lucro Líquido:</span> <span id="details-profit" class="text-green-600"></span></div><div class="flex justify-between font-bold"><span>Margem de Lucro:</span> <span id="details-margin" class="text-green-600"></span></div></div></div>
             <div class="flex justify-end gap-4 mt-6 flex-shrink-0 no-print"><button type="button" id="print-details-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg"><i class="fas fa-print"></i> Imprimir</button><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div>
+        </div>
+    </div>
+    
+    <!-- NOVO Modal: Detalhes de Vendas do Cliente -->
+    <div id="modal-cliente-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal flex flex-col max-h-[90vh]">
+            <h3 class="text-2xl font-bold mb-2 flex-shrink-0">Detalhes de Vendas do Cliente</h3>
+            <h4 id="details-customer-name" class="text-lg font-semibold text-[var(--primary-600)] mb-4"></h4>
+            <div id="details-customer-sales-list" class="flex-grow overflow-y-auto"></div>
+            <div class="flex justify-end mt-8 flex-shrink-0">
+                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button>
+            </div>
         </div>
     </div>
 
@@ -429,29 +441,44 @@
         document.getElementById(`tab-${tabName}`).classList.remove('hidden');
         document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
         if (tabName === 'vendas-cliente') renderSalesByCustomerReport();
-        else if (['vendas', 'estoque-produtos', 'estoque-materias'].includes(tabName)) renderReports(currentReportPeriod);
+        else if (['vendas', 'estoque-produtos', 'estoque-materias'].includes(tabName)) {
+            populateMonthYearSelectors();
+            renderReports(currentReportPeriod);
+        }
     }
 
-    function renderReports(period = 'weekly') {
+    function renderReports(period = currentReportPeriod, month, year) {
         try {
             const now = new Date();
             const annualSummaryTable = document.getElementById('annual-summary-table');
             const transactionsList = document.getElementById('transactions-list');
             let filteredTransactions, startDate;
+            
+            document.getElementById('month-year-selector').classList.toggle('hidden', period !== 'monthly');
+
             if (period === 'annual') {
                 startDate = new Date(now.getFullYear(), 0, 1);
-                transactionsList.classList.add('hidden');
-                annualSummaryTable.classList.remove('hidden');
+                filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
+            } else if (period === 'monthly') {
+                const selectedYear = parseInt(year) || now.getFullYear();
+                const selectedMonth = parseInt(month) ?? now.getMonth();
+                startDate = new Date(selectedYear, selectedMonth, 1);
+                const endDate = new Date(selectedYear, selectedMonth + 1, 0);
+                endDate.setHours(23, 59, 59, 999);
+                filteredTransactions = transactions.filter(t => {
+                    const transactionDate = new Date(t.date);
+                    return transactionDate >= startDate && transactionDate <= endDate;
+                });
             } else {
-                transactionsList.classList.remove('hidden');
-                annualSummaryTable.classList.add('hidden');
                 switch(period) {
                     case 'daily': startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break;
-                    case 'monthly': startDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
-                    default: startDate = new Date(); startDate.setDate(startDate.getDate() - 6); break;
+                    case 'weekly': default: startDate = new Date(); startDate.setDate(startDate.getDate() - 7); break;
                 }
+                 filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
             }
-            filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
+
+            transactionsList.classList.toggle('hidden', period === 'annual');
+            annualSummaryTable.classList.toggle('hidden', period !== 'annual');
             
             const salesSummary = document.getElementById('sales-summary');
             const totalRevenue = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((s, t) => s + t.amount, 0);
@@ -460,52 +487,10 @@
             salesSummary.innerHTML = `<div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Receita Bruta</p><p class="text-lg font-bold text-[var(--primary-600)]">${formatCurrency(totalRevenue)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${(totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0).toFixed(2)}%</p></div>`;
 
             if (period !== 'annual') {
-                transactionsList.innerHTML = '';
-                [...filteredTransactions].reverse().forEach(t => {
-                    let color = '', icon = 'fa-question-circle', profitHtml = '', actionsHtml = '', paymentInfo = '', rowClass = '';
-                    if (t.type === 'venda') {
-                        icon = 'fa-shopping-cart';
-                        const profit = t.amount - (t.cost || 0);
-                        profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
-                        actionsHtml = `<button data-id="${t.id}" class="open-sale-details-btn text-xs text-blue-600 hover:underline mr-2">Detalhes</button>`;
-                        if (!t.reversed) {
-                            actionsHtml += `<button data-id="${t.id}" class="cancel-sale-btn text-xs text-yellow-600 hover:underline">Estornar</button>`;
-                        } else {
-                            actionsHtml += `<span class="text-xs text-gray-400">Estornada</span>`;
-                        }
-                        if (t.status === 'Não Pago') {
-                            paymentInfo = ` &middot; <span class="font-bold">NÃO PAGO</span>`;
-                            rowClass = 'bg-red-50 text-red-800';
-                            color = 'text-red-600';
-                        } else {
-                            color = 'text-[var(--secondary-600)]';
-                            if (t.method) {
-                                let badgeClass = '';
-                                let methodText = t.method;
-                                switch(t.method) {
-                                    case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
-                                    case 'Pix': badgeClass = 'badge-pix'; break;
-                                    case 'Cartão de Crédito': 
-                                        badgeClass = 'badge-credito'; 
-                                        methodText = `CRÉDITO ${t.installments > 1 ? `(${t.installments}x)` : ''}`;
-                                        break;
-                                }
-                                paymentInfo = `<span class="payment-badge ${badgeClass}">${methodText}</span>`;
-                            }
-                        }
-                    }
-                    if (t.type === 'entrada' || t.type === 'recebimento') { color = 'text-blue-600'; icon = 'fa-arrow-down'; }
-                    if (t.type === 'saida') { color = 'text-red-600'; icon = 'fa-arrow-up'; }
-                    if (t.type === 'estorno') { color = 'text-yellow-600'; icon = 'fa-undo'; }
-                    transactionsList.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(t.amount)}</p>${profitHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
-                });
+                renderTransactionList(transactionsList, filteredTransactions);
             }
             
-            const salesData = {
-                labels: [],
-                datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ]
-            };
-            
+            const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
             if (period === 'annual') {
                 const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
                 const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0 }));
@@ -529,14 +514,22 @@
                     const profitPercentage = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
                     annualTbody.innerHTML += `<tr><td class="p-2 font-semibold">${monthNames[index]}</td><td>${formatCurrency(totalRevenue)}</td><td>${formatCurrency(monthData.cost)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${profitPercentage.toFixed(2)}%</td></tr>`;
                 });
-
             } else {
                 const salesByDate = {};
-                const loopDate = new Date(startDate);
-                while(loopDate <= now) { salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 }; loopDate.setDate(loopDate.getDate() + 1); }
+                let loopDate = new Date(startDate);
+                let endDate = (period === 'monthly') ? new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0) : new Date();
+
+                while(loopDate <= endDate) {
+                     salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 };
+                     loopDate.setDate(loopDate.getDate() + 1);
+                }
+
                 filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).forEach(t => {
                     const key = new Date(t.date).toISOString().split('T')[0];
-                    if(salesByDate[key]) { if (t.status === 'Não Pago') salesByDate[key].unpaid += t.amount; else salesByDate[key].paid += t.amount; }
+                    if(salesByDate[key]) {
+                        if (t.status === 'Não Pago') salesByDate[key].unpaid += t.amount;
+                        else salesByDate[key].paid += t.amount;
+                    }
                 });
                 if (period === 'daily') {
                     salesData.labels.push('Hoje');
@@ -545,7 +538,7 @@
                     salesData.datasets[1].data.push(dailyTotals.unpaid);
                 } else {
                     for(const [day, totals] of Object.entries(salesByDate)) {
-                        salesData.labels.push(new Date(day).toLocaleDateString('pt-BR', {timeZone: 'UTC', day: '2-digit', month: '2-digit'}));
+                        salesData.labels.push(new Date(day + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}));
                         salesData.datasets[0].data.push(totals.paid);
                         salesData.datasets[1].data.push(totals.unpaid);
                     }
@@ -559,19 +552,12 @@
             const stockProductsList = document.getElementById('tab-estoque-produtos');
             stockProductsList.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Produto</th><th>Estoque</th><th>Custo</th><th>Preço</th><th>Lucro</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
             const productTbody = stockProductsList.querySelector('tbody');
-            products.forEach(p => {
-                const profit = p.price - p.cost;
-                productTbody.innerHTML += `<tr><td class="p-2">${p.name}</td><td>${p.stock} un.</td><td>${formatCurrency(p.cost)}</td><td>${formatCurrency(p.price)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td><button data-id="${p.id}" class="edit-product-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button></td></tr>`;
-            });
+            products.forEach(p => { const profit = p.price - p.cost; productTbody.innerHTML += `<tr><td class="p-2">${p.name}</td><td>${p.stock} un.</td><td>${formatCurrency(p.cost)}</td><td>${formatCurrency(p.price)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td><button data-id="${p.id}" class="edit-product-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button></td></tr>`; });
             
             const stockMaterialsList = document.getElementById('tab-estoque-materias');
             stockMaterialsList.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Insumo</th><th>Fornecedor</th><th>Data Receb.</th><th>Estoque</th><th>Custo Unitário</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
             const materialTbody = stockMaterialsList.querySelector('tbody');
-            rawMaterials.forEach(rm => {
-                const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0;
-                materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.supplier || 'N/A'}</td><td>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`;
-            });
-
+            rawMaterials.forEach(rm => { const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0; materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.supplier || 'N/A'}</td><td>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`; });
         } catch (error) { console.error("Erro ao renderizar relatórios:", error); showToast("Ocorreu um erro ao gerar o relatório.", "error"); }
     }
     
@@ -579,27 +565,23 @@
         const container = document.getElementById('tab-vendas-cliente');
         const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
             const customerId = sale.customerId || 'unknown';
-            if (!acc[customerId]) {
-                acc[customerId] = { paid: 0, unpaid: 0, total: 0, count: 0, customerName: customers.find(c => c.id === sale.customerId)?.name || 'Cliente Não Identificado' };
-            }
-            acc[customerId].total += sale.amount;
-            acc[customerId].count++;
-            if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount;
-            else acc[customerId].paid += sale.amount;
+            if (!acc[customerId]) { acc[customerId] = { paid: 0, unpaid: 0, total: 0, count: 0, customerName: customers.find(c => c.id == customerId)?.name || 'Cliente Não Identificado' }; }
+            acc[customerId].total += sale.amount; acc[customerId].count++;
+            if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount; else acc[customerId].paid += sale.amount;
             return acc;
         }, {});
-        let tableHtml = `<table class="w-full text-left mt-4"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Cliente</th><th class="text-right">Total Comprado</th><th class="text-right">Total Pago</th><th class="text-right">Total Devido</th><th class="text-center">Nº de Vendas</th></tr></thead><tbody>`;
-        Object.values(salesByCustomer).sort((a, b) => b.total - a.total).forEach(data => {
-            tableHtml += `<tr><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
+        let tableHtml = `<table class="w-full text-left mt-4"><thead><tr class="border-b"><th class="p-2">Cliente</th><th class="text-right">Total Comprado</th><th class="text-right">Total Pago</th><th class="text-right">Total Devido</th><th class="text-center">Nº de Vendas</th></tr></thead><tbody>`;
+        Object.entries(salesByCustomer).sort(([,a],[,b]) => b.total - a.total).forEach(([customerId, data]) => {
+            tableHtml += `<tr class="hover:bg-[var(--bg-secondary)] cursor-pointer customer-details-row" data-customer-id="${customerId}"><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
         });
         container.innerHTML = tableHtml + '</tbody></table>';
     }
     
+    // --- O resto das funções (renderCashClosingReport, setReportPeriod, updateTotals, etc.) estão aqui ---
     function renderCashClosingReport() {
         const today = new Date(); today.setHours(0,0,0,0);
         const todaysTransactions = transactions.filter(t => new Date(t.date) >= today);
         const summary = { totalSales: 0, totalCost: 0, byMethod: { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0 } };
-
         todaysTransactions.filter(t => t.type === 'venda' && t.status !== 'Não Pago' && !t.reversed).forEach(sale => {
             summary.totalSales += sale.amount;
             summary.totalCost += sale.cost || 0;
@@ -611,23 +593,18 @@
         });
         document.getElementById('cash-closing-summary').innerHTML = `<div class="flex justify-between border-b pb-2 border-[var(--border-color)]"><span class="font-semibold">Total de Vendas Pagas do Dia:</span><span class="font-bold text-[var(--primary-600)]">${formatCurrency(summary.totalSales)}</span></div><div class="flex justify-between"><span class="text-sm">Lucro Líquido (de vendas pagas hoje):</span><span class="text-sm font-semibold text-[var(--secondary-600)]">${formatCurrency(summary.totalSales - summary.totalCost)}</span></div><div class="pt-4 mt-4 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-2">Recebimentos por Forma de Pagamento:</h4><div class="flex justify-between text-sm"><span>Dinheiro:</span><span>${formatCurrency(summary.byMethod['Dinheiro'])}</span></div><div class="flex justify-between text-sm"><span>Pix:</span><span>${formatCurrency(summary.byMethod['Pix'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Crédito:</span><span>${formatCurrency(summary.byMethod['Cartão de Crédito'])}</span></div></div>`;
     }
-
     function setReportPeriod(period) {
         currentReportPeriod = period;
         document.querySelectorAll('#report-period-buttons .period-button').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`#report-period-buttons .period-button[data-period="${period}"]`).classList.add('active');
         renderReports(period);
     }
-
     function updateTotals() {
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         document.getElementById('subtotal').textContent = formatCurrency(subtotal);
         document.getElementById('total').textContent = formatCurrency(subtotal);
     }
-    
     function updateCashBalance() { document.getElementById('cash-balance').textContent = formatCurrency(cashBalance); }
-    
-    // --- LÓGICA DO NEGÓCIO ---
     function addToCart(productId) {
         const product = products.find(p => p.id === productId);
         if (product && product.stock > 0) {
@@ -639,33 +616,28 @@
             showToast(`'${product.name}' adicionado.`);
         } else { showToast('Produto sem estoque!', 'error'); }
     }
-    
     function increaseCartItemQuantity(index) {
         const product = products.find(p => p.id === cart[index].id);
         if (product && product.stock > 0) { cart[index].quantity++; product.stock--; renderCart(); renderProducts(); } 
         else { showToast('Não há mais estoque para este produto.', 'error'); }
     }
-
     function decreaseCartItemQuantity(index) {
         const product = products.find(p => p.id === cart[index].id);
         cart[index].quantity--; product.stock++;
         if (cart[index].quantity === 0) cart.splice(index, 1);
         renderCart(); renderProducts();
     }
-
     function removeFromCart(index) {
         const product = products.find(p => p.id === cart[index].id);
         if (product) product.stock += cart[index].quantity;
         cart.splice(index, 1);
         renderProducts(); renderCart();
     }
-
     function clearCart() {
         cart.forEach(item => { const product = products.find(p => p.id === item.id); if (product) product.stock += item.quantity; });
         cart = [];
         renderProducts(); renderCart();
     }
-
     function processSale(paymentDetails) {
         if (cart.length === 0) return;
         const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -681,7 +653,6 @@
         showToast('Venda registada com sucesso!', 'success');
         saveData();
     }
-    
     function processPaidSale(e) {
         e.preventDefault();
         const form = document.getElementById('payment-form');
@@ -689,39 +660,33 @@
         processSale({ method: method, installments: method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1, status: 'Pago' });
         closeModal('modal-payment');
     }
-    
     function processSaleAsUnpaid() {
         const customerId = document.getElementById('customer-select').value;
         if (!customerId || parseInt(customerId) === 1) { showToast('Selecione um cliente válido (não "Cliente Balcão") para guardar como não pago.', 'error'); return; }
         processSale({ method: 'A Prazo', installments: 1, status: 'Não Pago' });
         closeModal('modal-payment');
     }
-
     function addProduct(name, price, cost, stock) {
         if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) { showToast('Produto já registado!', 'error'); return; }
         products.push({ id: Date.now(), name, price: parseFloat(price), cost: parseFloat(cost), stock: parseInt(stock) });
         renderProducts(); showToast('Novo produto adicionado!'); saveData();
     }
-    
     function addRawMaterial(name, stock, unit, totalCost, supplier, receiptDate) {
         if (rawMaterials.some(rm => rm.name.toLowerCase() === name.toLowerCase())) { showToast('Insumo já registado!', 'error'); return; }
         rawMaterials.push({ id: Date.now(), name, stock: parseFloat(stock), unit, totalCost: parseFloat(totalCost), supplier, receiptDate });
         renderRawMaterials(); showToast('Insumo adicionado!'); saveData();
     }
-
     function addCustomer(name, contact) {
         if (customers.some(c => c.name.toLowerCase() === name.toLowerCase())) { showToast('Cliente com este nome já existe.', 'error'); return; }
         customers.push({ id: Date.now(), name, contact });
         renderCustomers(); showToast('Novo cliente adicionado!'); saveData();
     }
-
     function handleCashFlow(type, amount, description) {
         if (type === 'saida' && amount > cashBalance) { showToast('Saldo insuficiente para esta saída!', 'error'); return; }
         cashBalance += (type === 'entrada' ? amount : -amount);
         transactions.push({ id: Date.now(), type, amount, description, date: new Date().toISOString() });
         updateCashBalance(); showToast(`Movimentação registada.`); saveData();
     }
-
     function deleteProduct() {
         const productId = parseInt(document.getElementById('edit-product-form').elements.productId.value);
         openConfirmationModal('Excluir Produto', 'Tem a certeza de que deseja excluir este produto? Esta ação não pode ser desfeita.', () => {
@@ -730,14 +695,12 @@
             closeModal('modal-edit-produto'); showToast('Produto excluído com sucesso!'); saveData();
         });
     }
-
     function deleteRawMaterial(materialId) {
         openConfirmationModal('Excluir Insumo', 'Tem a certeza de que deseja excluir este insumo?', () => {
             rawMaterials = rawMaterials.filter(rm => rm.id !== materialId);
             renderRawMaterials(); showToast('Insumo excluído com sucesso!'); saveData();
         });
     }
-    
     function deleteCustomer(customerId) {
         if (customerId === 1) { showToast('Não é possível excluir o cliente padrão.', 'error'); return; }
         if (transactions.some(t => t.customerId == customerId)) { showToast('Cliente não pode ser excluído pois está associado a vendas.', 'error'); return; }
@@ -746,7 +709,6 @@
             renderCustomers(); showToast('Cliente excluído com sucesso!'); saveData();
         });
     }
-
     function cancelSale(transactionId) {
         const sale = transactions.find(t => t.id === transactionId);
         if (!sale || sale.reversed) return;
@@ -759,7 +721,23 @@
             showToast('Venda estornada com sucesso!'); saveData();
         });
     }
-    
+    function deleteTransaction(transactionId) {
+        openConfirmationModal('Excluir Venda Permanentemente?', 'Esta ação é irreversível e não pode ser desfeita. A venda será apagada do histórico. Deseja continuar?', () => {
+            const saleIndex = transactions.findIndex(t => t.id === transactionId);
+            if (saleIndex > -1) {
+                transactions.splice(saleIndex, 1);
+                showToast('Venda excluída com sucesso.', 'success');
+                renderReports(currentReportPeriod);
+                if (!document.getElementById('modal-cliente-detalhes').classList.contains('hidden')) {
+                    const customerId = document.getElementById('modal-cliente-detalhes').dataset.customerId;
+                    openCustomerDetailsModal(customerId);
+                }
+                saveData();
+            } else {
+                showToast('Venda não encontrada.', 'error');
+            }
+        });
+    }
     function resetSystem() {
         openConfirmationModal('Zerar Todo o Sistema', 'Esta ação é irreversível e apagará TODOS os dados. Deseja continuar?', () => {
             localStorage.clear();
@@ -771,8 +749,6 @@
             saveData();
         });
     }
-
-    // --- FUNÇÕES DE MODAL E UI HELPERS ---
     function openModal(modalId) {
         if (modalId === 'modal-relatorios') { setReportPeriod(currentReportPeriod); renderSalesByCustomerReport(); }
         if(modalId === 'modal-contas-receber') renderUnpaidSales();
@@ -784,7 +760,6 @@
         if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
     }
     function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } }
-
     function openEditProductModal(productId) {
         const product = products.find(p => p.id === productId); if (!product) return;
         const form = document.getElementById('edit-product-form');
@@ -800,7 +775,7 @@
         form.elements.rawMaterialStock.value = material.stock;
         form.elements.rawMaterialUnit.value = material.unit;
         form.elements.rawMaterialTotalCost.value = material.totalCost;
-        form.elements.rawMaterialReceiptDate.value = material.receiptDate ? new Date(material.receiptDate).toISOString().slice(0, 10) : '';
+        form.elements.rawMaterialReceiptDate.value = material.receiptDate ? material.receiptDate : '';
         openModal('modal-edit-materiaprima');
     }
     function openEditCustomerModal(customerId) {
@@ -821,9 +796,7 @@
         document.getElementById('amount-paid-group').classList.remove('hidden');
         updateChange(); openModal('modal-payment');
     }
-    
     function updateChange() { const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0); const paid = parseFloat(document.getElementById('payment-amount-paid').value) || 0; document.getElementById('payment-change').textContent = formatCurrency(paid - total > 0 ? paid - total : 0); }
-
     function showToast(message, type = 'success') {
         const toast = document.getElementById('toast');
         toast.children[0].textContent = message;
@@ -847,8 +820,6 @@
         const activeBtn = document.querySelector(`#theme-selector .theme-button[data-theme="${themeName}"]`);
         if(activeBtn) activeBtn.classList.add('active');
     }
-    
-    // --- FUNÇÕES DE VENDAS ESPECIAIS ---
     function renderUnpaidSales() {
         const list = document.getElementById('unpaid-sales-list');
         const unpaidSales = transactions.filter(t => t.type === 'venda' && t.status === 'Não Pago' && !t.reversed);
@@ -948,6 +919,70 @@
         document.getElementById('details-profit').textContent = formatCurrency(profit);
         document.getElementById('details-margin').textContent = `${(sale.amount > 0 ? (profit / sale.amount) * 100 : 0).toFixed(2)}%`;
         openModal('modal-venda-detalhes');
+    }
+    function openCustomerDetailsModal(customerId) {
+        const customer = customers.find(c => c.id == customerId);
+        if (!customer) { showToast("Cliente não encontrado.", "error"); return; }
+        document.getElementById('modal-cliente-detalhes').dataset.customerId = customerId;
+        document.getElementById('details-customer-name').textContent = customer.name;
+        const customerSales = transactions.filter(t => t.customerId == customerId);
+        const listContainer = document.getElementById('details-customer-sales-list');
+        renderTransactionList(listContainer, customerSales);
+        openModal('modal-cliente-detalhes');
+    }
+    function populateMonthYearSelectors() {
+        const monthSelect = document.getElementById('report-month-select');
+        const yearSelect = document.getElementById('report-year-select');
+        const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth();
+        monthSelect.innerHTML = monthNames.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+        yearSelect.innerHTML = '';
+        for (let y = currentYear; y >= 2020; y--) {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        }
+    }
+    function renderTransactionList(container, transactionList) {
+        container.innerHTML = '';
+        if (transactionList.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhuma transação encontrada para este período.</p>`;
+            return;
+        }
+        [...transactionList].reverse().forEach(t => {
+            let color = '', icon = 'fa-question-circle', profitHtml = '', actionsHtml = '', paymentInfo = '', rowClass = '';
+            if (t.type === 'venda') {
+                icon = 'fa-shopping-cart';
+                const profit = t.amount - (t.cost || 0);
+                profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
+                actionsHtml = `<button data-id="${t.id}" class="open-sale-details-btn text-xs text-blue-600 hover:underline mr-2">Detalhes</button>`;
+                if (!t.reversed) {
+                    actionsHtml += `<button data-id="${t.id}" class="cancel-sale-btn text-xs text-yellow-600 hover:underline mr-2">Estornar</button>`;
+                } else {
+                    actionsHtml += `<span class="text-xs text-gray-400 mr-2">Estornada</span>`;
+                }
+                actionsHtml += `<button data-id="${t.id}" class="delete-sale-btn text-xs text-red-600 hover:underline">Excluir</button>`;
+                if (t.status === 'Não Pago') {
+                    paymentInfo = ` &middot; <span class="font-bold">NÃO PAGO</span>`;
+                    rowClass = 'bg-red-50 text-red-800';
+                    color = 'text-red-600';
+                } else {
+                    color = 'text-[var(--secondary-600)]';
+                    if (t.method) {
+                        let badgeClass = '', methodText = t.method;
+                        switch(t.method) {
+                            case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
+                            case 'Pix': badgeClass = 'badge-pix'; break;
+                            case 'Cartão de Crédito': badgeClass = 'badge-credito'; methodText = `CRÉDITO ${t.installments > 1 ? `(${t.installments}x)` : ''}`; break;
+                        }
+                        paymentInfo = `<span class="payment-badge ${badgeClass}">${methodText}</span>`;
+                    }
+                }
+            }
+            if (t.type === 'entrada' || t.type === 'recebimento') { color = 'text-blue-600'; icon = 'fa-arrow-down'; }
+            if (t.type === 'saida') { color = 'text-red-600'; icon = 'fa-arrow-up'; }
+            if (t.type === 'estorno') { color = 'text-yellow-600'; icon = 'fa-undo'; }
+            container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(t.amount)}</p>${profitHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
+        });
     }
 
     // --- FUNÇÕES DE BACKUP E RESTAURAÇÃO ---
@@ -1065,51 +1100,45 @@
 
     // --- CENTRAL DE EVENT LISTENERS ---
     function addEventListeners() {
-        // Submissão de Formulários
         document.getElementById('add-product-form').addEventListener('submit', function(e) { e.preventDefault(); addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productStock.value); this.reset(); closeModal('modal-produto'); });
         document.getElementById('edit-product-form').addEventListener('submit', function(e) { e.preventDefault(); const p = products.find(p => p.id == this.elements.productId.value); if(p) { Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), stock: parseInt(this.elements.productStock.value) }); renderProducts(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-produto'); showToast('Produto atualizado!'); saveData(); } });
         document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
         document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
+        document.getElementById('edit-customer-form').addEventListener('submit', function(e) { e.preventDefault(); const c = customers.find(c => c.id == this.elements.customerId.value); if(c) { Object.assign(c, { name: this.elements.customerName.value, contact: this.elements.customerContact.value }); renderCustomers(); closeModal('modal-edit-cliente'); showToast('Cliente atualizado!'); saveData(); } });
         document.getElementById('add-customer-form').addEventListener('submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
         document.getElementById('cash-flow-form').addEventListener('submit', function(e) { e.preventDefault(); handleCashFlow(this.elements.cashFlowType.value, parseFloat(this.elements.cashFlowAmount.value), this.elements.cashFlowDescription.value); this.reset(); closeModal('modal-caixa'); });
         document.getElementById('payment-form').addEventListener('submit', processPaidSale);
         document.getElementById('receive-payment-form').addEventListener('submit', handleReceivedPayment);
         document.getElementById('old-sale-form').addEventListener('submit', (e) => handleOldSaleForm(e, 'Pago'));
         document.getElementById('import-sales-form').addEventListener('submit', handleImportSales);
-        // Botões da Página Principal
         document.getElementById('checkout-button').addEventListener('click', openPaymentModal);
         document.getElementById('clear-cart-button').addEventListener('click', clearCart);
         document.getElementById('search-product').addEventListener('input', (e) => renderProducts(e.target.value));
         document.getElementById('open-settings-modal-btn').addEventListener('click', () => openModal('modal-settings'));
-        // Abrir/Fechar Modais
         document.querySelectorAll('.open-modal-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.modalId)));
         document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));
         document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(backdrop.id); }));
-        // Modal de Confirmação
         document.getElementById('confirm-cancel-btn').addEventListener('click', () => closeModal('modal-confirm'));
         document.getElementById('confirm-confirm-btn').addEventListener('click', () => { if (typeof confirmCallback === 'function') confirmCallback(); closeModal('modal-confirm'); });
-        // Modal de Configurações
         document.getElementById('reset-system-btn').addEventListener('click', resetSystem);
         document.getElementById('theme-selector').addEventListener('click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
-        // Botões de Backup
         document.getElementById('export-data-btn').addEventListener('click', exportAllData);
         document.getElementById('import-file-input').addEventListener('change', importAllData);
         document.getElementById('save-to-google-sheets-btn').addEventListener('click', () => saveToGoogleSheets(false));
         document.getElementById('load-from-google-sheets-btn').addEventListener('click', loadFromGoogleSheets);
         document.getElementById('autosave-toggle').addEventListener('change', handleAutoSaveToggle);
         window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
-        // Modal de Pagamento
         document.getElementById('payment-method').addEventListener('change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });
         document.getElementById('receive-payment-method').addEventListener('change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
         document.getElementById('payment-amount-paid').addEventListener('input', updateChange);
         document.getElementById('process-unpaid-sale-btn').addEventListener('click', processSaleAsUnpaid);
         document.getElementById('save-old-unpaid-sale-btn').addEventListener('click', (e) => handleOldSaleForm(e, 'Não Pago'));
-        // Botões de Impressão
         document.getElementById('print-receipt-btn').addEventListener('click', window.print);
         document.getElementById('print-details-btn').addEventListener('click', window.print);
-        // Delegação de Eventos para Conteúdo Dinâmico
+        document.getElementById('report-month-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
+        document.getElementById('report-year-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
         document.body.addEventListener('click', e => {
-            const target = e.target.closest('button'); if (!target) return;
+            const target = e.target.closest('button, tr'); if (!target) return;
             const classList = target.classList; const dataset = target.dataset;
             if (classList.contains('increase-qty-btn')) increaseCartItemQuantity(dataset.index);
             else if (classList.contains('decrease-qty-btn')) decreaseCartItemQuantity(dataset.index);
@@ -1122,11 +1151,13 @@
             else if (classList.contains('delete-customer-btn')) deleteCustomer(parseInt(dataset.id));
             else if (classList.contains('open-sale-details-btn')) openSaleDetailsModal(parseInt(dataset.id));
             else if (classList.contains('cancel-sale-btn')) cancelSale(parseInt(dataset.id));
+            else if (classList.contains('delete-sale-btn')) deleteTransaction(parseInt(dataset.id));
             else if (classList.contains('receive-payment-btn')) openReceivePaymentModal(parseInt(dataset.id));
             else if (classList.contains('tab-button')) switchTab(dataset.tab);
             else if (classList.contains('period-button')) setReportPeriod(dataset.period);
             else if (target.id === 'add-old-sale-item-btn') addOldSaleItem();
             else if (classList.contains('remove-old-sale-item-btn')) removeOldSaleItem(parseInt(dataset.index));
+            else if (classList.contains('customer-details-row')) openCustomerDetailsModal(dataset.customerId);
         });
     }
 </script>

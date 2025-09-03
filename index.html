@@ -51,7 +51,7 @@
         .badge-pix { background-color: #cffafe; color: #0e7490; }
         .badge-credito { background-color: #dbeafe; color: #1e40af; }
         #modal-edit-produto, #modal-edit-materiaprima, #modal-edit-cliente, #modal-venda-antiga, #modal-importar-vendas { z-index: 110; }
-        #modal-venda-detalhes, #modal-cliente-detalhes { z-index: 115; }
+        #modal-venda-detalhes, #modal-cliente-detalhes, #modal-edit-venda { z-index: 115; }
         #modal-confirm { z-index: 120; }
         #loading-overlay { z-index: 9999; }
         .toggle-checkbox:checked { right: 0; border-color: var(--secondary-500); background-color: white; }
@@ -299,6 +299,38 @@
             <div id="details-customer-sales-list" class="flex-grow overflow-y-auto"></div>
             <div class="flex justify-end mt-8 flex-shrink-0">
                 <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOVO Modal: Editar Venda -->
+    <div id="modal-edit-venda" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal">
+            <h3 class="text-2xl font-bold mb-6">Editar Pagamento da Venda</h3>
+            <form id="edit-sale-form" class="space-y-4">
+                <input type="hidden" name="transactionId">
+                <div><label class="block text-sm font-medium">Total da Venda</label><p id="edit-sale-total" class="text-3xl font-bold text-[var(--primary-600)]"></p></div>
+                <div>
+                    <label for="edit-sale-status" class="block text-sm font-medium">Status do Pagamento</label>
+                    <select id="edit-sale-status" name="saleStatus" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
+                        <option value="Pago">Pago</option>
+                        <option value="Não Pago">Não Pago</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="edit-sale-method" class="block text-sm font-medium">Forma de Pagamento</label>
+                    <select id="edit-sale-method" name="paymentMethod" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="Pix">Pix</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <option value="A Prazo">A Prazo</option>
+                    </select>
+                </div>
+                <div id="edit-installments-group" class="hidden"><label for="edit-sale-installments" class="block text-sm font-medium">Número de Parcelas</label><input type="number" id="edit-sale-installments" name="paymentInstallments" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" min="1" value="1"></div>
+            </form>
+            <div class="flex justify-end gap-4 mt-6">
+                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button>
+                <button type="submit" form="edit-sale-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button>
             </div>
         </div>
     </div>
@@ -557,7 +589,7 @@
             const stockMaterialsList = document.getElementById('tab-estoque-materias');
             stockMaterialsList.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Insumo</th><th>Fornecedor</th><th>Data Receb.</th><th>Estoque</th><th>Custo Unitário</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
             const materialTbody = stockMaterialsList.querySelector('tbody');
-            rawMaterials.forEach(rm => { const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0; materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.supplier || 'N/A'}</td><td>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`; });
+            rawMaterials.forEach(rm => { const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0; materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.supplier || 'N/A'}</td><td>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 p-1"><i class="fas fa-trash"></i></button></div></td></tr>`; });
         } catch (error) { console.error("Erro ao renderizar relatórios:", error); showToast("Ocorreu um erro ao gerar o relatório.", "error"); }
     }
     
@@ -576,8 +608,7 @@
         });
         container.innerHTML = tableHtml + '</tbody></table>';
     }
-    
-    // --- O resto das funções (renderCashClosingReport, setReportPeriod, updateTotals, etc.) estão aqui ---
+
     function renderCashClosingReport() {
         const today = new Date(); today.setHours(0,0,0,0);
         const todaysTransactions = transactions.filter(t => new Date(t.date) >= today);
@@ -593,6 +624,7 @@
         });
         document.getElementById('cash-closing-summary').innerHTML = `<div class="flex justify-between border-b pb-2 border-[var(--border-color)]"><span class="font-semibold">Total de Vendas Pagas do Dia:</span><span class="font-bold text-[var(--primary-600)]">${formatCurrency(summary.totalSales)}</span></div><div class="flex justify-between"><span class="text-sm">Lucro Líquido (de vendas pagas hoje):</span><span class="text-sm font-semibold text-[var(--secondary-600)]">${formatCurrency(summary.totalSales - summary.totalCost)}</span></div><div class="pt-4 mt-4 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-2">Recebimentos por Forma de Pagamento:</h4><div class="flex justify-between text-sm"><span>Dinheiro:</span><span>${formatCurrency(summary.byMethod['Dinheiro'])}</span></div><div class="flex justify-between text-sm"><span>Pix:</span><span>${formatCurrency(summary.byMethod['Pix'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Crédito:</span><span>${formatCurrency(summary.byMethod['Cartão de Crédito'])}</span></div></div>`;
     }
+    
     function setReportPeriod(period) {
         currentReportPeriod = period;
         document.querySelectorAll('#report-period-buttons .period-button').forEach(btn => btn.classList.remove('active'));
@@ -775,7 +807,7 @@
         form.elements.rawMaterialStock.value = material.stock;
         form.elements.rawMaterialUnit.value = material.unit;
         form.elements.rawMaterialTotalCost.value = material.totalCost;
-        form.elements.rawMaterialReceiptDate.value = material.receiptDate ? material.receiptDate : '';
+        form.elements.rawMaterialReceiptDate.value = material.receiptDate ? new Date(material.receiptDate).toISOString().slice(0, 10) : '';
         openModal('modal-edit-materiaprima');
     }
     function openEditCustomerModal(customerId) {
@@ -960,7 +992,7 @@
                 } else {
                     actionsHtml += `<span class="text-xs text-gray-400 mr-2">Estornada</span>`;
                 }
-                actionsHtml += `<button data-id="${t.id}" class="delete-sale-btn text-xs text-red-600 hover:underline">Excluir</button>`;
+                actionsHtml += `<button data-id="${t.id}" class="edit-sale-btn text-xs text-purple-600 hover:underline">Editar</button>`;
                 if (t.status === 'Não Pago') {
                     paymentInfo = ` &middot; <span class="font-bold">NÃO PAGO</span>`;
                     rowClass = 'bg-red-50 text-red-800';
@@ -1097,9 +1129,76 @@
             manageAutoSaveInterval(true);
         }
     }
+    
+    // --- LÓGICA DE EDIÇÃO DE VENDA ---
+    function openEditSaleModal(transactionId) {
+        const sale = transactions.find(t => t.id === transactionId);
+        if (!sale) {
+            showToast("Venda não encontrada.", "error");
+            return;
+        }
+
+        const form = document.getElementById('edit-sale-form');
+        form.elements.transactionId.value = sale.id;
+        document.getElementById('edit-sale-total').textContent = formatCurrency(sale.amount);
+        form.elements.saleStatus.value = sale.status;
+        form.elements.paymentMethod.value = sale.method || 'A Prazo';
+        form.elements.paymentInstallments.value = sale.installments || 1;
+
+        const installmentsGroup = document.getElementById('edit-installments-group');
+        installmentsGroup.classList.toggle('hidden', form.elements.paymentMethod.value !== 'Cartão de Crédito');
+
+        openModal('modal-edit-venda');
+    }
+
+    function handleEditSale(e) {
+        e.preventDefault();
+        const form = document.getElementById('edit-sale-form');
+        const transactionId = parseInt(form.elements.transactionId.value);
+        const sale = transactions.find(t => t.id === transactionId);
+
+        if (!sale) {
+            showToast("Erro: Venda não encontrada.", "error");
+            closeModal('modal-edit-venda');
+            return;
+        }
+
+        const oldStatus = sale.status;
+        const newStatus = form.elements.saleStatus.value;
+        const newMethod = form.elements.paymentMethod.value;
+        const newInstallments = parseInt(form.elements.paymentInstallments.value) || 1;
+
+        // Adjust cash balance based on status change
+        if (oldStatus === 'Não Pago' && newStatus === 'Pago') {
+            cashBalance += sale.amount;
+        } else if (oldStatus === 'Pago' && newStatus === 'Não Pago') {
+            cashBalance -= sale.amount;
+        }
+
+        sale.status = newStatus;
+        sale.method = newMethod;
+        sale.installments = newInstallments;
+
+        updateCashBalance();
+        showToast("Venda atualizada com sucesso!", "success");
+        closeModal('modal-edit-venda');
+        
+        // Refresh report views if they are open
+        if (!document.getElementById('modal-relatorios').classList.contains('hidden')) {
+            renderReports(currentReportPeriod);
+        }
+        if (!document.getElementById('modal-cliente-detalhes').classList.contains('hidden')) {
+            const customerId = document.getElementById('modal-cliente-detalhes').dataset.customerId;
+            openCustomerDetailsModal(customerId);
+        }
+
+        saveData();
+    }
+
 
     // --- CENTRAL DE EVENT LISTENERS ---
     function addEventListeners() {
+        // Submissão de Formulários
         document.getElementById('add-product-form').addEventListener('submit', function(e) { e.preventDefault(); addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productStock.value); this.reset(); closeModal('modal-produto'); });
         document.getElementById('edit-product-form').addEventListener('submit', function(e) { e.preventDefault(); const p = products.find(p => p.id == this.elements.productId.value); if(p) { Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), stock: parseInt(this.elements.productStock.value) }); renderProducts(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-produto'); showToast('Produto atualizado!'); saveData(); } });
         document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
@@ -1111,32 +1210,43 @@
         document.getElementById('receive-payment-form').addEventListener('submit', handleReceivedPayment);
         document.getElementById('old-sale-form').addEventListener('submit', (e) => handleOldSaleForm(e, 'Pago'));
         document.getElementById('import-sales-form').addEventListener('submit', handleImportSales);
+        document.getElementById('edit-sale-form').addEventListener('submit', handleEditSale);
+        // Botões da Página Principal
         document.getElementById('checkout-button').addEventListener('click', openPaymentModal);
         document.getElementById('clear-cart-button').addEventListener('click', clearCart);
         document.getElementById('search-product').addEventListener('input', (e) => renderProducts(e.target.value));
         document.getElementById('open-settings-modal-btn').addEventListener('click', () => openModal('modal-settings'));
+        // Abrir/Fechar Modais
         document.querySelectorAll('.open-modal-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.modalId)));
         document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));
         document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(backdrop.id); }));
+        // Modal de Confirmação
         document.getElementById('confirm-cancel-btn').addEventListener('click', () => closeModal('modal-confirm'));
         document.getElementById('confirm-confirm-btn').addEventListener('click', () => { if (typeof confirmCallback === 'function') confirmCallback(); closeModal('modal-confirm'); });
+        // Modal de Configurações
         document.getElementById('reset-system-btn').addEventListener('click', resetSystem);
         document.getElementById('theme-selector').addEventListener('click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
+        // Botões de Backup
         document.getElementById('export-data-btn').addEventListener('click', exportAllData);
         document.getElementById('import-file-input').addEventListener('change', importAllData);
         document.getElementById('save-to-google-sheets-btn').addEventListener('click', () => saveToGoogleSheets(false));
         document.getElementById('load-from-google-sheets-btn').addEventListener('click', loadFromGoogleSheets);
         document.getElementById('autosave-toggle').addEventListener('change', handleAutoSaveToggle);
         window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
+        // Modal de Pagamento
         document.getElementById('payment-method').addEventListener('change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });
         document.getElementById('receive-payment-method').addEventListener('change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
+        document.getElementById('edit-sale-method').addEventListener('change', function() { document.getElementById('edit-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
         document.getElementById('payment-amount-paid').addEventListener('input', updateChange);
         document.getElementById('process-unpaid-sale-btn').addEventListener('click', processSaleAsUnpaid);
         document.getElementById('save-old-unpaid-sale-btn').addEventListener('click', (e) => handleOldSaleForm(e, 'Não Pago'));
+        // Botões de Impressão
         document.getElementById('print-receipt-btn').addEventListener('click', window.print);
         document.getElementById('print-details-btn').addEventListener('click', window.print);
+        // Selectors de Relatório
         document.getElementById('report-month-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
         document.getElementById('report-year-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
+        // Delegação de Eventos para Conteúdo Dinâmico
         document.body.addEventListener('click', e => {
             const target = e.target.closest('button, tr'); if (!target) return;
             const classList = target.classList; const dataset = target.dataset;
@@ -1152,6 +1262,7 @@
             else if (classList.contains('open-sale-details-btn')) openSaleDetailsModal(parseInt(dataset.id));
             else if (classList.contains('cancel-sale-btn')) cancelSale(parseInt(dataset.id));
             else if (classList.contains('delete-sale-btn')) deleteTransaction(parseInt(dataset.id));
+            else if (classList.contains('edit-sale-btn')) openEditSaleModal(parseInt(dataset.id));
             else if (classList.contains('receive-payment-btn')) openReceivePaymentModal(parseInt(dataset.id));
             else if (classList.contains('tab-button')) switchTab(dataset.tab);
             else if (classList.contains('period-button')) setReportPeriod(dataset.period);

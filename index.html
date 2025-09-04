@@ -531,13 +531,12 @@
         document.getElementById('autoload-toggle').checked = isAutoLoadEnabled;
 
         if (isAutoLoadEnabled && GOOGLE_SCRIPT_URL !== 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
-            loadFromGoogleSheets(true);
+            loadFromGoogleSheets(true); // Tenta carregar da nuvem
         } else {
-            if(isAutoLoadEnabled) {
-                console.warn("Carregamento automático ativado, mas a URL do Google Script não está configurada. A carregar dados locais.");
-                showToast("URL da Nuvem não configurada. A usar dados locais.", "error");
+            if(isAutoLoadEnabled) { // Apenas avisa no console, sem toast
+                console.warn("Carregamento automático da nuvem está ativado, mas a URL não foi configurada. A carregar dados locais.");
             }
-            loadDataFromLocalStorage();
+            loadDataFromLocalStorage(); // Carrega os dados locais
         }
     };
 
@@ -1425,7 +1424,7 @@
         }
 
         const execution = () => {
-            showToast("A carregar dados da nuvem... Aguarde.", "success");
+            if (!isAuto) showToast("A carregar dados da nuvem... Aguarde.", "success");
             toggleLoading(true);
             fetch(GOOGLE_SCRIPT_URL)
                 .then(response => {
@@ -1433,7 +1432,12 @@
                     return response.json();
                 })
                 .then(data => {
-                    if (data.products && data.transactions) {
+                    // VERIFICAÇÃO DE ERRO MELHORADA
+                    if (data.status === 'error') {
+                        throw new Error(`Erro da Planilha: ${data.message}`);
+                    }
+                    // VERIFICAÇÃO DE DADOS MAIS ROBUSTA
+                    if (data.products !== undefined && data.transactions !== undefined && data.customers !== undefined) {
                         products = data.products || [];
                         customers = data.customers || [];
                         transactions = data.transactions || [];
@@ -1448,12 +1452,13 @@
                         }
                         showToast("Dados carregados da nuvem com sucesso!", "success");
                     } else {
-                        throw new Error("Dados recebidos da nuvem são inválidos.");
+                        throw new Error("Dados recebidos da nuvem são inválidos ou estão em formato incorreto.");
                     }
                 })
                 .catch(error => {
                     console.error('Erro ao carregar do Google Sheets:', error);
-                    showToast("Falha ao carregar da nuvem. A usar dados locais.", "error");
+                    // MOSTRA UMA MENSAGEM DE ERRO MAIS ÚTIL
+                    showToast(`Falha ao carregar: ${error.message}. A usar dados locais.`, "error");
                     if (isAuto) {
                         loadDataFromLocalStorage();
                     }
@@ -1728,4 +1733,6 @@
 </script>
 </body>
 </html>
+"
+what i need from you is: CÓDIGO DE BARRA, QUANDO EU ADICIONAR UM PRODUTO, TER A OPÇÃO DE ADICIONAR UM CÓDIGO DE BARRA, E QUANDO FOR FAZER A VENDA, TER UM CAMPO DE PESQUISA POR CÓDIGO DE BARRA E ADICIONAR AO CARRINHO AUTOMATICAMENTE.
 

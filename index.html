@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão v11.1 - Papelaria & 3D (Online)</title>
+    <title>Sistema de Gestão v11.2 - Papelaria & 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -291,6 +291,16 @@
                         <label for="autosave-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
                     </div>
                 </div>
+                <div class="flex items-center justify-between mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg">
+                    <label for="autoload-toggle" class="flex flex-col cursor-pointer">
+                        <span class="font-medium">Carregar da Nuvem ao Iniciar</span>
+                        <span class="text-xs text-[var(--text-tertiary)]">Sempre inicia com os dados da planilha.</span>
+                    </label>
+                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                        <input type="checkbox" name="autoload-toggle" id="autoload-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                        <label for="autoload-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                    </div>
+                </div>
             </div>
 
             <div class="mt-6 pt-6 border-t border-[var(--border-color)]">
@@ -430,7 +440,7 @@
     // CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM
     // Cole a URL do seu App da Web do Google Apps Script aqui.
     // ===================================================================================
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbiXuGirSCuAG4atOy9hPdGo_ZXlubcXPbUJnfxihWRPmM_4z5thJeqVZ_23H1_9246g/exec';
+    const GOOGLE_SCRIPT_URL = 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI';
 
     // --- DADOS EM MEMÓRIA ---
     let products = [];
@@ -448,6 +458,8 @@
     let confirmCallback = null;
     let autoSaveInterval = null;
     let isAutoSaveEnabled = false;
+    let isAutoLoadEnabled = false;
+    let areEventListenersAdded = false;
 
     // --- DADOS INICIAIS (VAZIOS) ---
     const sampleProducts = [];
@@ -469,13 +481,12 @@
         }
     }
 
-    function loadData() {
+    function loadDataFromLocalStorage() {
         toggleLoading(true);
         try {
             categories = JSON.parse(localStorage.getItem('categories')) || [{ id: 1, name: 'Sem Categoria' }];
             const productsData = JSON.parse(localStorage.getItem('products'));
             products = (productsData) ? productsData : sampleProducts;
-            // Retrocompatibilidade: garante que todos os produtos têm uma categoria
             products.forEach(p => { if (!p.categoryId) p.categoryId = 1; });
             
             const rawMaterialsData = JSON.parse(localStorage.getItem('rawMaterials'));
@@ -489,23 +500,46 @@
             console.error("Erro ao carregar dados locais:", error);
             showToast("Erro ao carregar dados. A utilizar valores padrão.", "error");
         } finally {
-            initializeApp();
+            initializeAppUI();
             toggleLoading(false);
         }
     }
     
-    function initializeApp() {
+    function initializeAppUI() {
         switchView('dashboard-view');
         renderProducts();
         renderCart();
         updateCashBalance();
         renderCustomers();
         renderCategoryFilters();
-        initializeAutoSave();
-        addEventListeners();
+
+        if (!areEventListenersAdded) {
+            addEventListeners();
+            areEventListenersAdded = true;
+        }
+        
+        if (isAutoSaveEnabled) {
+            manageAutoSaveInterval(true);
+        }
     }
     
-    window.onload = loadData;
+    window.onload = function() {
+        isAutoSaveEnabled = JSON.parse(localStorage.getItem('isAutoSaveEnabled')) || false;
+        isAutoLoadEnabled = JSON.parse(localStorage.getItem('isAutoLoadEnabled')) || false;
+
+        document.getElementById('autosave-toggle').checked = isAutoSaveEnabled;
+        document.getElementById('autoload-toggle').checked = isAutoLoadEnabled;
+
+        if (isAutoLoadEnabled && GOOGLE_SCRIPT_URL !== 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
+            loadFromGoogleSheets(true);
+        } else {
+            if(isAutoLoadEnabled) {
+                console.warn("Carregamento automático ativado, mas a URL do Google Script não está configurada. A carregar dados locais.");
+                showToast("URL da Nuvem não configurada. A usar dados locais.", "error");
+            }
+            loadDataFromLocalStorage();
+        }
+    };
 
     // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
     function formatCurrency(value) { return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
@@ -1008,7 +1042,7 @@
             products = [...sampleProducts]; rawMaterials = [...sampleRawMaterials]; customers = [{ id: 1, name: 'Cliente Balcão', contact: '' }];
             categories = [{ id: 1, name: 'Sem Categoria' }];
             transactions = []; cashBalance = 0;
-            initializeApp();
+            initializeAppUI();
             showToast('Sistema zerado com sucesso!', 'success');
             closeModal('modal-settings');
             saveData();
@@ -1353,7 +1387,7 @@
                         products = importedData.products || []; customers = importedData.customers || []; transactions = importedData.transactions || [];
                         cashBalance = importedData.cashBalance || 0; rawMaterials = importedData.rawMaterials || []; categories = importedData.categories || [{ id: 1, name: 'Sem Categoria' }];
                         if (importedData.theme) applyTheme(importedData.theme);
-                        saveData(); initializeApp(); 
+                        saveData(); initializeAppUI(); 
                         showToast("Backup restaurado com sucesso!", "success"); closeModal('modal-settings');
                     });
                 } else { showToast("O ficheiro selecionado não parece ser um backup válido.", "error"); }
@@ -1380,44 +1414,64 @@
         })
         .finally(() => { if (!isAuto) { toggleLoading(false); } });
     }
-    function loadFromGoogleSheets() {
+    function loadFromGoogleSheets(isAuto = false) {
         if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
-            showToast("URL do Google Script não configurada.", "error");
+            if (isAuto) {
+                loadDataFromLocalStorage();
+            } else {
+                showToast("URL do Google Script não configurada.", "error");
+            }
             return;
         }
-        openConfirmationModal(
-            'Carregar Dados da Nuvem?',
-            'Isto substituirá TODOS os dados atuais pelos dados guardados na sua Planilha Google. Deseja continuar?',
-            () => {
-                showToast("A carregar dados da nuvem... Aguarde.", "success");
-                toggleLoading(true);
-                fetch(GOOGLE_SCRIPT_URL)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.products && data.transactions) {
-                            products = data.products || [];
-                            customers = data.customers || [];
-                            transactions = data.transactions || [];
-                            cashBalance = data.cashBalance || 0;
-                            rawMaterials = data.rawMaterials || [];
-                            categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
-                            saveData(); 
-                            initializeApp();
-                            closeModal('modal-settings');
-                            showToast("Dados carregados da nuvem com sucesso!", "success");
-                        } else {
-                            throw new Error("Dados recebidos da nuvem são inválidos.");
+
+        const execution = () => {
+            showToast("A carregar dados da nuvem... Aguarde.", "success");
+            toggleLoading(true);
+            fetch(GOOGLE_SCRIPT_URL)
+                .then(response => {
+                    if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText}`) }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.products && data.transactions) {
+                        products = data.products || [];
+                        customers = data.customers || [];
+                        transactions = data.transactions || [];
+                        cashBalance = data.cashBalance || 0;
+                        rawMaterials = data.rawMaterials || [];
+                        categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
+                        products.forEach(p => { if (!p.categoryId) p.categoryId = 1; });
+                        saveData(); 
+                        initializeAppUI();
+                        if (!isAuto) {
+                           closeModal('modal-settings');
                         }
-                    })
-                    .catch(error => {
-                        console.error('Erro ao carregar do Google Sheets:', error);
-                        showToast("Falha ao carregar da nuvem. Verifique a sua conexão e as permissões do script.", "error");
-                    })
-                    .finally(() => {
-                        toggleLoading(false);
-                    });
-            }
-        );
+                        showToast("Dados carregados da nuvem com sucesso!", "success");
+                    } else {
+                        throw new Error("Dados recebidos da nuvem são inválidos.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar do Google Sheets:', error);
+                    showToast("Falha ao carregar da nuvem. A usar dados locais.", "error");
+                    if (isAuto) {
+                        loadDataFromLocalStorage();
+                    }
+                })
+                .finally(() => {
+                    toggleLoading(false);
+                });
+        };
+
+        if (isAuto) {
+          execution();
+        } else {
+          openConfirmationModal(
+              'Carregar Dados da Nuvem?',
+              'Isto substituirá TODOS os dados atuais pelos dados guardados na sua Planilha Google. Deseja continuar?',
+              execution
+          );
+        }
     }
     function manageAutoSaveInterval(enable) {
         const FIVE_MINUTES = 300000;
@@ -1438,12 +1492,10 @@
         localStorage.setItem('isAutoSaveEnabled', JSON.stringify(enabled));
         showToast(`Guardar automaticamente ${enabled ? 'ativado' : 'desativado'}.`, "success");
     }
-    function initializeAutoSave() {
-        isAutoSaveEnabled = JSON.parse(localStorage.getItem('isAutoSaveEnabled')) || false;
-        document.getElementById('autosave-toggle').checked = isAutoSaveEnabled;
-        if (isAutoSaveEnabled) {
-            manageAutoSaveInterval(true);
-        }
+    function handleAutoLoadToggle(event) {
+        isAutoLoadEnabled = event.target.checked;
+        localStorage.setItem('isAutoLoadEnabled', JSON.stringify(isAutoLoadEnabled));
+        showToast(`Carregamento automático ao iniciar ${isAutoLoadEnabled ? 'ativado' : 'desativado'}.`, "success");
     }
     
     // --- LÓGICA DE EDIÇÃO DE VENDA ---
@@ -1484,7 +1536,6 @@
         const newMethod = form.elements.paymentMethod.value;
         const newInstallments = parseInt(form.elements.paymentInstallments.value) || 1;
 
-        // Ajusta o saldo de caixa com base na alteração de estado
         if (oldStatus === 'Não Pago' && newStatus === 'Pago') {
             cashBalance += sale.amount;
         } else if (oldStatus === 'Pago' && newStatus === 'Não Pago') {
@@ -1499,7 +1550,6 @@
         showToast("Venda atualizada com sucesso!", "success");
         closeModal('modal-edit-venda');
         
-        // Atualiza as vistas do relatório se estiverem abertas
         if (!document.getElementById('modal-relatorios').classList.contains('hidden')) {
             renderReports(currentReportPeriod);
         }
@@ -1507,7 +1557,7 @@
             const customerId = document.getElementById('modal-cliente-detalhes').dataset.customerId;
             openCustomerDetailsModal(customerId);
         }
-        if (!document.getElementById('modal-contas-receber').classList.contains('hidden')) {
+         if (!document.getElementById('modal-contas-receber').classList.contains('hidden')) {
             renderUnpaidSales();
         }
 
@@ -1623,8 +1673,9 @@
         document.getElementById('export-data-btn').addEventListener('click', exportAllData);
         document.getElementById('import-file-input').addEventListener('change', importAllData);
         document.getElementById('save-to-google-sheets-btn').addEventListener('click', () => saveToGoogleSheets(false));
-        document.getElementById('load-from-google-sheets-btn').addEventListener('click', loadFromGoogleSheets);
+        document.getElementById('load-from-google-sheets-btn').addEventListener('click', () => loadFromGoogleSheets(false));
         document.getElementById('autosave-toggle').addEventListener('change', handleAutoSaveToggle);
+        document.getElementById('autoload-toggle').addEventListener('change', handleAutoLoadToggle); // NOVO
         window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
         // Modal de Pagamento
         document.getElementById('payment-method').addEventListener('change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });

@@ -1375,18 +1375,20 @@
         }
     }
     function manageAutoSaveInterval(enable) {
-        const FIVE_MINUTES = 300000;
-        if (autoSaveInterval) clearInterval(autoSaveInterval);
-        autoSaveInterval = null;
-        if (enable) {
-            isAutoSaveEnabled = true;
-            autoSaveInterval = setInterval(() => saveToGoogleSheets(true), FIVE_MINUTES);
-            console.log("Auto-save started. Saving every 5 minutes.");
-        } else {
-            isAutoSaveEnabled = false;
-            console.log("Auto-save stopped.");
-        }
-    }
+        // O valor foi alterado para 120000 milissegundos, que equivale a 2 minutos.
+        const TWO_MINUTES = 120000; 
+        if (autoSaveInterval) clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
+        if (enable) {
+            isAutoSaveEnabled = true;
+            autoSaveInterval = setInterval(() => saveToGoogleSheets(true), TWO_MINUTES);
+            // A mensagem de log também foi atualizada.
+            console.log("Auto-save started. Saving every 2 minutes.");
+        } else {
+            isAutoSaveEnabled = false;
+            console.log("Auto-save stopped.");
+        }
+    }
     function handleAutoSaveToggle(event) {
         const enabled = event.target.checked;
         manageAutoSaveInterval(enabled);

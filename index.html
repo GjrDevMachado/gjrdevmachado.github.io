@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão v11.2 - Papelaria & 3D (Online)</title>
+    <title>Sistema de Gestão v11.4 - Papelaria & 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -171,7 +171,11 @@
                             <button data-modal-id="modal-contas-receber" class="open-modal-btn bg-orange-500 text-white px-3 py-2 text-sm sm:px-4 rounded-lg shadow hover:bg-orange-600 transition flex items-center gap-2"><i class="fas fa-file-invoice-dollar"></i> A Receber</button>
                         </div>
                         <div class="mb-4 relative">
-                            <input type="text" id="search-product" placeholder="Procurar produto..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]">
+                            <input type="text" id="search-barcode" placeholder="BIPAR CÓDIGO DE BARRAS AQUI..." class="w-full p-3 pl-10 border-2 border-dashed border-[var(--primary-500)] rounded-lg bg-[var(--bg-tertiary)] text-center font-semibold">
+                            <i class="fas fa-barcode absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] text-2xl"></i>
+                        </div>
+                        <div class="mb-4 relative">
+                            <input type="text" id="search-product" placeholder="Ou procurar produto por nome..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]">
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
                         </div>
                         <div id="category-filters" class="mb-4 flex flex-wrap gap-2"></div>
@@ -205,47 +209,16 @@
     <!-- ========= Modais ========= -->
 
     <!-- Modal: Adicionar/Editar Produto -->
-    <div id="modal-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Adicionar Novo Produto</h3><form id="add-product-form" class="space-y-4"><input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div class="grid grid-cols-2 gap-4"><input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div><div class="grid grid-cols-2 gap-4"><input type="number" name="productStock" placeholder="Estoque" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div><label for="productCategory" class="sr-only">Categoria</label><select name="productCategory" id="add-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select></div></div></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="add-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Adicionar</button></div></div></div>
-    <div id="modal-edit-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Produto</h3><form id="edit-product-form" class="space-y-4"><input type="hidden" name="productId"><input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div class="grid grid-cols-2 gap-4"><input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div><div class="grid grid-cols-2 gap-4"><input type="number" name="productStock" placeholder="Estoque" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div><label for="editProductCategory" class="sr-only">Categoria</label><select name="editProductCategory" id="edit-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select></div></div></form><div class="flex justify-between items-center mt-6"><button type="button" id="delete-product-btn" class="px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Excluir Produto</button><div class="flex gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div></div>
+    <div id="modal-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Adicionar Novo Produto</h3><form id="add-product-form" class="space-y-4"><input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" name="productBarcode" placeholder="Código de Barras (opcional)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><select name="productCategory" id="add-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select></div><div class="grid grid-cols-3 gap-4"><input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productStock" placeholder="Estoque" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="add-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Adicionar</button></div></div></div>
+    <div id="modal-edit-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Produto</h3><form id="edit-product-form" class="space-y-4"><input type="hidden" name="productId"><input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" name="productBarcode" placeholder="Código de Barras (opcional)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><select name="editProductCategory" id="edit-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select></div><div class="grid grid-cols-3 gap-4"><input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productStock" placeholder="Estoque" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div></form><div class="flex justify-between items-center mt-6"><button type="button" id="delete-product-btn" class="px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Excluir Produto</button><div class="flex gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div></div>
 
     <!-- Modal: Adicionar/Editar Categoria -->
     <div id="modal-categorias" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Categorias</h3><form id="add-category-form" class="mb-6 pb-6 border-b border-[var(--border-color)] flex items-center gap-4"><input type="text" name="categoryName" placeholder="Nome da Nova Categoria" class="flex-grow p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded-lg">Adicionar</button></form><div id="categories-list" class="max-h-64 overflow-y-auto"></div></div></div>
     <div id="modal-edit-categoria" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Categoria</h3><form id="edit-category-form"><input type="hidden" name="categoryId"><input type="text" name="categoryName" placeholder="Nome da Categoria" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-category-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div>
 
     <!-- Modal: Adicionar/Editar Matéria-Prima -->
-    <div id="modal-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal">
-            <h3 class="text-2xl font-bold mb-6">Gerir Estoque</h3>
-            <form id="add-raw-material-form" class="mb-6 pb-6 border-b border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
-                <input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
-                <input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <button type="submit" class="sm:col-span-2 md:col-span-3 px-4 py-2 bg-[var(--secondary-600)] text-white rounded-lg">Adicionar Item</button>
-            </form>
-            <div id="raw-materials-list" class="max-h-64 overflow-y-auto"></div>
-        </div>
-    </div>
-    <div id="modal-edit-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal">
-            <h3 class="text-2xl font-bold mb-6">Editar Item de Estoque</h3>
-            <form id="edit-raw-material-form" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
-                <input type="hidden" name="rawMaterialId">
-                <input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
-                <input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                <input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-            </form>
-            <div class="flex justify-end gap-4 mt-6">
-                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button>
-                <button type="submit" form="edit-raw-material-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button>
-            </div>
-        </div>
-    </div>
+    <div id="modal-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Estoque de Insumos</h3><form id="add-raw-material-form" class="mb-6 pb-6 border-b border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end"><input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><button type="submit" class="sm:col-span-2 md:col-span-3 px-4 py-2 bg-[var(--secondary-600)] text-white rounded-lg">Adicionar Item</button></form><div id="raw-materials-list" class="max-h-64 overflow-y-auto"></div></div></div>
+    <div id="modal-edit-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Item de Estoque</h3><form id="edit-raw-material-form" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end"><input type="hidden" name="rawMaterialId"><input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-raw-material-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div>
 
     <!-- Modal: Relatórios -->
     <div id="modal-relatorios" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-5xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-4 flex-shrink-0">Relatórios</h3><div class="border-b border-[var(--border-color)] flex-shrink-0"><nav id="report-tabs" class="-mb-px flex flex-nowrap space-x-4 sm:space-x-8 overflow-x-auto pb-2" aria-label="Tabs"><button data-tab="vendas" class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Vendas</button><button data-tab="vendas-cliente" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Vendas por Cliente</button><button data-tab="desempenho-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Desempenho de Produtos</button><button data-tab="estoque-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque de Produtos</button><button data-tab="estoque-materias" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque</button></nav></div><div class="flex-grow overflow-y-auto"><div id="tab-vendas" class="tab-content py-4"><div class="mb-4 flex justify-center gap-2" id="report-period-buttons"><button data-period="daily" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Hoje</button><button data-period="weekly" class="period-button active px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">7 Dias</button><button data-period="monthly" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Este Mês</button><button data-period="annual" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Anual</button></div><div id="month-year-selector" class="hidden my-4 flex justify-center gap-4 items-center"><select id="report-month-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select><select id="report-year-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select></div><div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4"></div><canvas id="salesChart"></canvas><div id="transactions-list" class="mt-4"></div><div id="annual-summary-table" class="mt-4 hidden"></div></div><div id="tab-vendas-cliente" class="tab-content hidden py-4"></div><div id="tab-desempenho-produtos" class="tab-content hidden py-4"></div><div id="tab-estoque-produtos" class="tab-content hidden py-4"></div><div id="tab-estoque-materias" class="tab-content hidden py-4"></div></div></div></div>
@@ -258,181 +231,21 @@
     <div id="modal-caixa" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Movimentar Caixa</h3><form id="cash-flow-form"><div class="mb-4"><label class="block text-sm font-medium">Tipo</label><select name="cashFlowType" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="entrada">Entrada (Suprimento)</option><option value="saida">Saída (Despesa)</option></select></div><div class="mb-4"><label class="block text-sm font-medium">Valor (R$)</label><input type="number" name="cashFlowAmount" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div><div class="mb-6"><label class="block text-sm font-medium">Descrição</label><input type="text" name="cashFlowDescription" placeholder="Ex: Troco inicial" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div><div class="flex justify-end gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="cash-flow-form" class="px-4 py-2 bg-orange-500 text-white rounded-lg">Confirmar</button></div></form></div></div>
     
     <!-- Modal: Configurações -->
-    <div id="modal-settings" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal">
-            <h3 class="text-2xl font-bold mb-6">Configurações</h3>
-            <div>
-                <h4 class="font-semibold mb-3">Tema da Interface</h4>
-                <div class="grid grid-cols-2 gap-4" id="theme-selector">
-                    <button data-theme="light" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-white border mb-2"></span>Claro</button>
-                    <button data-theme="dark" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-gray-800 border mb-2"></span>Escuro</button>
-                    <button data-theme="ocean" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-blue-800 border mb-2"></span>Oceano</button>
-                    <button data-theme="forest" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-green-800 border mb-2"></span>Floresta</button>
-                </div>
-            </div>
-
-            <div class="mt-6 pt-6 border-t border-[var(--border-color)]">
-                <h4 class="font-semibold mb-3">Backup & Restauração</h4>
-                <p class="text-xs text-[var(--text-secondary)] mb-3">Guarde todos os dados do sistema num ficheiro ou restaure a partir de um backup anterior.</p>
-                <div class="flex gap-4">
-                    <button id="export-data-btn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg"><i class="fas fa-download"></i> Exportar Tudo</button>
-                    <label for="import-file-input" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg cursor-pointer text-center"><i class="fas fa-upload"></i> Importar Backup</label>
-                    <input type="file" id="import-file-input" class="hidden" accept=".json">
-                </div>
-                <button id="load-from-google-sheets-btn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg mt-2"><i class="fas fa-cloud-download-alt"></i> Carregar da Nuvem</button>
-                <button id="save-to-google-sheets-btn" class="w-full px-4 py-2 bg-emerald-700 text-white rounded-lg mt-2"><i class="fas fa-cloud-upload-alt"></i> Guardar na Nuvem (Manual)</button>
-                <div class="flex items-center justify-between mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg">
-                    <label for="autosave-toggle" class="flex flex-col cursor-pointer">
-                        <span class="font-medium">Guardar Automaticamente na Nuvem</span>
-                        <span class="text-xs text-[var(--text-tertiary)]">Guarda a cada 5 minutos e ao fechar.</span>
-                    </label>
-                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
-                        <input type="checkbox" name="autosave-toggle" id="autosave-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-                        <label for="autosave-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg">
-                    <label for="autoload-toggle" class="flex flex-col cursor-pointer">
-                        <span class="font-medium">Carregar da Nuvem ao Iniciar</span>
-                        <span class="text-xs text-[var(--text-tertiary)]">Sempre inicia com os dados da planilha.</span>
-                    </label>
-                    <div class="relative inline-block w-10 mr-2 align-middle select-none">
-                        <input type="checkbox" name="autoload-toggle" id="autoload-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-                        <label for="autoload-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-6 pt-6 border-t border-[var(--border-color)]">
-                <h4 class="font-semibold mb-3 text-[var(--danger-500)]">Zona de Perigo</h4>
-                <button id="reset-system-btn" class="w-full px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Zerar Todo o Sistema</button>
-                <p class="text-xs text-[var(--text-secondary)] mt-2">Atenção: Esta ação é irreversível e apagará todos os dados.</p>
-            </div>
-
-            <div class="flex justify-end mt-8"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div>
-        </div>
-    </div>
+    <div id="modal-settings" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Configurações</h3><div><h4 class="font-semibold mb-3">Tema da Interface</h4><div class="grid grid-cols-2 gap-4" id="theme-selector"><button data-theme="light" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-white border mb-2"></span>Claro</button><button data-theme="dark" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-gray-800 border mb-2"></span>Escuro</button><button data-theme="ocean" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-blue-800 border mb-2"></span>Oceano</button><button data-theme="forest" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-green-800 border mb-2"></span>Floresta</button></div></div><div class="mt-6 pt-6 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-3">Backup & Restauração</h4><p class="text-xs text-[var(--text-secondary)] mb-3">Guarde todos os dados do sistema num ficheiro ou restaure a partir de um backup anterior.</p><div class="flex gap-4"><button id="export-data-btn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg"><i class="fas fa-download"></i> Exportar Tudo</button><label for="import-file-input" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg cursor-pointer text-center"><i class="fas fa-upload"></i> Importar Backup</label><input type="file" id="import-file-input" class="hidden" accept=".json"></div><button id="load-from-google-sheets-btn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg mt-2"><i class="fas fa-cloud-download-alt"></i> Carregar da Nuvem</button><button id="save-to-google-sheets-btn" class="w-full px-4 py-2 bg-emerald-700 text-white rounded-lg mt-2"><i class="fas fa-cloud-upload-alt"></i> Guardar na Nuvem (Manual)</button><div class="flex items-center justify-between mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg"><label for="autosave-toggle" class="flex flex-col cursor-pointer"><span class="font-medium">Guardar Automaticamente na Nuvem</span><span class="text-xs text-[var(--text-tertiary)]">Guarda a cada 5 minutos e ao fechar.</span></label><div class="relative inline-block w-10 mr-2 align-middle select-none"><input type="checkbox" name="autosave-toggle" id="autosave-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label for="autosave-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label></div></div><div class="flex items-center justify-between mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg"><label for="autoload-toggle" class="flex flex-col cursor-pointer"><span class="font-medium">Carregar da Nuvem ao Iniciar</span><span class="text-xs text-[var(--text-tertiary)]">Sempre inicia com os dados da planilha.</span></label><div class="relative inline-block w-10 mr-2 align-middle select-none"><input type="checkbox" name="autoload-toggle" id="autoload-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label for="autoload-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label></div></div></div><div class="mt-6 pt-6 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-3 text-[var(--danger-500)]">Zona de Perigo</h4><button id="reset-system-btn" class="w-full px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Zerar Todo o Sistema</button><p class="text-xs text-[var(--text-secondary)] mt-2">Atenção: Esta ação é irreversível e apagará todos os dados.</p></div><div class="flex justify-end mt-8"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div></div></div>
     
-    <!-- Modal: Confirmação -->
+    <!-- Restantes Modais (Confirmação, Recibo, Pagamento, etc.) -->
     <div id="modal-confirm" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 id="confirm-title" class="text-2xl font-bold mb-4">Confirmar Ação</h3><p id="confirm-message" class="text-[var(--text-secondary)] mb-6">Tem a certeza?</p><div class="flex justify-end gap-4"><button id="confirm-cancel-btn" class="px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button id="confirm-confirm-btn" class="px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Confirmar</button></div></div></div>
-    
-    <!-- Modal: Recibo e Pagamento -->
     <div id="receipt-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-sm mx-4 modal"><div id="receipt-content" class="text-center"><h2 class="text-2xl font-bold mb-2">Recibo</h2><p class="text-sm text-[var(--text-secondary)] mb-4">A Sua Papelaria & 3D</p><div id="receipt-details" class="text-left space-y-2 border-t border-b border-[var(--border-color)] py-4 my-4"></div><p id="receipt-total" class="font-bold text-lg"></p><p id="receipt-date" class="text-xs text-[var(--text-secondary)] mt-4"></p></div><div class="flex justify-center gap-4 mt-6 no-print"><button class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button><button id="print-receipt-btn" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg"><i class="fas fa-print"></i> Imprimir</button></div></div></div>
     <div id="modal-payment" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Finalizar Venda</h3><form id="payment-form" class="space-y-4"><div><label class="block text-sm font-medium">Total a Pagar</label><p id="payment-total" class="text-3xl font-bold text-[var(--primary-600)]"></p></div><div><label for="payment-method" class="block text-sm font-medium">Forma de Pagamento</label><select id="payment-method" name="paymentMethod" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="Dinheiro">Dinheiro</option><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option></select></div><div id="installments-group" class="hidden"><label for="payment-installments" class="block text-sm font-medium">Número de Parcelas</label><input type="number" id="payment-installments" name="paymentInstallments" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" min="1" value="1"></div><div id="amount-paid-group"><label for="payment-amount-paid" class="block text-sm font-medium">Valor Pago (R$)</label><input type="number" id="payment-amount-paid" name="paymentAmountPaid" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"></div><div><label class="block text-sm font-medium">Troco</label><p id="payment-change" class="text-xl font-bold text-[var(--secondary-600)]">R$ 0,00</p></div><div class="flex items-center justify-between mt-4"><label for="retroactive-sale-toggle" class="text-sm font-medium">Venda Retroativa?</label><input type="checkbox" id="retroactive-sale-toggle" name="retroactiveSale" class="h-4 w-4 text-[var(--primary-600)] focus:ring-[var(--primary-500)] border-gray-300 rounded"></div><div id="retroactive-date-group" class="hidden"><label for="payment-retroactive-date" class="block text-sm font-medium">Data e Hora da Venda</label><input type="datetime-local" id="payment-retroactive-date" name="retroactiveDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"></div></form><div class="flex justify-between gap-4 mt-6"><button type="button" id="process-unpaid-sale-btn" class="px-4 py-2 bg-yellow-500 text-white rounded-lg">Guardar como Não Pago</button><div class="flex gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="payment-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Confirmar Pagamento</button></div></div></div></div>
-    
-    <!-- Modal: Fechamento de Caixa -->
     <div id="modal-fechamento" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Fechamento de Caixa do Dia</h3><div id="cash-closing-summary" class="space-y-3"></div><div class="flex justify-end mt-8"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div></div></div>
-    
-    <!-- Modal: Contas a Receber -->
-    <div id="modal-contas-receber" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal flex flex-col max-h-[90vh]">
-            <h3 class="text-2xl font-bold mb-6 flex-shrink-0">Contas a Receber (Vendas Não Pagas)</h3>
-            <div id="unpaid-sales-list" class="flex-grow overflow-y-auto"></div>
-            <div class="flex justify-end mt-8 flex-shrink-0"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div>
-        </div>
-    </div>
-    <div id="modal-receber-pagamento" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal">
-            <h3 class="text-2xl font-bold mb-6">Registar Pagamento</h3>
-            <form id="receive-payment-form" class="space-y-4">
-                <input type="hidden" name="transactionId">
-                <div><label class="block text-sm font-medium">Total a Pagar</label><p id="receive-payment-total" class="text-3xl font-bold text-[var(--primary-600)]"></p></div>
-                <div><label for="receive-payment-method" class="block text-sm font-medium">Forma de Pagamento</label><select id="receive-payment-method" name="paymentMethod" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="Dinheiro">Dinheiro</option><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option></select></div>
-                <div id="receive-installments-group" class="hidden"><label for="receive-payment-installments" class="block text-sm font-medium">Número de Parcelas</label><input type="number" id="receive-payment-installments" name="paymentInstallments" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" min="1" value="1"></div>
-            </form>
-            <div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="receive-payment-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Confirmar Recebimento</button></div>
-        </div>
-    </div>
-    
-    <!-- Modal: Importação -->
-    <div id="modal-importar-vendas" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-2xl mx-4 modal flex flex-col max-h-[90vh]">
-            <h3 class="text-2xl font-bold mb-4">Importar Vendas de Planilha (.csv)</h3>
-            <div class="p-4 bg-blue-100 text-blue-800 rounded-lg text-sm mb-4"><p class="font-bold">Instruções:</p><p>1. Crie um ficheiro .csv com as colunas na seguinte ordem, sem cabeçalho:</p><p class="font-mono bg-blue-200 p-1 rounded my-1 text-xs">data_hora,id_produto,quantidade,id_cliente,metodo_pagamento,status_pagamento</p><p>2. A data deve estar no formato `AAAA-MM-DDTHH:MM` (ex: `2023-10-27T14:30`).</p><p>3. Os IDs de produto e cliente devem corresponder aos IDs existentes no sistema.</p><p>4. `metodo_pagamento` pode ser `Dinheiro`, `Pix`, `Cartão de Crédito` ou `A Prazo`.</p><p>5. `status_pagamento` deve ser `Pago` ou `Não Pago`.</p></div>
-            <form id="import-sales-form"><input type="file" id="csv-file-input" accept=".csv" class="w-full border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)] p-2" required><button type="submit" class="w-full mt-4 px-4 py-2 bg-indigo-500 text-white rounded-lg">Processar Planilha</button></form>
-            <div id="import-log" class="mt-4 p-2 border border-[var(--border-color)] rounded-lg h-48 overflow-y-auto text-xs bg-[var(--bg-tertiary)]">A aguardar ficheiro...</div>
-             <div class="flex justify-end gap-4 mt-6 flex-shrink-0"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div>
-        </div>
-    </div>
-    
-    <!-- Modal: Detalhes da Venda -->
-    <div id="modal-venda-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal flex flex-col max-h-[90vh]">
-            <div id="sale-details-content" class="flex-grow overflow-y-auto"><h3 class="text-2xl font-bold mb-2">Detalhes da Venda</h3><div class="text-sm text-[var(--text-secondary)] mb-4"><p><strong>ID da Transação:</strong> <span id="details-id"></span></p><p><strong>Data:</strong> <span id="details-date"></span></p><p><strong>Cliente:</strong> <span id="details-customer"></span></p></div><table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Produto</th><th class="p-2 text-center">Qtd.</th><th class="p-2 text-right">Preço Unit.</th><th class="p-2 text-right">Total</th></tr></thead><tbody id="details-items-table"></tbody></table><div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm"><div class="flex justify-between"><span>Subtotal:</span> <span id="details-subtotal"></span></div><div class="flex justify-between"><span>Custo Total:</span> <span id="details-cost" class="text-red-600"></span></div><div class="flex justify-between font-bold"><span>Lucro Líquido:</span> <span id="details-profit" class="text-green-600"></span></div><div class="flex justify-between font-bold"><span>Margem de Lucro:</span> <span id="details-margin" class="text-green-600"></span></div></div></div>
-            <div class="flex justify-end gap-4 mt-6 flex-shrink-0 no-print"><button type="button" id="print-details-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg"><i class="fas fa-print"></i> Imprimir</button><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div>
-        </div>
-    </div>
-    
-    <!-- NOVO Modal: Detalhes de Vendas do Cliente -->
-    <div id="modal-cliente-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal flex flex-col max-h-[90vh]">
-            <h3 class="text-2xl font-bold mb-2 flex-shrink-0">Detalhes de Vendas do Cliente</h3>
-            <h4 id="details-customer-name" class="text-lg font-semibold text-[var(--primary-600)] mb-4"></h4>
-            <div id="details-customer-sales-list" class="flex-grow overflow-y-auto"></div>
-            <div class="flex justify-end mt-8 flex-shrink-0">
-                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button>
-            </div>
-        </div>
-    </div>
+    <div id="modal-contas-receber" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-6 flex-shrink-0">Contas a Receber (Vendas Não Pagas)</h3><div id="unpaid-sales-list" class="flex-grow overflow-y-auto"></div><div class="flex justify-end mt-8 flex-shrink-0"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div></div></div>
+    <div id="modal-receber-pagamento" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Registar Pagamento</h3><form id="receive-payment-form" class="space-y-4"><input type="hidden" name="transactionId"><div><label class="block text-sm font-medium">Total a Pagar</label><p id="receive-payment-total" class="text-3xl font-bold text-[var(--primary-600)]"></p></div><div><label for="receive-payment-method" class="block text-sm font-medium">Forma de Pagamento</label><select id="receive-payment-method" name="paymentMethod" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="Dinheiro">Dinheiro</option><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option></select></div><div id="receive-installments-group" class="hidden"><label for="receive-payment-installments" class="block text-sm font-medium">Número de Parcelas</label><input type="number" id="receive-payment-installments" name="paymentInstallments" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" min="1" value="1"></div></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="receive-payment-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Confirmar Recebimento</button></div></div></div>
+    <div id="modal-importar-vendas" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-2xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-4">Importar Vendas de Planilha (.csv)</h3><div class="p-4 bg-blue-100 text-blue-800 rounded-lg text-sm mb-4"><p class="font-bold">Instruções:</p><p>1. Crie um ficheiro .csv com as colunas na seguinte ordem, sem cabeçalho:</p><p class="font-mono bg-blue-200 p-1 rounded my-1 text-xs">data_hora,id_produto,quantidade,id_cliente,metodo_pagamento,status_pagamento</p><p>2. A data deve estar no formato `AAAA-MM-DDTHH:MM` (ex: `2023-10-27T14:30`).</p><p>3. Os IDs de produto e cliente devem corresponder aos IDs existentes no sistema.</p><p>4. `metodo_pagamento` pode ser `Dinheiro`, `Pix`, `Cartão de Crédito` ou `A Prazo`.</p><p>5. `status_pagamento` deve ser `Pago` ou `Não Pago`.</p></div><form id="import-sales-form"><input type="file" id="csv-file-input" accept=".csv" class="w-full border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)] p-2" required><button type="submit" class="w-full mt-4 px-4 py-2 bg-indigo-500 text-white rounded-lg">Processar Planilha</button></form><div id="import-log" class="mt-4 p-2 border border-[var(--border-color)] rounded-lg h-48 overflow-y-auto text-xs bg-[var(--bg-tertiary)]">A aguardar ficheiro...</div><div class="flex justify-end gap-4 mt-6 flex-shrink-0"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div></div></div>
+    <div id="modal-venda-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal flex flex-col max-h-[90vh]"><div id="sale-details-content" class="flex-grow overflow-y-auto"><h3 class="text-2xl font-bold mb-2">Detalhes da Venda</h3><div class="text-sm text-[var(--text-secondary)] mb-4"><p><strong>ID da Transação:</strong> <span id="details-id"></span></p><p><strong>Data:</strong> <span id="details-date"></span></p><p><strong>Cliente:</strong> <span id="details-customer"></span></p></div><table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Produto</th><th class="p-2 text-center">Qtd.</th><th class="p-2 text-right">Preço Unit.</th><th class="p-2 text-right">Total</th></tr></thead><tbody id="details-items-table"></tbody></table><div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm"><div class="flex justify-between"><span>Subtotal:</span> <span id="details-subtotal"></span></div><div class="flex justify-between"><span>Custo Total:</span> <span id="details-cost" class="text-red-600"></span></div><div class="flex justify-between font-bold"><span>Lucro Líquido:</span> <span id="details-profit" class="text-green-600"></span></div><div class="flex justify-between font-bold"><span>Margem de Lucro:</span> <span id="details-margin" class="text-green-600"></span></div></div></div><div class="flex justify-end gap-4 mt-6 flex-shrink-0 no-print"><button type="button" id="print-details-btn" class="px-4 py-2 bg-gray-600 text-white rounded-lg"><i class="fas fa-print"></i> Imprimir</button><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div></div></div>
+    <div id="modal-cliente-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-2 flex-shrink-0">Detalhes de Vendas do Cliente</h3><h4 id="details-customer-name" class="text-lg font-semibold text-[var(--primary-600)] mb-4"></h4><div id="details-customer-sales-list" class="flex-grow overflow-y-auto"></div><div class="flex justify-end mt-8 flex-shrink-0"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div></div></div>
+    <div id="modal-edit-venda" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Pagamento da Venda</h3><form id="edit-sale-form" class="space-y-4"><input type="hidden" name="transactionId"><div><label class="block text-sm font-medium">Total da Venda</label><p id="edit-sale-total" class="text-3xl font-bold text-[var(--primary-600)]"></p></div><div><label for="edit-sale-status" class="block text-sm font-medium">Status do Pagamento</label><select id="edit-sale-status" name="saleStatus" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="Pago">Pago</option><option value="Não Pago">Não Pago</option></select></div><div><label for="edit-sale-method" class="block text-sm font-medium">Forma de Pagamento</label><select id="edit-sale-method" name="paymentMethod" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="Dinheiro">Dinheiro</option><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option><option value="A Prazo">A Prazo</option></select></div><div id="edit-installments-group" class="hidden"><label for="edit-sale-installments" class="block text-sm font-medium">Número de Parcelas</label><input type="number" id="edit-sale-installments" name="paymentInstallments" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" min="1" value="1"></div></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-sale-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div>
+    <div id="modal-desconto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-sm mx-4 modal"><h3 id="discount-modal-title" class="text-2xl font-bold mb-6">Aplicar Desconto</h3><form id="discount-form"><input type="hidden" name="itemIndex"><div class="mb-4"><label for="discount-type" class="block text-sm font-medium">Tipo de Desconto</label><select id="discount-type" name="discountType" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="percentage">% (Percentagem)</option><option value="fixed">R$ (Valor Fixo)</option></select></div><div><label for="discount-value" class="block text-sm font-medium">Valor do Desconto</label><input type="number" id="discount-value" name="discountValue" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="discount-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Aplicar</button></div></div></div>
 
-    <!-- NOVO Modal: Editar Venda -->
-    <div id="modal-edit-venda" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal">
-            <h3 class="text-2xl font-bold mb-6">Editar Pagamento da Venda</h3>
-            <form id="edit-sale-form" class="space-y-4">
-                <input type="hidden" name="transactionId">
-                <div><label class="block text-sm font-medium">Total da Venda</label><p id="edit-sale-total" class="text-3xl font-bold text-[var(--primary-600)]"></p></div>
-                <div>
-                    <label for="edit-sale-status" class="block text-sm font-medium">Status do Pagamento</label>
-                    <select id="edit-sale-status" name="saleStatus" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
-                        <option value="Pago">Pago</option>
-                        <option value="Não Pago">Não Pago</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="edit-sale-method" class="block text-sm font-medium">Forma de Pagamento</label>
-                    <select id="edit-sale-method" name="paymentMethod" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
-                        <option value="Dinheiro">Dinheiro</option>
-                        <option value="Pix">Pix</option>
-                        <option value="Cartão de Crédito">Cartão de Crédito</option>
-                        <option value="A Prazo">A Prazo</option>
-                    </select>
-                </div>
-                <div id="edit-installments-group" class="hidden"><label for="edit-sale-installments" class="block text-sm font-medium">Número de Parcelas</label><input type="number" id="edit-sale-installments" name="paymentInstallments" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" min="1" value="1"></div>
-            </form>
-            <div class="flex justify-end gap-4 mt-6">
-                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button>
-                <button type="submit" form="edit-sale-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- NOVO Modal: Desconto -->
-    <div id="modal-desconto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-sm mx-4 modal">
-            <h3 id="discount-modal-title" class="text-2xl font-bold mb-6">Aplicar Desconto</h3>
-            <form id="discount-form">
-                <input type="hidden" name="itemIndex">
-                <div class="mb-4">
-                    <label for="discount-type" class="block text-sm font-medium">Tipo de Desconto</label>
-                    <select id="discount-type" name="discountType" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
-                        <option value="percentage">% (Percentagem)</option>
-                        <option value="fixed">R$ (Valor Fixo)</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="discount-value" class="block text-sm font-medium">Valor do Desconto</label>
-                    <input type="number" id="discount-value" name="discountValue" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
-                </div>
-            </form>
-            <div class="flex justify-end gap-4 mt-6">
-                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button>
-                <button type="submit" form="discount-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Aplicar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast de Notificação -->
     <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg opacity-0 translate-y-10 transition-all duration-300 z-[200]"><span id="toast-message"></span></div>
 
 <script>
@@ -487,7 +300,10 @@
             categories = JSON.parse(localStorage.getItem('categories')) || [{ id: 1, name: 'Sem Categoria' }];
             const productsData = JSON.parse(localStorage.getItem('products'));
             products = (productsData) ? productsData : sampleProducts;
-            products.forEach(p => { if (!p.categoryId) p.categoryId = 1; });
+            products.forEach(p => { 
+                if (!p.categoryId) p.categoryId = 1;
+                if (p.barcode === undefined) p.barcode = ''; // Compatibilidade
+            });
             
             const rawMaterialsData = JSON.parse(localStorage.getItem('rawMaterials'));
             rawMaterials = (rawMaterialsData) ? rawMaterialsData : sampleRawMaterials;
@@ -526,17 +342,20 @@
     window.onload = function() {
         isAutoSaveEnabled = JSON.parse(localStorage.getItem('isAutoSaveEnabled')) || false;
         isAutoLoadEnabled = JSON.parse(localStorage.getItem('isAutoLoadEnabled')) || false;
+        
+        const autosaveToggle = document.getElementById('autosave-toggle');
+        const autoloadToggle = document.getElementById('autoload-toggle');
 
-        document.getElementById('autosave-toggle').checked = isAutoSaveEnabled;
-        document.getElementById('autoload-toggle').checked = isAutoLoadEnabled;
+        if(autosaveToggle) autosaveToggle.checked = isAutoSaveEnabled;
+        if(autoloadToggle) autoloadToggle.checked = isAutoLoadEnabled;
 
         if (isAutoLoadEnabled && GOOGLE_SCRIPT_URL !== 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
-            loadFromGoogleSheets(true); // Tenta carregar da nuvem
+            loadFromGoogleSheets(true);
         } else {
-            if(isAutoLoadEnabled) { // Apenas avisa no console, sem toast
+            if(isAutoLoadEnabled) {
                 console.warn("Carregamento automático da nuvem está ativado, mas a URL não foi configurada. A carregar dados locais.");
             }
-            loadDataFromLocalStorage(); // Carrega os dados locais
+            loadDataFromLocalStorage();
         }
     };
 
@@ -963,11 +782,6 @@
         processSale({ method: 'A Prazo', installments: 1, status: 'Não Pago', isRetroactive, date: retroactiveDate });
         closeModal('modal-payment');
     }
-    function addProduct(name, price, cost, stock, categoryId) {
-        if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) { showToast('Produto já registado!', 'error'); return; }
-        products.push({ id: Date.now(), name, price: parseFloat(price), cost: parseFloat(cost), stock: parseInt(stock), categoryId: parseInt(categoryId) });
-        renderProducts(); showToast('Novo produto adicionado!'); saveData();
-    }
     function addRawMaterial(name, stock, unit, totalCost, supplier, receiptDate) {
         if (rawMaterials.some(rm => rm.name.toLowerCase() === name.toLowerCase())) { showToast('Insumo já registado!', 'error'); return; }
         rawMaterials.push({ id: Date.now(), name, stock: parseFloat(stock), unit, totalCost: parseFloat(totalCost), supplier, receiptDate });
@@ -1062,7 +876,12 @@
     function openEditProductModal(productId) {
         const product = products.find(p => p.id === productId); if (!product) return;
         const form = document.getElementById('edit-product-form');
-        form.elements.productId.value = product.id; form.elements.productName.value = product.name; form.elements.productPrice.value = product.price; form.elements.productCost.value = product.cost; form.elements.productStock.value = product.stock;
+        form.elements.productId.value = product.id; 
+        form.elements.productName.value = product.name; 
+        form.elements.productPrice.value = product.price; 
+        form.elements.productCost.value = product.cost; 
+        form.elements.productStock.value = product.stock;
+        form.elements.productBarcode.value = product.barcode || '';
         populateCategoryDropdowns();
         form.elements.editProductCategory.value = product.categoryId;
         openModal('modal-edit-produto');
@@ -1142,7 +961,6 @@
             }
         });
          if (transaction.discount > 0 && transaction.items.some(i => i.discount.value > 0)) {
-            // O desconto geral é mais complexo de mostrar se existirem descontos por item, por isso mostramos apenas o desconto total
         }
         receiptDetails.innerHTML += `<div class="mt-2 pt-2 border-t flex justify-between"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>`;
         receiptDetails.innerHTML += `<div class="flex justify-between text-red-500"><span>Descontos</span><span>-${formatCurrency(transaction.discount)}</span></div>`;
@@ -1428,36 +1246,49 @@
             toggleLoading(true);
             fetch(GOOGLE_SCRIPT_URL)
                 .then(response => {
-                    if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText}`) }
-                    return response.json();
+                    if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`) }
+                    return response.clone().text().then(text => {
+                        console.log("Resposta bruta recebida da nuvem:", text);
+                        try {
+                            return JSON.parse(text);
+                        } catch (jsonError) {
+                            console.error("Erro ao analisar a resposta JSON:", jsonError);
+                            throw new Error("A resposta da nuvem não é um JSON válido. Verifique os registos do Apps Script.");
+                        }
+                    });
                 })
                 .then(data => {
-                    // VERIFICAÇÃO DE ERRO MELHORADA
+                    console.log("Dados JSON analisados:", data);
+
                     if (data.status === 'error') {
-                        throw new Error(`Erro da Planilha: ${data.message}`);
+                        throw new Error(`Erro retornado pelo Google Script: ${data.message}`);
                     }
-                    // VERIFICAÇÃO DE DADOS MAIS ROBUSTA
-                    if (data.products !== undefined && data.transactions !== undefined && data.customers !== undefined) {
+                    
+                    if (Array.isArray(data.products) && Array.isArray(data.customers) && Array.isArray(data.transactions)) {
                         products = data.products || [];
                         customers = data.customers || [];
                         transactions = data.transactions || [];
                         cashBalance = data.cashBalance || 0;
                         rawMaterials = data.rawMaterials || [];
                         categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
-                        products.forEach(p => { if (!p.categoryId) p.categoryId = 1; });
+                        products.forEach(p => { 
+                            if (!p.categoryId) p.categoryId = 1;
+                            if (p.barcode === undefined) p.barcode = ''; // Compatibilidade
+                        });
+                        
                         saveData(); 
                         initializeAppUI();
+                        
                         if (!isAuto) {
                            closeModal('modal-settings');
                         }
                         showToast("Dados carregados da nuvem com sucesso!", "success");
                     } else {
-                        throw new Error("Dados recebidos da nuvem são inválidos ou estão em formato incorreto.");
+                        throw new Error("Dados da nuvem estão em formato inválido ou incompletos. Verifique a consola do navegador.");
                     }
                 })
                 .catch(error => {
-                    console.error('Erro ao carregar do Google Sheets:', error);
-                    // MOSTRA UMA MENSAGEM DE ERRO MAIS ÚTIL
+                    console.error('Falha detalhada ao carregar do Google Sheets:', error);
                     showToast(`Falha ao carregar: ${error.message}. A usar dados locais.`, "error");
                     if (isAuto) {
                         loadDataFromLocalStorage();
@@ -1640,9 +1471,29 @@
 
     // --- CENTRAL DE EVENT LISTENERS ---
     function addEventListeners() {
-        // Submissão de Formulários
-        document.getElementById('add-product-form').addEventListener('submit', function(e) { e.preventDefault(); addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productStock.value, this.elements.productCategory.value); this.reset(); closeModal('modal-produto'); });
-        document.getElementById('edit-product-form').addEventListener('submit', function(e) { e.preventDefault(); const p = products.find(p => p.id == this.elements.productId.value); if(p) { Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), stock: parseInt(this.elements.productStock.value), categoryId: parseInt(this.elements.editProductCategory.value) }); renderProducts(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-produto'); showToast('Produto atualizado!'); saveData(); } });
+        document.getElementById('add-product-form').addEventListener('submit', function(e) { 
+            e.preventDefault(); 
+            addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productStock.value, this.elements.productCategory.value, this.elements.productBarcode.value); 
+            this.reset(); 
+            closeModal('modal-produto'); 
+        });
+        document.getElementById('edit-product-form').addEventListener('submit', function(e) { 
+            e.preventDefault(); 
+            const p = products.find(p => p.id == this.elements.productId.value); 
+            if(p) { 
+                const newBarcode = this.elements.productBarcode.value.trim();
+                if (newBarcode && products.some(prod => prod.barcode === newBarcode && prod.id != p.id)) {
+                    showToast('Este código de barras já está associado a outro produto!', 'error');
+                    return;
+                }
+                Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), stock: parseInt(this.elements.productStock.value), categoryId: parseInt(this.elements.editProductCategory.value), barcode: newBarcode }); 
+                renderProducts(); 
+                if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); 
+                closeModal('modal-edit-produto'); 
+                showToast('Produto atualizado!'); 
+                saveData(); 
+            } 
+        });
         document.getElementById('add-category-form').addEventListener('submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
         document.getElementById('edit-category-form').addEventListener('submit', handleEditCategory);
         document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
@@ -1655,7 +1506,13 @@
         document.getElementById('import-sales-form').addEventListener('submit', handleImportSales);
         document.getElementById('edit-sale-form').addEventListener('submit', handleEditSale);
         document.getElementById('discount-form').addEventListener('submit', handleDiscountForm);
-        // Botões da Página Principal
+        
+        document.getElementById('search-barcode').addEventListener('change', function(e) {
+            const barcode = e.target.value.trim();
+            addByBarcode(barcode);
+            e.target.value = '';
+        });
+
         document.getElementById('checkout-button').addEventListener('click', openPaymentModal);
         document.getElementById('clear-cart-button').addEventListener('click', clearCart);
         document.getElementById('search-product').addEventListener('input', (e) => {
@@ -1664,25 +1521,25 @@
         });
         document.getElementById('open-settings-modal-btn').addEventListener('click', () => openModal('modal-settings'));
         document.getElementById('kpi-card-unpaid').addEventListener('click', () => openModal('modal-contas-receber'));
-        // Abrir/Fechar Modais
+        
         document.querySelectorAll('.open-modal-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.modalId)));
         document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));
         document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(backdrop.id); }));
-        // Modal de Confirmação
+        
         document.getElementById('confirm-cancel-btn').addEventListener('click', () => closeModal('modal-confirm'));
         document.getElementById('confirm-confirm-btn').addEventListener('click', () => { if (typeof confirmCallback === 'function') confirmCallback(); closeModal('modal-confirm'); });
-        // Modal de Configurações
+        
         document.getElementById('reset-system-btn').addEventListener('click', resetSystem);
         document.getElementById('theme-selector').addEventListener('click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
-        // Botões de Backup
+        
         document.getElementById('export-data-btn').addEventListener('click', exportAllData);
         document.getElementById('import-file-input').addEventListener('change', importAllData);
         document.getElementById('save-to-google-sheets-btn').addEventListener('click', () => saveToGoogleSheets(false));
         document.getElementById('load-from-google-sheets-btn').addEventListener('click', () => loadFromGoogleSheets(false));
         document.getElementById('autosave-toggle').addEventListener('change', handleAutoSaveToggle);
-        document.getElementById('autoload-toggle').addEventListener('change', handleAutoLoadToggle); // NOVO
+        document.getElementById('autoload-toggle').addEventListener('change', handleAutoLoadToggle);
         window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
-        // Modal de Pagamento
+        
         document.getElementById('payment-method').addEventListener('change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });
         document.getElementById('receive-payment-method').addEventListener('change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
         document.getElementById('edit-sale-method').addEventListener('change', function() { document.getElementById('edit-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
@@ -1690,13 +1547,13 @@
         document.getElementById('process-unpaid-sale-btn').addEventListener('click', processSaleAsUnpaid);
         document.getElementById('apply-general-discount-btn').addEventListener('click', () => openDiscountModal());
         document.getElementById('retroactive-sale-toggle').addEventListener('change', function() { document.getElementById('retroactive-date-group').classList.toggle('hidden', !this.checked); });
-        // Botões de Impressão
+        
         document.getElementById('print-receipt-btn').addEventListener('click', window.print);
         document.getElementById('print-details-btn').addEventListener('click', window.print);
-        // Selectors de Relatório
+        
         document.getElementById('report-month-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
         document.getElementById('report-year-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
-        // Delegação de Eventos para Conteúdo Dinâmico
+        
         document.body.addEventListener('click', e => {
             const target = e.target.closest('button, tr'); if (!target) return;
             const classList = target.classList; const dataset = target.dataset;
@@ -1733,6 +1590,4 @@
 </script>
 </body>
 </html>
-"
-what i need from you is: CÓDIGO DE BARRA, QUANDO EU ADICIONAR UM PRODUTO, TER A OPÇÃO DE ADICIONAR UM CÓDIGO DE BARRA, E QUANDO FOR FAZER A VENDA, TER UM CAMPO DE PESQUISA POR CÓDIGO DE BARRA E ADICIONAR AO CARRINHO AUTOMATICAMENTE.
 

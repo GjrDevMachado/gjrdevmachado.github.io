@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão v11.4 - Papelaria & 3D (Online)</title>
+    <title>Sistema de Gestão v11.5 - Papelaria & 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -251,7 +251,6 @@
 <script>
     // ===================================================================================
     // CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM
-    // Cole a URL do seu App da Web do Google Apps Script aqui.
     // ===================================================================================
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbiXuGirSCuAG4atOy9hPdGo_ZXlubcXPbUJnfxihWRPmM_4z5thJeqVZ_23H1_9246g/exec';
 
@@ -359,6 +358,40 @@
         }
     };
 
+    // --- FUNÇÕES DE LÓGICA PRINCIPAL (vendas, produtos, etc.) ---
+    function addProduct(name, price, cost, stock, categoryId, barcode) {
+        if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) { 
+            showToast('Produto com este nome já está registado!', 'error'); 
+            return; 
+        }
+        if (barcode && products.some(p => p.barcode === barcode)) {
+            showToast('Este código de barras já está associado a outro produto!', 'error');
+            return;
+        }
+        products.push({ 
+            id: Date.now(), 
+            name, 
+            price: parseFloat(price), 
+            cost: parseFloat(cost), 
+            stock: parseInt(stock), 
+            categoryId: parseInt(categoryId),
+            barcode: barcode.trim()
+        });
+        renderProducts(); 
+        showToast('Novo produto adicionado!'); 
+        saveData();
+    }
+
+    function addByBarcode(barcode) {
+        if (!barcode) return;
+        const product = products.find(p => p.barcode && p.barcode === barcode);
+        if (product) {
+            addToCart(product.id);
+        } else {
+            showToast(`Produto com código de barras "${barcode}" não encontrado.`, 'error');
+        }
+    }
+    
     // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
     function formatCurrency(value) { return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
     
@@ -751,7 +784,21 @@
             cashBalance += total;
         }
         
-        const transaction = { id: Date.now(), type: 'venda', amount: total, cost: totalCost, description: `Venda de ${cart.items.reduce((s, i) => s + i.quantity, 0)} item(s)`, date: saleDate, items: [...cart.items], customerId: customerId ? parseInt(customerId) : null, ...paymentDetails, reversed: false, discount: totalDiscount };
+        const { date, ...otherPaymentDetails } = paymentDetails;
+        const transaction = { 
+            id: Date.now(), 
+            type: 'venda', 
+            amount: total, 
+            cost: totalCost, 
+            description: `Venda de ${cart.items.reduce((s, i) => s + i.quantity, 0)} item(s)`, 
+            date: saleDate, 
+            items: [...cart.items], 
+            customerId: customerId ? parseInt(customerId) : null, 
+            ...otherPaymentDetails, 
+            reversed: false, 
+            discount: totalDiscount 
+        };
+
         transactions.push(transaction);
         transactions.sort((a,b) => new Date(a.date) - new Date(b.date));
 
@@ -1220,16 +1267,34 @@
         }
         if (!isAuto) { showToast("A guardar na nuvem... Aguarde.", "success"); toggleLoading(true); }
         const allData = { products, customers, rawMaterials, transactions, cashBalance, categories };
-        fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', cache: 'no-cache', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(allData), keepalive: true })
-        .then(() => {
-            if (!isAuto) { showToast("Dados enviados para a nuvem com sucesso!", "success"); }
-            console.log("Save to cloud successful at " + new Date().toLocaleTimeString());
+        
+        fetch(GOOGLE_SCRIPT_URL, { 
+            method: 'POST', 
+            cache: 'no-cache', 
+            body: JSON.stringify(allData),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                if (!isAuto) { showToast(data.message || "Dados guardados na nuvem com sucesso!", "success"); }
+                console.log("Save to cloud successful:", data.message);
+            } else {
+                throw new Error(data.message || "Ocorreu um erro desconhecido no servidor.");
+            }
         })
         .catch(error => {
-            if (!isAuto) { showToast("Falha ao guardar na nuvem. Verifique a sua conexão.", "error"); }
+            if (!isAuto) { showToast(`Falha ao guardar na nuvem: ${error.message}`, "error"); }
             console.error('Error saving to cloud:', error);
         })
-        .finally(() => { if (!isAuto) { toggleLoading(false); } });
+        .finally(() => { 
+            if (!isAuto) { toggleLoading(false); } 
+        });
     }
     function loadFromGoogleSheets(isAuto = false) {
         if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
@@ -1264,7 +1329,7 @@
                         throw new Error(`Erro retornado pelo Google Script: ${data.message}`);
                     }
                     
-                    if (Array.isArray(data.products) && Array.isArray(data.customers) && Array.isArray(data.transactions)) {
+                    if (Array.isArray(data.products) && Array.isArray(data.customers) && Array.isArray(data.transactions) && Array.isArray(data.categories) && Array.isArray(data.rawMaterials) ) {
                         products = data.products || [];
                         customers = data.customers || [];
                         transactions = data.transactions || [];

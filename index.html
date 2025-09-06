@@ -1041,17 +1041,20 @@
         openModal('modal-receber-pagamento');
     }
     function handleReceivedPayment(e) {
-        e.preventDefault();
-        const form = document.getElementById('receive-payment-form');
-        const sale = transactions.find(t => t.id == form.elements.transactionId.value); if (!sale) return;
-        sale.status = 'Pago';
-        sale.method = form.elements.paymentMethod.value;
-        sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
-        transactions.push({ id: Date.now(), type: 'recebimento', amount: sale.amount, description: `Recebimento da venda #${sale.id}`, date: new Date().toISOString(), method: sale.method, installments: sale.installments });
-        cashBalance += sale.amount;
-        updateCashBalance(); renderUnpaidSales(); closeModal('modal-receber-pagamento');
-        showToast('Pagamento recebido com sucesso!', 'success'); saveData();
-    }
+        e.preventDefault();
+        const form = document.getElementById('receive-payment-form');
+        const sale = transactions.find(t => t.id == form.elements.transactionId.value); if (!sale) return;
+        sale.status = 'Pago';
+        sale.method = form.elements.paymentMethod.value;
+        sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
+        transactions.push({ id: Date.now(), type: 'recebimento', amount: sale.amount, description: `Recebimento da venda #${sale.id}`, date: new Date().toISOString(), method: sale.method, installments: sale.installments });
+        cashBalance += sale.amount;
+        updateCashBalance(); 
+        renderUnpaidSales(); // <-- ESTA LINHA FOI ADICIONADA
+        closeModal('modal-receber-pagamento');
+        showToast('Pagamento recebido com sucesso!', 'success'); 
+        saveData();
+    }
     function handleImportSales(e) {
         e.preventDefault();
         const file = document.getElementById('csv-file-input').files[0]; const logDiv = document.getElementById('import-log');

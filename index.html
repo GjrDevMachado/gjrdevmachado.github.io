@@ -1314,7 +1314,7 @@
             console.error("Erro ao converter dados para JSON antes de salvar:", error);
         }
     }
-    function loadFromGoogleSheets(isAuto = false) {
+function loadFromGoogleSheets(isAuto = false) {
         if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
             if (isAuto) {
                 loadDataFromLocalStorage();
@@ -1345,14 +1345,12 @@
                         rawMaterials = data.rawMaterials || [];
                         categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
                         
-                        // === INÍCIO DA CORREÇÃO AUTOMÁTICA ===
                         transactions.forEach(t => {
-                            if (t.customerid !== undefined) { // Se a versão antiga ('customerid') existir
-                                t.customerId = t.customerid; // Copia o valor para a versão nova ('customerId')
-                                delete t.customerid;         // Apaga a versão antiga para limpar os dados
+                            if (t.customerid !== undefined) {
+                                t.customerId = t.customerid;
+                                delete t.customerid;
                             }
                         });
-                        // === FIM DA CORREÇÃO AUTOMÁTICA ===
 
                         saveData(); 
                         initializeAppUI();
@@ -1377,17 +1375,52 @@
           openConfirmationModal('Carregar Dados da Nuvem?', 'Isto substituirá TODOS os dados atuais...', execution);
         }
     }
-    function handleAutoSaveToggle(event) {
-        const enabled = event.target.checked;
-        manageAutoSaveInterval(enabled);
-        localStorage.setItem('isAutoSaveEnabled', JSON.stringify(enabled));
-        showToast(`Guardar automaticamente ${enabled ? 'ativado' : 'desativado'}.`, "success");
-    }
-    function handleAutoLoadToggle(event) {
-        isAutoLoadEnabled = event.target.checked;
-        localStorage.setItem('isAutoLoadEnabled', JSON.stringify(isAutoLoadEnabled));
-        showToast(`Carregamento automático ao iniciar ${isAutoLoadEnabled ? 'ativado' : 'desativado'}.`, "success");
-    }
+
+    // ++ FUNÇÃO RESTAURADA E MOVIDA PARA O LUGAR CORRETO ++
+    function manageAutoSaveInterval(enable) {
+        const TWO_MINUTES = 120000;
+        if (autoSaveInterval) clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
+        if (enable) {
+            isAutoSaveEnabled = true;
+            autoSaveInterval = setInterval(() => saveToGoogleSheets(true), TWO_MINUTES);
+            console.log("Auto-save started. Saving every 2 minutes.");
+        } else {
+            isAutoSaveEnabled = false;
+            console.log("Auto-save stopped.");
+        }
+    }
+
+    function handleAutoSaveToggle(event) {
+        const enabled = event.target.checked;
+        manageAutoSaveInterval(enabled);
+        localStorage.setItem('isAutoSaveEnabled', JSON.stringify(enabled));
+        showToast(`Guardar automaticamente ${enabled ? 'ativado' : 'desativado'}.`, "success");
+    }
+
+    function handleAutoLoadToggle(event) {
+        isAutoLoadEnabled = event.target.checked;
+        localStorage.setItem('isAutoLoadEnabled', JSON.stringify(isAutoLoadEnabled));
+        showToast(`Carregamento automático ao iniciar ${isAutoLoadEnabled ? 'ativado' : 'desativado'}.`, "success");
+    }
+    
+    function initializeAppUI() {
+        switchView('dashboard-view');
+        renderProducts();
+        renderCart();
+        updateCashBalance();
+        renderCustomers();
+        renderCategoryFilters();
+
+        if (!areEventListenersAdded) {
+            addEventListeners();
+            areEventListenersAdded = true;
+        }
+        
+        if (isAutoSaveEnabled) {
+            manageAutoSaveInterval(true);
+        }
+    }
     
     // --- LÓGICA DE EDIÇÃO DE VENDA ---
     function openEditSaleModal(transactionId) {

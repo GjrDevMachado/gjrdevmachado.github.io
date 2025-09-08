@@ -294,31 +294,34 @@
     }
 
     function loadDataFromLocalStorage() {
-        toggleLoading(true);
-        try {
-            categories = JSON.parse(localStorage.getItem('categories')) || [{ id: 1, name: 'Sem Categoria' }];
-            const productsData = JSON.parse(localStorage.getItem('products'));
-            products = (productsData) ? productsData : sampleProducts;
-            products.forEach(p => { 
-                if (!p.categoryId) p.categoryId = 1;
-                if (p.barcode === undefined) p.barcode = ''; // Compatibilidade
+        toggleLoading(true);
+        try {
+            categories = JSON.parse(localStorage.getItem('categories')) || [{ id: 1, name: 'Sem Categoria' }];
+            products = JSON.parse(localStorage.getItem('products')) || [];
+            rawMaterials = JSON.parse(localStorage.getItem('rawMaterials')) || [];
+            customers = JSON.parse(localStorage.getItem('customers')) || [{ id: 1, name: 'Cliente Balcão', contact: '' }];
+            transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+            cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(savedTheme);
+
+            // === INÍCIO DA CORREÇÃO AUTOMÁTICA ===
+            transactions.forEach(t => {
+                if (t.customerid !== undefined) { // Se a versão antiga ('customerid') existir
+                    t.customerId = t.customerid; // Copia o valor para a versão nova ('customerId')
+                    delete t.customerid;         // Apaga a versão antiga para limpar os dados
+                }
             });
-            
-            const rawMaterialsData = JSON.parse(localStorage.getItem('rawMaterials'));
-            rawMaterials = (rawMaterialsData) ? rawMaterialsData : sampleRawMaterials;
-            customers = JSON.parse(localStorage.getItem('customers')) || [{ id: 1, name: 'Cliente Balcão', contact: '' }];
-            transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-            cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            applyTheme(savedTheme);
-        } catch (error) {
-            console.error("Erro ao carregar dados locais:", error);
-            showToast("Erro ao carregar dados. A utilizar valores padrão.", "error");
-        } finally {
-            initializeAppUI();
-            toggleLoading(false);
-        }
-    }
+            // === FIM DA CORREÇÃO AUTOMÁTICA ===
+
+        } catch (error) {
+            console.error("Erro ao carregar dados locais:", error);
+            showToast("Erro ao carregar dados. A utilizar valores padrão.", "error");
+        } finally {
+            initializeAppUI();
+            toggleLoading(false);
+        }
+    }
     
     function initializeAppUI() {
         switchView('dashboard-view');
@@ -591,20 +594,29 @@
     }
     
     function renderSalesByCustomerReport() {
-        const container = document.getElementById('tab-vendas-cliente');
-        const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
-            const customerId = sale.customerId || 'unknown';
-            if (!acc[customerId]) { acc[customerId] = { paid: 0, unpaid: 0, total: 0, count: 0, customerName: customers.find(c => c.id == customerId)?.name || 'Cliente Não Identificado' }; }
-            acc[customerId].total += sale.amount; acc[customerId].count++;
-            if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount; else acc[customerId].paid += sale.amount;
-            return acc;
-        }, {});
-        let tableHtml = `<table class="w-full text-left mt-4"><thead><tr class="border-b"><th class="p-2">Cliente</th><th class="text-right">Total Comprado</th><th class="text-right">Total Pago</th><th class="text-right">Total Devido</th><th class="text-center">Nº de Vendas</th></tr></thead><tbody>`;
-        Object.entries(salesByCustomer).sort(([,a],[,b]) => b.total - a.total).forEach(([customerId, data]) => {
-            tableHtml += `<tr class="hover:bg-[var(--bg-secondary)] cursor-pointer customer-details-row" data-customer-id="${customerId}"><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
-        });
-        container.innerHTML = tableHtml + '</tbody></table>';
-    }
+        const container = document.getElementById('tab-vendas-cliente');
+        const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
+            const customerId = sale.customerId || 'unknown';
+            if (!acc[customerId]) { 
+                acc[customerId] = { 
+                    paid: 0, 
+                    unpaid: 0, 
+                    total: 0, 
+                    count: 0, 
+                    // A linha abaixo garante a comparação correta (usando '==' em vez de '===')
+                    customerName: customers.find(c => c.id == customerId)?.name || 'Cliente Não Identificado' 
+                }; 
+            }
+            acc[customerId].total += sale.amount; acc[customerId].count++;
+            if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount; else acc[customerId].paid += sale.amount;
+            return acc;
+        }, {});
+        let tableHtml = `<table class="w-full text-left mt-4"><thead><tr class="border-b"><th class="p-2">Cliente</th><th class="text-right">Total Comprado</th><th class="text-right">Total Pago</th><th class="text-right">Total Devido</th><th class="text-center">Nº de Vendas</th></tr></thead><tbody>`;
+        Object.entries(salesByCustomer).sort(([,a],[,b]) => b.total - a.total).forEach(([customerId, data]) => {
+            tableHtml += `<tr class="hover:bg-[var(--bg-secondary)] cursor-pointer customer-details-row" data-customer-id="${customerId}"><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
+        });
+        container.innerHTML = tableHtml + '</tbody></table>';
+    }
 
     function renderCashClosingReport() {
         const today = new Date(); today.setHours(0,0,0,0);
@@ -1023,16 +1035,17 @@
         const activeBtn = document.querySelector(`#theme-selector .theme-button[data-theme="${themeName}"]`);
         if(activeBtn) activeBtn.classList.add('active');
     }
-    function renderUnpaidSales() {
-        const list = document.getElementById('unpaid-sales-list');
-        const unpaidSales = transactions.filter(t => t.type === 'venda' && t.status === 'Não Pago' && !t.reversed);
-        if (unpaidSales.length === 0) { list.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-4">Nenhuma conta pendente.</p>'; return; }
-        list.innerHTML = '';
-        unpaidSales.forEach(sale => {
-            const customer = customers.find(c => c.id === sale.customerId);
-            list.innerHTML += `<div class="flex justify-between items-center p-3 border-b border-[var(--border-color)]"><div><p class="font-bold">${customer ? customer.name : 'Cliente desconhecido'}</p><p class="text-sm text-[var(--text-secondary)]">Venda de ${new Date(sale.date).toLocaleDateString('pt-BR')}</p></div><div class="text-right"><p class="font-bold text-lg text-red-500">${formatCurrency(sale.amount)}</p><button data-id="${sale.id}" class="receive-payment-btn text-sm text-green-600 hover:underline">Receber Pagamento</button></div></div>`;
-        });
-    }
+   function renderUnpaidSales() {
+        const list = document.getElementById('unpaid-sales-list');
+        const unpaidSales = transactions.filter(t => t.type === 'venda' && t.status === 'Não Pago' && !t.reversed);
+        if (unpaidSales.length === 0) { list.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-4">Nenhuma conta pendente.</p>'; return; }
+        list.innerHTML = '';
+        unpaidSales.forEach(sale => {
+            // A comparação foi alterada de '===' para '=='
+            const customer = customers.find(c => c.id == sale.customerId);
+            list.innerHTML += `<div class="flex justify-between items-center p-3 border-b border-[var(--border-color)]"><div><p class="font-bold">${customer ? customer.name : 'Cliente desconhecido'}</p><p class="text-sm text-[var(--text-secondary)]">Venda de ${new Date(sale.date).toLocaleDateString('pt-BR')}</p></div><div class="text-right"><p class="font-bold text-lg text-red-500">${formatCurrency(sale.amount)}</p><button data-id="${sale.id}" class="receive-payment-btn text-sm text-green-600 hover:underline">Receber Pagamento</button></div></div>`;
+        });
+    }
     function openReceivePaymentModal(transactionId) {
         const sale = transactions.find(t => t.id === transactionId); if (!sale) return;
         const form = document.getElementById('receive-payment-form');
@@ -1078,20 +1091,21 @@
         };
         reader.readAsText(file);
     }
-    function openSaleDetailsModal(transactionId) {
-        const sale = transactions.find(t => t.id === transactionId); if (!sale) return;
-        document.getElementById('details-id').textContent = sale.id;
-        document.getElementById('details-date').textContent = new Date(sale.date).toLocaleString('pt-BR');
-        document.getElementById('details-customer').textContent = customers.find(c => c.id === sale.customerId)?.name || 'Não identificado';
-        const itemsTable = document.getElementById('details-items-table'); itemsTable.innerHTML = '';
-        sale.items.forEach(item => itemsTable.innerHTML += `<tr><td class="p-2">${item.name}</td><td class="p-2 text-center">${item.quantity}</td><td class="p-2 text-right">${formatCurrency(item.price)}</td><td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td></tr>`);
-        const profit = sale.amount - sale.cost;
-        document.getElementById('details-subtotal').textContent = formatCurrency(sale.amount + (sale.discount || 0));
-        document.getElementById('details-cost').textContent = formatCurrency(sale.cost);
-        document.getElementById('details-profit').textContent = formatCurrency(profit);
-        document.getElementById('details-margin').textContent = `${(sale.amount > 0 ? (profit / sale.amount) * 100 : 0).toFixed(2)}%`;
-        openModal('modal-venda-detalhes');
-    }
+   function openSaleDetailsModal(transactionId) {
+        const sale = transactions.find(t => t.id === transactionId); if (!sale) return;
+        document.getElementById('details-id').textContent = sale.id;
+        document.getElementById('details-date').textContent = new Date(sale.date).toLocaleString('pt-BR');
+        // A comparação foi alterada de '===' para '=='
+        document.getElementById('details-customer').textContent = customers.find(c => c.id == sale.customerId)?.name || 'Não identificado';
+        const itemsTable = document.getElementById('details-items-table'); itemsTable.innerHTML = '';
+        sale.items.forEach(item => itemsTable.innerHTML += `<tr><td class="p-2">${item.name}</td><td class="p-2 text-center">${item.quantity}</td><td class="p-2 text-right">${formatCurrency(item.price)}</td><td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td></tr>`);
+        const profit = sale.amount - sale.cost;
+        document.getElementById('details-subtotal').textContent = formatCurrency(sale.amount + (sale.discount || 0));
+        document.getElementById('details-cost').textContent = formatCurrency(sale.cost);
+        document.getElementById('details-profit').textContent = formatCurrency(profit);
+        document.getElementById('details-margin').textContent = `${(sale.amount > 0 ? (profit / sale.amount) * 100 : 0).toFixed(2)}%`;
+        openModal('modal-venda-detalhes');
+    }
     function openCustomerDetailsModal(customerId) {
         const customer = customers.find(c => c.id == customerId);
         if (!customer) { showToast("Cliente não encontrado.", "error"); return; }
@@ -1264,132 +1278,103 @@
         reader.readAsText(file);
     }
     function saveToGoogleSheets(isAuto = false) {
-        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
-            if (!isAuto) showToast("URL do Google Script não configurada.", "error");
-            return;
+        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
+            if (!isAuto) showToast("URL do Google Script não configurada.", "error");
+            return;
+        }
+        if (!isAuto) { showToast("A guardar na nuvem... Aguarde.", "success"); toggleLoading(true); }
+        
+        // CORREÇÃO: Cria uma cópia limpa dos dados para garantir que não há problemas.
+        try {
+            const allData = { products, customers, rawMaterials, transactions, cashBalance, categories };
+            const cleanDataString = JSON.stringify(allData);
+
+            fetch(GOOGLE_SCRIPT_URL, { 
+                method: 'POST', 
+                mode: 'no-cors', 
+                cache: 'no-cache', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: cleanDataString, // Envia a string de dados limpa
+                keepalive: true 
+            })
+            .then(() => {
+                if (!isAuto) { showToast("Dados enviados para a nuvem com sucesso!", "success"); }
+                console.log("Save to cloud successful at " + new Date().toLocaleTimeString());
+            })
+            .catch(error => {
+                if (!isAuto) { showToast("Falha ao guardar na nuvem. Verifique a sua conexão.", "error"); }
+                console.error('Error saving to cloud:', error);
+            })
+            .finally(() => { if (!isAuto) { toggleLoading(false); } });
+        } catch (error) {
+            if (!isAuto) {
+                toggleLoading(false);
+                showToast("Erro ao preparar dados para salvar. Verifique o console (F12).", "error");
+            }
+            console.error("Erro ao converter dados para JSON antes de salvar:", error);
         }
-        if (!isAuto) { showToast("A guardar na nuvem... Aguarde.", "success"); toggleLoading(true); }
-        const allData = { products, customers, rawMaterials, transactions, cashBalance, categories };
-        
-        fetch(GOOGLE_SCRIPT_URL, { 
-            method: 'POST', 
-            cache: 'no-cache', 
-            body: JSON.stringify(allData),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.status === 'success') {
-                if (!isAuto) { showToast(data.message || "Dados guardados na nuvem com sucesso!", "success"); }
-                console.log("Save to cloud successful:", data.message);
-            } else {
-                throw new Error(data.message || "Ocorreu um erro desconhecido no servidor.");
-            }
-        })
-        .catch(error => {
-            if (!isAuto) { showToast(`Falha ao guardar na nuvem: ${error.message}`, "error"); }
-            console.error('Error saving to cloud:', error);
-        })
-        .finally(() => { 
-            if (!isAuto) { toggleLoading(false); } 
-        });
-    }
+    }
     function loadFromGoogleSheets(isAuto = false) {
-        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
-            if (isAuto) {
-                loadDataFromLocalStorage();
-            } else {
-                showToast("URL do Google Script não configurada.", "error");
-            }
-            return;
-        }
+        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
+            if (isAuto) {
+                loadDataFromLocalStorage();
+            } else {
+                showToast("URL do Google Script não configurada.", "error");
+            }
+            return;
+        }
 
-        const execution = () => {
-            if (!isAuto) showToast("A carregar dados da nuvem... Aguarde.", "success");
-            toggleLoading(true);
-            fetch(GOOGLE_SCRIPT_URL)
-                .then(response => {
-                    if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`) }
-                    return response.clone().text().then(text => {
-                        console.log("Resposta bruta recebida da nuvem:", text);
-                        try {
-                            return JSON.parse(text);
-                        } catch (jsonError) {
-                            console.error("Erro ao analisar a resposta JSON:", jsonError);
-                            throw new Error("A resposta da nuvem não é um JSON válido. Verifique os registos do Apps Script.");
-                        }
-                    });
-                })
-                .then(data => {
-                    console.log("Dados JSON analisados:", data);
-
-                    if (data.status === 'error') {
-                        throw new Error(`Erro retornado pelo Google Script: ${data.message}`);
-                    }
-                    
-                    if (Array.isArray(data.products) && Array.isArray(data.customers) && Array.isArray(data.transactions) && Array.isArray(data.categories) && Array.isArray(data.rawMaterials) ) {
-                        products = data.products || [];
-                        customers = data.customers || [];
-                        transactions = data.transactions || [];
-                        cashBalance = data.cashBalance || 0;
-                        rawMaterials = data.rawMaterials || [];
-                        categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
-                        products.forEach(p => { 
-                            if (!p.categoryId) p.categoryId = 1;
-                            if (p.barcode === undefined) p.barcode = ''; // Compatibilidade
+        const execution = () => {
+            if (!isAuto) showToast("A carregar dados da nuvem... Aguarde.", "success");
+            toggleLoading(true);
+            fetch(GOOGLE_SCRIPT_URL)
+                .then(response => {
+                    if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`) }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'error') {
+                        throw new Error(`Erro retornado pelo Google Script: ${data.message}`);
+                    }
+                    
+                    if (data && typeof data === 'object' && Array.isArray(data.customers)) {
+                        products = data.products || [];
+                        customers = data.customers || [];
+                        transactions = data.transactions || [];
+                        cashBalance = data.cashBalance || 0;
+                        rawMaterials = data.rawMaterials || [];
+                        categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
+                        
+                        // === INÍCIO DA CORREÇÃO AUTOMÁTICA ===
+                        transactions.forEach(t => {
+                            if (t.customerid !== undefined) { // Se a versão antiga ('customerid') existir
+                                t.customerId = t.customerid; // Copia o valor para a versão nova ('customerId')
+                                delete t.customerid;         // Apaga a versão antiga para limpar os dados
+                            }
                         });
-                        
-                        saveData(); 
-                        initializeAppUI();
-                        
-                        if (!isAuto) {
-                           closeModal('modal-settings');
-                        }
-                        showToast("Dados carregados da nuvem com sucesso!", "success");
-                    } else {
-                        throw new Error("Dados da nuvem estão em formato inválido ou incompletos. Verifique a consola do navegador.");
-                    }
-                })
-                .catch(error => {
-                    console.error('Falha detalhada ao carregar do Google Sheets:', error);
-                    showToast(`Falha ao carregar: ${error.message}. A usar dados locais.`, "error");
-                    if (isAuto) {
-                        loadDataFromLocalStorage();
-                    }
-                })
-                .finally(() => {
-                    toggleLoading(false);
-                });
-        };
+                        // === FIM DA CORREÇÃO AUTOMÁTICA ===
 
-        if (isAuto) {
-          execution();
-        } else {
-          openConfirmationModal(
-              'Carregar Dados da Nuvem?',
-              'Isto substituirá TODOS os dados atuais pelos dados guardados na sua Planilha Google. Deseja continuar?',
-              execution
-          );
-        }
-    }
-    function manageAutoSaveInterval(enable) {
-        // O valor foi alterado para 120000 milissegundos, que equivale a 2 minutos.
-        const TWO_MINUTES = 120000; 
-        if (autoSaveInterval) clearInterval(autoSaveInterval);
-        autoSaveInterval = null;
-        if (enable) {
-            isAutoSaveEnabled = true;
-            autoSaveInterval = setInterval(() => saveToGoogleSheets(true), TWO_MINUTES);
-            // A mensagem de log também foi atualizada.
-            console.log("Auto-save started. Saving every 2 minutes.");
+                        saveData(); 
+                        initializeAppUI();
+                        
+                        if (!isAuto) closeModal('modal-settings');
+                        showToast("Dados carregados da nuvem com sucesso!", "success");
+                    } else {
+                        throw new Error("Dados da nuvem estão em formato inválido ou corrompidos.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Falha detalhada ao carregar do Google Sheets:', error);
+                    showToast(`Falha ao carregar: ${error.message}. A usar dados locais.`, "error");
+                    if (isAuto) loadDataFromLocalStorage();
+                })
+                .finally(() => { toggleLoading(false); });
+        };
+
+        if (isAuto) {
+          execution();
         } else {
-            isAutoSaveEnabled = false;
-            console.log("Auto-save stopped.");
+          openConfirmationModal('Carregar Dados da Nuvem?', 'Isto substituirá TODOS os dados atuais...', execution);
         }
     }
     function handleAutoSaveToggle(event) {

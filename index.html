@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão v11.5 - Papelaria & 3D (Online)</title>
+    <title>Sistema de Gestão v11.5 - MOLDART 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1053,17 +1053,29 @@
         document.getElementById('receive-payment-total').textContent = formatCurrency(sale.amount);
         openModal('modal-receber-pagamento');
     }
-    function handleReceivedPayment(e) {
+function handleReceivedPayment(e) {
         e.preventDefault();
         const form = document.getElementById('receive-payment-form');
-        const sale = transactions.find(t => t.id == form.elements.transactionId.value); if (!sale) return;
+        const sale = transactions.find(t => t.id == form.elements.transactionId.value); 
+        if (!sale) return;
+
         sale.status = 'Pago';
         sale.method = form.elements.paymentMethod.value;
         sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
-        transactions.push({ id: Date.now(), type: 'recebimento', amount: sale.amount, description: `Recebimento da venda #${sale.id}`, date: new Date().toISOString(), method: sale.method, installments: sale.installments });
+        
+        transactions.push({ 
+            id: Date.now(), 
+            type: 'recebimento', 
+            amount: sale.amount, 
+            description: `Recebimento da venda #${sale.id}`, 
+            date: new Date().toISOString(), 
+            method: sale.method, 
+            installments: sale.installments 
+        });
+
         cashBalance += sale.amount;
         updateCashBalance(); 
-        renderUnpaidSales(); // <-- ESTA LINHA FOI ADICIONADA
+        renderUnpaidSales(); // <-- ESTA É A LINHA ESSENCIAL QUE ATUALIZA A LISTA.
         closeModal('modal-receber-pagamento');
         showToast('Pagamento recebido com sucesso!', 'success'); 
         saveData();

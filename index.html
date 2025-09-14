@@ -492,8 +492,13 @@
             const transactionsList = document.getElementById('transactions-list');
             let filteredTransactions, startDate;
             
+            // ====================================================================
+            // A LINHA ABAIXO É A CORREÇÃO PRINCIPAL PARA O SEU PROBLEMA
+            // Ela garante que os seletores de mês/ano só apareçam no modo "monthly"
+            // ====================================================================
             document.getElementById('month-year-selector').classList.toggle('hidden', period !== 'monthly');
 
+            // Lógica de filtro de data
             if (period === 'annual') {
                 startDate = new Date(now.getFullYear(), 0, 1);
                 filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
@@ -519,10 +524,22 @@
             annualSummaryTable.classList.toggle('hidden', period !== 'annual');
             
             const salesSummary = document.getElementById('sales-summary');
-            const totalRevenue = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((s, t) => s + t.amount, 0);
-            const totalCost = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((s, t) => s + (t.cost || 0), 0);
+            const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
+
+            const totalRevenue = salesTransactions.reduce((s, t) => s + t.amount, 0);
+            const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
+            const grossRevenue = totalRevenue + totalDiscounts;
+            const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0);
             const profit = totalRevenue - totalCost;
-            salesSummary.innerHTML = `<div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Receita Bruta</p><p class="text-lg font-bold text-[var(--primary-600)]">${formatCurrency(totalRevenue)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div><div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${(totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0).toFixed(2)}%</p></div>`;
+
+            salesSummary.className = "grid grid-cols-2 md:grid-cols-5 gap-4 text-center mb-4";
+            salesSummary.innerHTML = `
+                <div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Faturamento Bruto</p><p class="text-lg font-bold">${formatCurrency(grossRevenue)}</p></div>
+                <div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Total Descontos</p><p class="text-lg font-bold text-red-500">${formatCurrency(totalDiscounts)}</p></div>
+                <div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div>
+                <div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div>
+                <div class="p-2"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${(grossRevenue > 0 ? (profit / grossRevenue) * 100 : 0).toFixed(2)}%</p></div>
+            `;
 
             if (period !== 'annual') {
                 renderTransactionList(transactionsList, filteredTransactions);
@@ -531,26 +548,28 @@
             const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
             if (period === 'annual') {
                 const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-                const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0 }));
+                const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0, discount: 0 }));
                 
-                filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).forEach(t => {
+                salesTransactions.forEach(t => {
                     const month = new Date(t.date).getMonth();
                     if (t.status === 'Não Pago') monthlyData[month].unpaid += t.amount;
                     else monthlyData[month].paid += t.amount;
                     monthlyData[month].cost += (t.cost || 0);
+                    monthlyData[month].discount += (t.discount || 0);
                 });
                 
                 salesData.labels = monthNames;
                 salesData.datasets[0].data = monthlyData.map(m => m.paid);
                 salesData.datasets[1].data = monthlyData.map(m => m.unpaid);
                 
-                annualSummaryTable.innerHTML = `<table class="w-full text-left"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th>Faturação Bruta</th><th>Custo Produtos</th><th>Lucro Líquido</th><th>Margem %</th></tr></thead><tbody></tbody></table>`;
+                annualSummaryTable.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th class="text-right">Fat. Bruto</th><th class="text-right">Descontos</th><th class="text-right">Custo</th><th class="text-right">Lucro Líquido</th><th class="text-right">Margem %</th></tr></thead><tbody></tbody></table>`;
                 const annualTbody = annualSummaryTable.querySelector('tbody');
                 monthlyData.forEach((monthData, index) => {
-                    const totalRevenue = monthData.paid + monthData.unpaid;
-                    const profit = totalRevenue - monthData.cost;
-                    const profitPercentage = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
-                    annualTbody.innerHTML += `<tr><td class="p-2 font-semibold">${monthNames[index]}</td><td>${formatCurrency(totalRevenue)}</td><td>${formatCurrency(monthData.cost)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${profitPercentage.toFixed(2)}%</td></tr>`;
+                    const totalPaidAndUnpaid = monthData.paid + monthData.unpaid;
+                    const grossMonthRevenue = totalPaidAndUnpaid + monthData.discount;
+                    const profit = totalPaidAndUnpaid - monthData.cost;
+                    const profitPercentage = grossMonthRevenue > 0 ? (profit / grossMonthRevenue) * 100 : 0;
+                    annualTbody.innerHTML += `<tr><td class="p-2 font-semibold">${monthNames[index]}</td><td class="text-right">${formatCurrency(grossMonthRevenue)}</td><td class="text-right text-red-600">${formatCurrency(monthData.discount)}</td><td class="text-right">${formatCurrency(monthData.cost)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${profitPercentage.toFixed(2)}%</td></tr>`;
                 });
             } else {
                 const salesByDate = {};
@@ -562,13 +581,14 @@
                      loopDate.setDate(loopDate.getDate() + 1);
                 }
 
-                filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).forEach(t => {
+                salesTransactions.forEach(t => {
                     const key = new Date(t.date).toISOString().split('T')[0];
                     if(salesByDate[key]) {
                         if (t.status === 'Não Pago') salesByDate[key].unpaid += t.amount;
                         else salesByDate[key].paid += t.amount;
                     }
                 });
+
                 if (period === 'daily') {
                     salesData.labels.push('Hoje');
                     const dailyTotals = Object.values(salesByDate).reduce((acc, curr) => ({ paid: acc.paid + curr.paid, unpaid: acc.unpaid + curr.unpaid }), { paid: 0, unpaid: 0 });
@@ -598,7 +618,6 @@
             rawMaterials.forEach(rm => { const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0; materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.supplier || 'N/A'}</td><td>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`; });
         } catch (error) { console.error("Erro ao renderizar relatórios:", error); showToast("Ocorreu um erro ao gerar o relatório.", "error"); }
     }
-    
     function renderSalesByCustomerReport() {
         const container = document.getElementById('tab-vendas-cliente');
         const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
@@ -713,11 +732,24 @@
         return table;
     }
     
+    // VERSÃO NOVA E CORRIGIDA
     function setReportPeriod(period) {
         currentReportPeriod = period;
         document.querySelectorAll('#report-period-buttons .period-button').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`#report-period-buttons .period-button[data-period="${period}"]`).classList.add('active');
-        renderReports(period);
+        
+        // --- LÓGICA ALTERADA ---
+        // Agora, tratamos a chamada para o relatório mensal de forma explícita
+        if (period === 'monthly') {
+            populateMonthYearSelectors();
+            const now = new Date();
+            // Chamamos 'renderReports' passando o mês e ano atuais diretamente.
+            // Isso força a renderização correta na primeira vez.
+            renderReports(period, now.getMonth(), now.getFullYear()); 
+        } else {
+            // Para os outros períodos, a chamada continua simples.
+            renderReports(period);
+        }
     }
     function updateTotals() {
         const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -1109,21 +1141,42 @@ function handleReceivedPayment(e) {
         };
         reader.readAsText(file);
     }
-   function openSaleDetailsModal(transactionId) {
-        const sale = transactions.find(t => t.id === transactionId); if (!sale) return;
-        document.getElementById('details-id').textContent = sale.id;
-        document.getElementById('details-date').textContent = new Date(sale.date).toLocaleString('pt-BR');
-        // A comparação foi alterada de '===' para '=='
-        document.getElementById('details-customer').textContent = customers.find(c => c.id == sale.customerId)?.name || 'Não identificado';
-        const itemsTable = document.getElementById('details-items-table'); itemsTable.innerHTML = '';
-        sale.items.forEach(item => itemsTable.innerHTML += `<tr><td class="p-2">${item.name}</td><td class="p-2 text-center">${item.quantity}</td><td class="p-2 text-right">${formatCurrency(item.price)}</td><td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td></tr>`);
-        const profit = sale.amount - sale.cost;
-        document.getElementById('details-subtotal').textContent = formatCurrency(sale.amount + (sale.discount || 0));
-        document.getElementById('details-cost').textContent = formatCurrency(sale.cost);
-        document.getElementById('details-profit').textContent = formatCurrency(profit);
-        document.getElementById('details-margin').textContent = `${(sale.amount > 0 ? (profit / sale.amount) * 100 : 0).toFixed(2)}%`;
-        openModal('modal-venda-detalhes');
-    }
+ function openSaleDetailsModal(transactionId) {
+        const sale = transactions.find(t => t.id === transactionId);
+        if (!sale) return;
+
+        document.getElementById('details-id').textContent = sale.id;
+        document.getElementById('details-date').textContent = new Date(sale.date).toLocaleString('pt-BR');
+        document.getElementById('details-customer').textContent = customers.find(c => c.id == sale.customerId)?.name || 'Não identificado';
+        
+        const itemsTable = document.getElementById('details-items-table');
+        itemsTable.innerHTML = '';
+        sale.items.forEach(item => itemsTable.innerHTML += `<tr><td class="p-2">${item.name}</td><td class="p-2 text-center">${item.quantity}</td><td class="p-2 text-right">${formatCurrency(item.price)}</td><td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td></tr>`);
+
+        const subtotal = sale.amount + (sale.discount || 0); // Subtotal antes dos descontos
+        const profit = sale.amount - sale.cost;
+        // --- CÁLCULO NOVO ---
+        const discountPercentage = subtotal > 0 ? ((sale.discount || 0) / subtotal) * 100 : 0;
+
+        // --- HTML ALTERADO ---
+        // Limpamos o conteúdo antigo e remontamos com os descontos
+        const detailsSummaryDiv = document.querySelector('#modal-venda-detalhes .space-y-1');
+        detailsSummaryDiv.innerHTML = `
+            <div class="flex justify-between"><span>Subtotal:</span> <span id="details-subtotal">${formatCurrency(subtotal)}</span></div>
+            <div class="flex justify-between text-red-600">
+                <span>Descontos:</span> 
+                <span id="details-discount">-${formatCurrency(sale.discount || 0)} (${discountPercentage.toFixed(2)}%)</span>
+            </div>
+            <div class="flex justify-between font-bold text-xl border-t pt-2 mt-2"><span>TOTAL PAGO:</span> <span>${formatCurrency(sale.amount)}</span></div>
+            <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm">
+                <div class="flex justify-between"><span>Custo Total:</span> <span id="details-cost" class="text-red-600">${formatCurrency(sale.cost)}</span></div>
+                <div class="flex justify-between font-bold"><span>Lucro Líquido:</span> <span id="details-profit" class="text-green-600">${formatCurrency(profit)}</span></div>
+                <div class="flex justify-between font-bold"><span>Margem de Lucro:</span> <span id="details-margin" class="text-green-600">${(sale.amount > 0 ? (profit / sale.amount) * 100 : 0).toFixed(2)}%</span></div>
+            </div>
+        `;
+        
+        openModal('modal-venda-detalhes');
+    }
     function openCustomerDetailsModal(customerId) {
         const customer = customers.find(c => c.id == customerId);
         if (!customer) { showToast("Cliente não encontrado.", "error"); return; }
@@ -1153,11 +1206,18 @@ function handleReceivedPayment(e) {
             return;
         }
         [...transactionList].reverse().forEach(t => {
-            let color = '', icon = 'fa-question-circle', profitHtml = '', actionsHtml = '', paymentInfo = '', rowClass = '';
+            let color = '', icon = 'fa-question-circle', profitHtml = '', actionsHtml = '', paymentInfo = '', rowClass = '', discountHtml = ''; // Variável nova
+
             if (t.type === 'venda') {
                 icon = 'fa-shopping-cart';
                 const profit = t.amount - (t.cost || 0);
                 profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
+                
+                // --- LÓGICA ADICIONADA ---
+                if (t.discount > 0) {
+                    discountHtml = `<div class="text-xs text-red-500">Desconto: ${formatCurrency(t.discount)}</div>`;
+                }
+
                 actionsHtml = `<button data-id="${t.id}" class="open-sale-details-btn text-xs text-blue-600 hover:underline mr-2">Detalhes</button>`;
                 if (!t.reversed) {
                     actionsHtml += `<button data-id="${t.id}" class="cancel-sale-btn text-xs text-yellow-600 hover:underline mr-2">Estornar</button>`;
@@ -1173,7 +1233,7 @@ function handleReceivedPayment(e) {
                     color = 'text-[var(--secondary-600)]';
                     if (t.method) {
                         let badgeClass = '', methodText = t.method;
-                        switch(t.method) {
+                        switch (t.method) {
                             case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
                             case 'Pix': badgeClass = 'badge-pix'; break;
                             case 'Cartão de Crédito': badgeClass = 'badge-credito'; methodText = `CRÉDITO ${t.installments > 1 ? `(${t.installments}x)` : ''}`; break;
@@ -1185,7 +1245,9 @@ function handleReceivedPayment(e) {
             if (t.type === 'entrada' || t.type === 'recebimento') { color = 'text-blue-600'; icon = 'fa-arrow-down'; }
             if (t.type === 'saida') { color = 'text-red-600'; icon = 'fa-arrow-up'; }
             if (t.type === 'estorno') { color = 'text-yellow-600'; icon = 'fa-undo'; }
-            container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(t.amount)}</p>${profitHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
+            
+            // --- HTML ALTERADO (para incluir discountHtml) ---
+            container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(t.amount)}</p>${profitHtml}${discountHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
         });
     }
 

@@ -404,7 +404,9 @@
         const productGrid = document.getElementById('product-grid');
         productGrid.innerHTML = '';
         
+        // A LINHA ABAIXO É A MAIS IMPORTANTE PARA CORRIGIR O ERRO
         let filteredProducts = products;
+
         if (categoryId !== 'all') {
             filteredProducts = filteredProducts.filter(p => p.categoryId == categoryId);
         }
@@ -412,12 +414,16 @@
             filteredProducts = filteredProducts.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
         }
 
-        if (filteredProducts.length === 0) { productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado.</p>`; return; }
+        if (filteredProducts.length === 0) { 
+            productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado.</p>`; 
+            return; 
+        }
         
         filteredProducts.forEach(product => {
             const disabled = product.stock <= 0;
             const card = document.createElement('div');
             card.className = `product-card p-4 rounded-lg shadow cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-secondary)]'}`;
+            card.setAttribute('title', product.name); 
             card.innerHTML = `<h3 class="font-bold truncate">${product.name}</h3><p class="text-[var(--primary-600)] font-semibold">${formatCurrency(product.price)}</p><p class="text-sm text-[var(--text-secondary)]">Estoque: ${product.stock}</p>`;
             if (!disabled) { card.onclick = () => addToCart(product.id); }
             productGrid.appendChild(card);
@@ -1690,4 +1696,5 @@ function loadFromGoogleSheets(isAuto = false) {
 </script>
 </body>
 </html>
+
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão v11.5 - MOLDART 3D (Online)</title>
+    <title>Sistema de Gestão - MOLDART 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -50,7 +50,7 @@
         .badge-dinheiro { background-color: #d1fae5; color: #065f46; }
         .badge-pix { background-color: #cffafe; color: #0e7490; }
         .badge-credito { background-color: #dbeafe; color: #1e40af; }
-        #modal-edit-produto, #modal-edit-materiaprima, #modal-edit-cliente, #modal-venda-antiga, #modal-importar-vendas, #modal-edit-categoria { z-index: 110; }
+        #modal-edit-produto, #modal-edit-materiaprima, #modal-edit-cliente, #modal-venda-antiga, #modal-importar-vendas, #modal-edit-categoria, #modal-edit-product-list { z-index: 110; }
         #modal-venda-detalhes, #modal-cliente-detalhes, #modal-edit-venda, #modal-desconto { z-index: 115; }
         #modal-confirm, #modal-contas-receber { z-index: 120; }
         #modal-receber-pagamento { z-index: 125; }
@@ -69,13 +69,11 @@
 </head>
 <body class="antialiased">
 
-    <!-- Overlay de Carregamento -->
     <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden">
         <div class="loader"></div>
     </div>
 
     <div class="flex min-h-screen">
-        <!-- Barra de Navegação Lateral -->
         <nav id="sidebar" class="w-64 bg-[var(--bg-primary)] shadow-lg p-4 flex flex-col">
             <div class="text-center mb-10">
                 <h2 class="text-2xl font-bold text-[var(--primary-600)]">Gestão PDV</h2>
@@ -90,17 +88,14 @@
             </div>
         </nav>
 
-        <!-- Conteúdo Principal -->
         <main class="flex-1 p-4 sm:p-6 lg:p-8 bg-[var(--bg-secondary)] overflow-y-auto">
             
-            <!-- Vista do Dashboard (Visível por defeito) -->
             <div id="dashboard-view" class="">
                 <header class="mb-8">
                     <h1 class="text-3xl font-bold">Dashboard</h1>
                     <p class="text-[var(--text-secondary)]">Resumo do seu negócio em tempo real.</p>
                 </header>
 
-                <!-- Cartões de KPI -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
                         <div class="bg-green-100 p-3 rounded-full"><i class="fas fa-dollar-sign fa-2x text-green-600"></i></div>
@@ -117,10 +112,10 @@
                         </div>
                     </div>
                     <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-yellow-100 p-3 rounded-full"><i class="fas fa-exclamation-triangle fa-2x text-yellow-600"></i></div>
+                        <div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-receipt fa-2x text-purple-600"></i></div>
                         <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Baixo Estoque</p>
-                            <p id="kpi-low-stock" class="text-2xl font-bold">0 Produtos</p>
+                            <p class="text-sm text-[var(--text-secondary)]">Ticket Médio (Hoje)</p>
+                            <p id="kpi-avg-ticket" class="text-2xl font-bold">R$ 0,00</p>
                         </div>
                     </div>
                     <div id="kpi-card-unpaid" class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4 cursor-pointer hover:shadow-xl transition-shadow">
@@ -132,17 +127,16 @@
                     </div>
                 </div>
 
-                <!-- Ações Rápidas e Atividade Recente -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-1 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
-    <h3 class="text-xl font-bold mb-4">Ações Rápidas</h3>
-    <div class="space-y-3">
-        <button data-view="pos-view" class="quick-action-btn w-full text-left bg-[var(--primary-600)] text-white px-4 py-3 rounded-lg shadow hover:bg-[var(--primary-700)] transition flex items-center gap-3"><i class="fas fa-cash-register w-5"></i> Nova Venda</button>
-        <button data-modal-id="modal-produto" class="open-modal-btn w-full text-left bg-[var(--secondary-600)] text-white px-4 py-3 rounded-lg shadow hover:bg-[var(--secondary-700)] transition flex items-center gap-3"><i class="fas fa-plus-circle w-5"></i> Adicionar Produto</button>
-        <button data-modal-id="modal-contas-receber" class="open-modal-btn w-full text-left bg-orange-500 text-white px-4 py-3 rounded-lg shadow hover:bg-orange-600 transition flex items-center gap-3"><i class="fas fa-file-invoice-dollar w-5"></i> Contas a Receber</button>
-        <button data-modal-id="modal-relatorios" class="open-modal-btn w-full text-left bg-gray-700 text-white px-4 py-3 rounded-lg shadow hover:bg-gray-800 transition flex items-center gap-3"><i class="fas fa-chart-bar w-5"></i> Ver Relatórios</button>
-    </div>
-</div>
+                        <h3 class="text-xl font-bold mb-4">Ações Rápidas</h3>
+                        <div class="space-y-3">
+                            <button data-view="pos-view" class="quick-action-btn w-full text-left bg-[var(--primary-600)] text-white px-4 py-3 rounded-lg shadow hover:bg-[var(--primary-700)] transition flex items-center gap-3"><i class="fas fa-cash-register w-5"></i> Nova Venda</button>
+                            <button data-modal-id="modal-produto" class="open-modal-btn w-full text-left bg-[var(--secondary-600)] text-white px-4 py-3 rounded-lg shadow hover:bg-[var(--secondary-700)] transition flex items-center gap-3"><i class="fas fa-plus-circle w-5"></i> Adicionar Produto</button>
+                            <button data-modal-id="modal-contas-receber" class="open-modal-btn w-full text-left bg-orange-500 text-white px-4 py-3 rounded-lg shadow hover:bg-orange-600 transition flex items-center gap-3"><i class="fas fa-file-invoice-dollar w-5"></i> Contas a Receber</button>
+                            <button data-modal-id="modal-relatorios" class="open-modal-btn w-full text-left bg-gray-700 text-white px-4 py-3 rounded-lg shadow hover:bg-gray-800 transition flex items-center gap-3"><i class="fas fa-chart-bar w-5"></i> Ver Relatórios</button>
+                        </div>
+                    </div>
                     <div class="lg:col-span-2 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-bold mb-4">Atividade Recente</h3>
                         <div id="recent-transactions-list" class="space-y-2">
@@ -152,10 +146,8 @@
                 </div>
             </div>
 
-            <!-- Vista do Ponto de Venda (Oculta por defeito) -->
             <div id="pos-view" class="hidden h-full">
                  <div class="flex flex-col lg:flex-row h-full">
-                    <!-- Coluna Esquerda: Produtos -->
                     <div class="w-full lg:w-3/5 pr-0 lg:pr-4 overflow-y-auto flex flex-col">
                         <header class="mb-4 flex justify-between items-start">
                             <div>
@@ -182,7 +174,6 @@
                         <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 flex-grow overflow-y-auto"></div>
                     </div>
 
-                    <!-- Coluna Direita: Caixa -->
                     <div class="w-full lg:w-2/5 bg-[var(--bg-primary)] shadow-lg flex flex-col p-4 sm:p-6 mt-4 lg:mt-0">
                         <div class="flex-grow overflow-y-auto">
                             <h2 class="text-xl lg:text-2xl font-bold mb-4 border-b pb-2 border-[var(--border-color)]">Caixa</h2>
@@ -206,34 +197,113 @@
         </main>
     </div>
 
-    <!-- ========= Modais ========= -->
+    <div id="modal-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal">
+            <h3 class="text-2xl font-bold mb-6">Adicionar Novo Produto</h3>
+            <form id="add-product-form" class="space-y-4">
+                <input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" name="productBarcode" placeholder="Código de Barras (opcional)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
+                    <select name="productCategory" id="add-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                </div>
+            </form>
+            <div class="flex justify-end gap-4 mt-6">
+                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button>
+                <button type="submit" form="add-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Adicionar</button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-edit-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal">
+            <h3 class="text-2xl font-bold mb-6">Editar Produto</h3>
+            <form id="edit-product-form" class="space-y-4">
+                <input type="hidden" name="productId">
+                <input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" name="productBarcode" placeholder="Código de Barras (opcional)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]">
+                    <select name="editProductCategory" id="edit-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required>
+                </div>
+            </form>
+            <div class="flex justify-between items-center mt-6">
+                <button type="button" id="delete-product-btn" class="px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Excluir Produto</button>
+                <div class="flex gap-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button>
+                    <button type="submit" form="edit-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-edit-product-list" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-4xl mx-4 modal flex flex-col max-h-[90vh]">
+            <h3 class="text-2xl font-bold mb-4">Editar Produtos</h3>
+            <div class="mb-4 relative">
+                <input type="text" id="search-edit-product" placeholder="Procurar produto para editar..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
+            </div>
+            <div id="edit-product-list-container" class="flex-grow overflow-y-auto"></div>
+            <div class="flex justify-end mt-6">
+                <button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Modal: Adicionar/Editar Produto -->
-    <div id="modal-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Adicionar Novo Produto</h3><form id="add-product-form" class="space-y-4"><input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" name="productBarcode" placeholder="Código de Barras (opcional)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><select name="productCategory" id="add-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select></div><div class="grid grid-cols-3 gap-4"><input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productStock" placeholder="Estoque" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="add-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Adicionar</button></div></div></div>
-    <div id="modal-edit-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Produto</h3><form id="edit-product-form" class="space-y-4"><input type="hidden" name="productId"><input type="text" name="productName" placeholder="Nome do Produto" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" name="productBarcode" placeholder="Código de Barras (opcional)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><select name="editProductCategory" id="edit-product-category" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></select></div><div class="grid grid-cols-3 gap-4"><input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="productStock" placeholder="Estoque" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div></form><div class="flex justify-between items-center mt-6"><button type="button" id="delete-product-btn" class="px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Excluir Produto</button><div class="flex gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-product-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div></div>
-
-    <!-- Modal: Adicionar/Editar Categoria -->
     <div id="modal-categorias" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Categorias</h3><form id="add-category-form" class="mb-6 pb-6 border-b border-[var(--border-color)] flex items-center gap-4"><input type="text" name="categoryName" placeholder="Nome da Nova Categoria" class="flex-grow p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><button type="submit" class="px-4 py-2 bg-teal-600 text-white rounded-lg">Adicionar</button></form><div id="categories-list" class="max-h-64 overflow-y-auto"></div></div></div>
     <div id="modal-edit-categoria" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Categoria</h3><form id="edit-category-form"><input type="hidden" name="categoryId"><input type="text" name="categoryName" placeholder="Nome da Categoria" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-category-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div>
 
-    <!-- Modal: Adicionar/Editar Matéria-Prima -->
-    <div id="modal-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Estoque de Insumos</h3><form id="add-raw-material-form" class="mb-6 pb-6 border-b border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end"><input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><button type="submit" class="sm:col-span-2 md:col-span-3 px-4 py-2 bg-[var(--secondary-600)] text-white rounded-lg">Adicionar Item</button></form><div id="raw-materials-list" class="max-h-64 overflow-y-auto"></div></div></div>
+    <div id="modal-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Estoque</h3><form id="add-raw-material-form" class="mb-6 pb-6 border-b border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end"><input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><button type="submit" class="sm:col-span-2 md:col-span-3 px-4 py-2 bg-[var(--secondary-600)] text-white rounded-lg">Adicionar Item</button></form><div id="raw-materials-list" class="max-h-64 overflow-y-auto"></div></div></div>
     <div id="modal-edit-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-3xl mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Item de Estoque</h3><form id="edit-raw-material-form" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end"><input type="hidden" name="rawMaterialId"><input type="text" name="rawMaterialName" placeholder="Nome do Item" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><input type="number" name="rawMaterialStock" placeholder="Quantidade" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: g, ml)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="date" name="rawMaterialReceiptDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-raw-material-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div>
 
-    <!-- Modal: Relatórios -->
-    <div id="modal-relatorios" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-5xl mx-4 modal flex flex-col max-h-[90vh]"><h3 class="text-2xl font-bold mb-4 flex-shrink-0">Relatórios</h3><div class="border-b border-[var(--border-color)] flex-shrink-0"><nav id="report-tabs" class="-mb-px flex flex-nowrap space-x-4 sm:space-x-8 overflow-x-auto pb-2" aria-label="Tabs"><button data-tab="vendas" class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Vendas</button><button data-tab="vendas-cliente" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Vendas por Cliente</button><button data-tab="desempenho-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Desempenho de Produtos</button><button data-tab="estoque-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque de Produtos</button><button data-tab="estoque-materias" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque</button></nav></div><div class="flex-grow overflow-y-auto"><div id="tab-vendas" class="tab-content py-4"><div class="mb-4 flex justify-center gap-2" id="report-period-buttons"><button data-period="daily" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Hoje</button><button data-period="weekly" class="period-button active px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">7 Dias</button><button data-period="monthly" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Este Mês</button><button data-period="annual" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Anual</button></div><div id="month-year-selector" class="hidden my-4 flex justify-center gap-4 items-center"><select id="report-month-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select><select id="report-year-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select></div><div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4"></div><canvas id="salesChart"></canvas><div id="transactions-list" class="mt-4"></div><div id="annual-summary-table" class="mt-4 hidden"></div></div><div id="tab-vendas-cliente" class="tab-content hidden py-4"></div><div id="tab-desempenho-produtos" class="tab-content hidden py-4"></div><div id="tab-estoque-produtos" class="tab-content hidden py-4"></div><div id="tab-estoque-materias" class="tab-content hidden py-4"></div></div></div></div>
+    <div id="modal-relatorios" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-5xl mx-4 modal flex flex-col max-h-[90vh]">
+            <h3 class="text-2xl font-bold mb-4 flex-shrink-0">Relatórios</h3>
+            <div class="border-b border-[var(--border-color)] flex-shrink-0">
+                <nav id="report-tabs" class="-mb-px flex flex-nowrap space-x-4 sm:space-x-8 overflow-x-auto pb-2" aria-label="Tabs">
+                    <button data-tab="vendas" class="tab-button active whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Vendas</button>
+                    <button data-tab="vendas-cliente" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Vendas por Cliente</button>
+                    <button data-tab="desempenho-produtos" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Desempenho de Produtos</button>
+                    <button data-tab="estoque-materias" class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-gray-300">Estoque</button>
+                </nav>
+            </div>
+            <div class="flex-grow overflow-y-auto">
+                <div id="tab-vendas" class="tab-content py-4">
+                    <div class="mb-4 flex justify-center gap-2" id="report-period-buttons">
+                        <button data-period="daily" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Hoje</button>
+                        <button data-period="weekly" class="period-button active px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">7 Dias</button>
+                        <button data-period="monthly" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Este Mês</button>
+                        <button data-period="annual" class="period-button px-3 py-1 text-sm border rounded-full border-[var(--border-color)]">Anual</button>
+                    </div>
+                    <div id="month-year-selector" class="hidden my-4 flex justify-center gap-4 items-center">
+                        <select id="report-month-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select>
+                        <select id="report-year-select" class="p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-primary)]"></select>
+                    </div>
+                    <div id="sales-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-4"></div>
+                    <canvas id="salesChart"></canvas>
+                    <div id="transactions-list" class="mt-4"></div>
+                    <div id="annual-summary-table" class="mt-4 hidden"></div>
+                </div>
+                <div id="tab-vendas-cliente" class="tab-content hidden py-4"></div>
+                <div id="tab-desempenho-produtos" class="tab-content hidden py-4"></div>
+                <div id="tab-estoque-materias" class="tab-content hidden py-4"></div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Modal: Adicionar/Editar Clientes -->
     <div id="modal-clientes" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Gerir Clientes</h3><form id="add-customer-form" class="mb-6 pb-6 border-b border-[var(--border-color)]"><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" name="customerName" placeholder="Nome do Cliente" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="customerContact" placeholder="Contacto (Telefone/Email)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"></div><button type="submit" class="mt-4 w-full md:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg">Adicionar Cliente</button></form><div id="customers-list" class="max-h-64 overflow-y-auto"></div></div></div>
     <div id="modal-edit-cliente" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-lg mx-4 modal"><h3 class="text-2xl font-bold mb-6">Editar Cliente</h3><form id="edit-customer-form"><input type="hidden" name="customerId"><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input type="text" name="customerName" placeholder="Nome do Cliente" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required><input type="text" name="customerContact" placeholder="Contacto (Telefone/Email)" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"></div></form><div class="flex justify-end gap-4 mt-6"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="edit-customer-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Guardar Alterações</button></div></div></div>
     
-    <!-- Modal: Movimentar Caixa -->
     <div id="modal-caixa" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Movimentar Caixa</h3><form id="cash-flow-form"><div class="mb-4"><label class="block text-sm font-medium">Tipo</label><select name="cashFlowType" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="entrada">Entrada (Suprimento)</option><option value="saida">Saída (Despesa)</option></select></div><div class="mb-4"><label class="block text-sm font-medium">Valor (R$)</label><input type="number" name="cashFlowAmount" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div><div class="mb-6"><label class="block text-sm font-medium">Descrição</label><input type="text" name="cashFlowDescription" placeholder="Ex: Troco inicial" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" required></div><div class="flex justify-end gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="cash-flow-form" class="px-4 py-2 bg-orange-500 text-white rounded-lg">Confirmar</button></div></form></div></div>
     
-    <!-- Modal: Configurações -->
     <div id="modal-settings" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Configurações</h3><div><h4 class="font-semibold mb-3">Tema da Interface</h4><div class="grid grid-cols-2 gap-4" id="theme-selector"><button data-theme="light" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-white border mb-2"></span>Claro</button><button data-theme="dark" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-gray-800 border mb-2"></span>Escuro</button><button data-theme="ocean" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-blue-800 border mb-2"></span>Oceano</button><button data-theme="forest" class="theme-button p-4 border border-[var(--border-color)] rounded-lg text-left"><span class="block w-6 h-6 rounded-full bg-green-800 border mb-2"></span>Floresta</button></div></div><div class="mt-6 pt-6 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-3">Backup & Restauração</h4><p class="text-xs text-[var(--text-secondary)] mb-3">Guarde todos os dados do sistema num ficheiro ou restaure a partir de um backup anterior.</p><div class="flex gap-4"><button id="export-data-btn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg"><i class="fas fa-download"></i> Exportar Tudo</button><label for="import-file-input" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg cursor-pointer text-center"><i class="fas fa-upload"></i> Importar Backup</label><input type="file" id="import-file-input" class="hidden" accept=".json"></div><button id="load-from-google-sheets-btn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg mt-2"><i class="fas fa-cloud-download-alt"></i> Carregar da Nuvem</button><button id="save-to-google-sheets-btn" class="w-full px-4 py-2 bg-emerald-700 text-white rounded-lg mt-2"><i class="fas fa-cloud-upload-alt"></i> Guardar na Nuvem (Manual)</button><div class="flex items-center justify-between mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg"><label for="autosave-toggle" class="flex flex-col cursor-pointer"><span class="font-medium">Guardar Automaticamente na Nuvem</span><span class="text-xs text-[var(--text-tertiary)]">Guarda a cada 5 minutos e ao fechar.</span></label><div class="relative inline-block w-10 mr-2 align-middle select-none"><input type="checkbox" name="autosave-toggle" id="autosave-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label for="autosave-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label></div></div><div class="flex items-center justify-between mt-4 p-3 bg-[var(--bg-secondary)] rounded-lg"><label for="autoload-toggle" class="flex flex-col cursor-pointer"><span class="font-medium">Carregar da Nuvem ao Iniciar</span><span class="text-xs text-[var(--text-tertiary)]">Sempre inicia com os dados da planilha.</span></label><div class="relative inline-block w-10 mr-2 align-middle select-none"><input type="checkbox" name="autoload-toggle" id="autoload-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label for="autoload-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label></div></div></div><div class="mt-6 pt-6 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-3 text-[var(--danger-500)]">Zona de Perigo</h4><button id="reset-system-btn" class="w-full px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Zerar Todo o Sistema</button><p class="text-xs text-[var(--text-secondary)] mt-2">Atenção: Esta ação é irreversível e apagará todos os dados.</p></div><div class="flex justify-end mt-8"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button></div></div></div>
     
-    <!-- Restantes Modais (Confirmação, Recibo, Pagamento, etc.) -->
     <div id="modal-confirm" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 id="confirm-title" class="text-2xl font-bold mb-4">Confirmar Ação</h3><p id="confirm-message" class="text-[var(--text-secondary)] mb-6">Tem a certeza?</p><div class="flex justify-end gap-4"><button id="confirm-cancel-btn" class="px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button id="confirm-confirm-btn" class="px-4 py-2 bg-[var(--danger-600)] text-white rounded-lg">Confirmar</button></div></div></div>
     <div id="receipt-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-sm mx-4 modal"><div id="receipt-content" class="text-center"><h2 class="text-2xl font-bold mb-2">Recibo</h2><p class="text-sm text-[var(--text-secondary)] mb-4">A Sua Papelaria & 3D</p><div id="receipt-details" class="text-left space-y-2 border-t border-b border-[var(--border-color)] py-4 my-4"></div><p id="receipt-total" class="font-bold text-lg"></p><p id="receipt-date" class="text-xs text-[var(--text-secondary)] mt-4"></p></div><div class="flex justify-center gap-4 mt-6 no-print"><button class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Fechar</button><button id="print-receipt-btn" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg"><i class="fas fa-print"></i> Imprimir</button></div></div></div>
     <div id="modal-payment" class="fixed inset-0 hidden items-center justify-center modal-backdrop"><div class="rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md mx-4 modal"><h3 class="text-2xl font-bold mb-6">Finalizar Venda</h3><form id="payment-form" class="space-y-4"><div><label class="block text-sm font-medium">Total a Pagar</label><p id="payment-total" class="text-3xl font-bold text-[var(--primary-600)]"></p></div><div><label for="payment-method" class="block text-sm font-medium">Forma de Pagamento</label><select id="payment-method" name="paymentMethod" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"><option value="Dinheiro">Dinheiro</option><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option></select></div><div id="installments-group" class="hidden"><label for="payment-installments" class="block text-sm font-medium">Número de Parcelas</label><input type="number" id="payment-installments" name="paymentInstallments" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]" min="1" value="1"></div><div id="amount-paid-group"><label for="payment-amount-paid" class="block text-sm font-medium">Valor Pago (R$)</label><input type="number" id="payment-amount-paid" name="paymentAmountPaid" step="0.01" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"></div><div><label class="block text-sm font-medium">Troco</label><p id="payment-change" class="text-xl font-bold text-[var(--secondary-600)]">R$ 0,00</p></div><div class="flex items-center justify-between mt-4"><label for="retroactive-sale-toggle" class="text-sm font-medium">Venda Retroativa?</label><input type="checkbox" id="retroactive-sale-toggle" name="retroactiveSale" class="h-4 w-4 text-[var(--primary-600)] focus:ring-[var(--primary-500)] border-gray-300 rounded"></div><div id="retroactive-date-group" class="hidden"><label for="payment-retroactive-date" class="block text-sm font-medium">Data e Hora da Venda</label><input type="datetime-local" id="payment-retroactive-date" name="retroactiveDate" class="w-full p-2 border-[var(--border-color)] rounded-lg bg-[var(--bg-secondary)]"></div></form><div class="flex justify-between gap-4 mt-6"><button type="button" id="process-unpaid-sale-btn" class="px-4 py-2 bg-yellow-500 text-white rounded-lg">Guardar como Não Pago</button><div class="flex gap-4"><button type="button" class="close-modal-btn px-4 py-2 bg-[var(--bg-secondary)] rounded-lg">Cancelar</button><button type="submit" form="payment-form" class="px-4 py-2 bg-[var(--primary-600)] text-white rounded-lg">Confirmar Pagamento</button></div></div></div></div>
@@ -252,14 +322,14 @@
     // ===================================================================================
     // CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM
     // ===================================================================================
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbiXuGirSCuAG4atOy9hPdGo_ZXlubcXPbUJnfxihWRPmM_4z5thJeqVZ_23H1_9246g/exec';
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxbiXuGirSCuAG4atOy9hPdGo_ZXlubcXPbUJnfxihWRPmM_4z5thJeqVZ_23H1_9246g/exec'; // INSIRA A URL DO SEU SCRIPT DO GOOGLE SHEETS AQUI
 
     // --- DADOS EM MEMÓRIA ---
     let products = [];
     let customers = [];
     let transactions = [];
     let cashBalance = 0.00;
-    let rawMaterials = [];
+    let rawMaterials = []; // Renomeado para Estoque na interface
     let categories = [];
     let cart = {
         items: [],
@@ -272,10 +342,6 @@
     let isAutoSaveEnabled = false;
     let isAutoLoadEnabled = false;
     let areEventListenersAdded = false;
-
-    // --- DADOS INICIAIS (VAZIOS) ---
-    const sampleProducts = [];
-    const sampleRawMaterials = [];
 
     // --- FUNÇÕES DE PERSISTÊNCIA E INICIALIZAÇÃO ---
     function saveData() {
@@ -294,34 +360,32 @@
     }
 
     function loadDataFromLocalStorage() {
-        toggleLoading(true);
-        try {
-            categories = JSON.parse(localStorage.getItem('categories')) || [{ id: 1, name: 'Sem Categoria' }];
-            products = JSON.parse(localStorage.getItem('products')) || [];
-            rawMaterials = JSON.parse(localStorage.getItem('rawMaterials')) || [];
-            customers = JSON.parse(localStorage.getItem('customers')) || [{ id: 1, name: 'Cliente Balcão', contact: '' }];
-            transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-            cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            applyTheme(savedTheme);
+        toggleLoading(true);
+        try {
+            categories = JSON.parse(localStorage.getItem('categories')) || [{ id: 1, name: 'Sem Categoria' }];
+            products = JSON.parse(localStorage.getItem('products')) || [];
+            rawMaterials = JSON.parse(localStorage.getItem('rawMaterials')) || [];
+            customers = JSON.parse(localStorage.getItem('customers')) || [{ id: 1, name: 'Cliente Balcão', contact: '' }];
+            transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+            cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(savedTheme);
 
-            // === INÍCIO DA CORREÇÃO AUTOMÁTICA ===
             transactions.forEach(t => {
-                if (t.customerid !== undefined) { // Se a versão antiga ('customerid') existir
-                    t.customerId = t.customerid; // Copia o valor para a versão nova ('customerId')
-                    delete t.customerid;         // Apaga a versão antiga para limpar os dados
+                if (t.customerid !== undefined) { 
+                    t.customerId = t.customerid; 
+                    delete t.customerid;       
                 }
             });
-            // === FIM DA CORREÇÃO AUTOMÁTICA ===
 
-        } catch (error) {
-            console.error("Erro ao carregar dados locais:", error);
-            showToast("Erro ao carregar dados. A utilizar valores padrão.", "error");
-        } finally {
-            initializeAppUI();
-            toggleLoading(false);
-        }
-    }
+        } catch (error) {
+            console.error("Erro ao carregar dados locais:", error);
+            showToast("Erro ao carregar dados. A utilizar valores padrão.", "error");
+        } finally {
+            initializeAppUI();
+            toggleLoading(false);
+        }
+    }
     
     function initializeAppUI() {
         switchView('dashboard-view');
@@ -351,7 +415,7 @@
         if(autosaveToggle) autosaveToggle.checked = isAutoSaveEnabled;
         if(autoloadToggle) autoloadToggle.checked = isAutoLoadEnabled;
 
-        if (isAutoLoadEnabled && GOOGLE_SCRIPT_URL !== 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
+        if (isAutoLoadEnabled && GOOGLE_SCRIPT_URL) {
             loadFromGoogleSheets(true);
         } else {
             if(isAutoLoadEnabled) {
@@ -362,7 +426,7 @@
     };
 
     // --- FUNÇÕES DE LÓGICA PRINCIPAL (vendas, produtos, etc.) ---
-    function addProduct(name, price, cost, stock, categoryId, barcode) {
+    function addProduct(name, price, cost, categoryId, barcode) {
         if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) { 
             showToast('Produto com este nome já está registado!', 'error'); 
             return; 
@@ -376,7 +440,6 @@
             name, 
             price: parseFloat(price), 
             cost: parseFloat(cost), 
-            stock: parseInt(stock), 
             categoryId: parseInt(categoryId),
             barcode: barcode.trim()
         });
@@ -404,9 +467,7 @@
         const productGrid = document.getElementById('product-grid');
         productGrid.innerHTML = '';
         
-        // A LINHA ABAIXO É A MAIS IMPORTANTE PARA CORRIGIR O ERRO
         let filteredProducts = products;
-
         if (categoryId !== 'all') {
             filteredProducts = filteredProducts.filter(p => p.categoryId == categoryId);
         }
@@ -420,14 +481,68 @@
         }
         
         filteredProducts.forEach(product => {
-            const disabled = product.stock <= 0;
             const card = document.createElement('div');
-            card.className = `product-card p-4 rounded-lg shadow cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-secondary)]'}`;
+            card.className = `product-card relative p-4 rounded-lg shadow cursor-pointer hover:bg-[var(--bg-secondary)]`;
             card.setAttribute('title', product.name); 
-            card.innerHTML = `<h3 class="font-bold truncate">${product.name}</h3><p class="text-[var(--primary-600)] font-semibold">${formatCurrency(product.price)}</p><p class="text-sm text-[var(--text-secondary)]">Estoque: ${product.stock}</p>`;
-            if (!disabled) { card.onclick = () => addToCart(product.id); }
+
+            card.innerHTML = `
+                <button data-id="${product.id}" class="edit-product-btn absolute bottom-1 right-1 text-blue-500 hover:text-blue-700 p-1 transition-colors z-10" title="Editar ${product.name}">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                <div class="flex flex-col h-full" data-action="add-to-cart" data-id="${product.id}">
+                    <h3 class="font-bold truncate mb-1">${product.name}</h3>
+                    <div class="mt-auto">
+                        <p class="text-[var(--primary-600)] font-semibold">${formatCurrency(product.price)}</p>
+                        <p class="text-xs text-red-500/80">Custo: ${formatCurrency(product.cost)}</p>
+                    </div>
+                </div>
+            `;
+            
             productGrid.appendChild(card);
         });
+    }
+
+    function renderProductEditList(filter = '') {
+        const container = document.getElementById('edit-product-list-container');
+        container.innerHTML = '';
+
+        const filtered = products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
+
+        if (filtered.length === 0) {
+            container.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhum produto encontrado.</p>`;
+            return;
+        }
+
+        let tableHTML = `<table class="w-full text-left text-sm">
+            <thead>
+                <tr class="border-b">
+                    <th class="p-2">Produto</th>
+                    <th class="p-2">Categoria</th>
+                    <th class="p-2 text-right">Preço</th>
+                    <th class="p-2 text-right">Custo</th>
+                    <th class="p-2 text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        filtered.forEach(p => {
+            const categoryName = categories.find(c => c.id == p.categoryId)?.name || 'N/A';
+            tableHTML += `
+                <tr class="border-b hover:bg-[var(--bg-tertiary)]">
+                    <td class="p-2 font-medium">${p.name}</td>
+                    <td class="p-2">${categoryName}</td>
+                    <td class="p-2 text-right">${formatCurrency(p.price)}</td>
+                    <td class="p-2 text-right text-red-500">${formatCurrency(p.cost)}</td>
+                    <td class="p-2 text-center">
+                        <button data-id="${p.id}" class="edit-product-btn text-blue-500 p-1" title="Editar ${p.name}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
+                </tr>`;
+        });
+
+        tableHTML += `</tbody></table>`;
+        container.innerHTML = tableHTML;
     }
 
     function renderCart() {
@@ -455,9 +570,8 @@
         if (rawMaterials.length === 0) { list.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhum item de estoque registado.</p>`; return; }
         list.innerHTML = `<div class="grid grid-cols-7 items-center p-2 border-b font-bold text-sm text-[var(--text-secondary)]"><p class="col-span-2">Nome</p><p>Fornecedor</p><p>Data</p><p>Qtd.</p><p>Custo Unit.</p><p class="text-right">Ações</p></div>`;
         rawMaterials.forEach(rm => {
-            const lowStock = rm.stock <= 10;
-            const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0;
-            list.innerHTML += `<div class="grid grid-cols-7 items-center p-2 border-b border-[var(--border-color)] text-sm ${lowStock ? 'bg-yellow-100 text-yellow-800' : ''}"><p class="col-span-2 font-medium">${rm.name}</p><p>${rm.supplier || 'N/A'}</p><p>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</p><p>${rm.stock} ${rm.unit}</p><p class="font-semibold">${formatCurrency(unitCost)}</p><div class="justify-self-end"><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></div>`;
+            const unitCost = (rm.totalCost && rm.rawMaterialStock > 0) ? rm.totalCost / rm.rawMaterialStock : 0;
+            list.innerHTML += `<div class="grid grid-cols-7 items-center p-2 border-b border-[var(--border-color)] text-sm"><p class="col-span-2 font-medium">${rm.name}</p><p>${rm.supplier || 'N/A'}</p><p>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</p><p>${rm.rawMaterialStock} ${rm.unit}</p><p class="font-semibold">${formatCurrency(unitCost)}</p><div class="justify-self-end"><button data-id="${rm.id}" class="edit-stock-item-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-stock-item-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></div>`;
         });
     }
 
@@ -479,7 +593,7 @@
         document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
         if (tabName === 'vendas-cliente') renderSalesByCustomerReport();
         else if (tabName === 'desempenho-produtos') renderProductPerformanceReport();
-        else if (['vendas', 'estoque-produtos', 'estoque-materias'].includes(tabName)) {
+        else if (['vendas', 'estoque-materias'].includes(tabName)) {
             populateMonthYearSelectors();
             renderReports(currentReportPeriod);
         }
@@ -492,13 +606,8 @@
             const transactionsList = document.getElementById('transactions-list');
             let filteredTransactions, startDate;
             
-            // ====================================================================
-            // A LINHA ABAIXO É A CORREÇÃO PRINCIPAL PARA O SEU PROBLEMA
-            // Ela garante que os seletores de mês/ano só apareçam no modo "monthly"
-            // ====================================================================
             document.getElementById('month-year-selector').classList.toggle('hidden', period !== 'monthly');
 
-            // Lógica de filtro de data
             if (period === 'annual') {
                 startDate = new Date(now.getFullYear(), 0, 1);
                 filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
@@ -607,41 +716,36 @@
             if (salesChart) salesChart.destroy();
             salesChart = new Chart(ctx, { type: 'bar', data: salesData, options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } } });
             
-            const stockProductsList = document.getElementById('tab-estoque-produtos');
-            stockProductsList.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Produto</th><th>Categoria</th><th>Estoque</th><th>Custo</th><th>Preço</th><th>Lucro</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
-            const productTbody = stockProductsList.querySelector('tbody');
-            products.forEach(p => { const profit = p.price - p.cost; const categoryName = categories.find(c => c.id == p.categoryId)?.name || 'N/A'; productTbody.innerHTML += `<tr><td class="p-2">${p.name}</td><td>${categoryName}</td><td>${p.stock} un.</td><td>${formatCurrency(p.cost)}</td><td>${formatCurrency(p.price)}</td><td class="${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td><button data-id="${p.id}" class="edit-product-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button></td></tr>`; });
-            
             const stockMaterialsList = document.getElementById('tab-estoque-materias');
             stockMaterialsList.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Insumo</th><th>Fornecedor</th><th>Data Receb.</th><th>Estoque</th><th>Custo Unitário</th><th>Ações</th></tr></thead><tbody></tbody></table>`;
             const materialTbody = stockMaterialsList.querySelector('tbody');
             rawMaterials.forEach(rm => { const unitCost = (rm.totalCost && rm.stock > 0) ? rm.totalCost / rm.stock : 0; materialTbody.innerHTML += `<tr><td class="p-2">${rm.name}</td><td>${rm.supplier || 'N/A'}</td><td>${rm.receiptDate ? new Date(rm.receiptDate + 'T00:00:00').toLocaleDateString('pt-BR') : 'N/A'}</td><td>${rm.stock} ${rm.unit}</td><td>${formatCurrency(unitCost)}</td><td><button data-id="${rm.id}" class="edit-raw-material-btn text-blue-500 p-1"><i class="fas fa-edit"></i></button><button data-id="${rm.id}" class="delete-raw-material-btn text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`; });
         } catch (error) { console.error("Erro ao renderizar relatórios:", error); showToast("Ocorreu um erro ao gerar o relatório.", "error"); }
     }
+    
     function renderSalesByCustomerReport() {
-        const container = document.getElementById('tab-vendas-cliente');
-        const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
-            const customerId = sale.customerId || 'unknown';
-            if (!acc[customerId]) { 
+        const container = document.getElementById('tab-vendas-cliente');
+        const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
+            const customerId = sale.customerId || 'unknown';
+            if (!acc[customerId]) { 
                 acc[customerId] = { 
                     paid: 0, 
                     unpaid: 0, 
                     total: 0, 
                     count: 0, 
-                    // A linha abaixo garante a comparação correta (usando '==' em vez de '===')
                     customerName: customers.find(c => c.id == customerId)?.name || 'Cliente Não Identificado' 
                 }; 
             }
-            acc[customerId].total += sale.amount; acc[customerId].count++;
-            if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount; else acc[customerId].paid += sale.amount;
-            return acc;
-        }, {});
-        let tableHtml = `<table class="w-full text-left mt-4"><thead><tr class="border-b"><th class="p-2">Cliente</th><th class="text-right">Total Comprado</th><th class="text-right">Total Pago</th><th class="text-right">Total Devido</th><th class="text-center">Nº de Vendas</th></tr></thead><tbody>`;
-        Object.entries(salesByCustomer).sort(([,a],[,b]) => b.total - a.total).forEach(([customerId, data]) => {
-            tableHtml += `<tr class="hover:bg-[var(--bg-secondary)] cursor-pointer customer-details-row" data-customer-id="${customerId}"><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
-        });
-        container.innerHTML = tableHtml + '</tbody></table>';
-    }
+            acc[customerId].total += sale.amount; acc[customerId].count++;
+            if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount; else acc[customerId].paid += sale.amount;
+            return acc;
+        }, {});
+        let tableHtml = `<table class="w-full text-left mt-4"><thead><tr class="border-b"><th class="p-2">Cliente</th><th class="text-right">Total Comprado</th><th class="text-right">Total Pago</th><th class="text-right">Total Devido</th><th class="text-center">Nº de Vendas</th></tr></thead><tbody>`;
+        Object.entries(salesByCustomer).sort(([,a],[,b]) => b.total - a.total).forEach(([customerId, data]) => {
+            tableHtml += `<tr class="hover:bg-[var(--bg-secondary)] cursor-pointer customer-details-row" data-customer-id="${customerId}"><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
+        });
+        container.innerHTML = tableHtml + '</tbody></table>';
+    }
 
     function renderCashClosingReport() {
         const today = new Date(); today.setHours(0,0,0,0);
@@ -694,7 +798,7 @@
 
         const mostSold = [...allProducts].sort((a, b) => b.quantitySold - a.quantitySold).slice(0, 5);
         const mostProfitable = [...allProducts].sort((a, b) => b.totalProfit - a.totalProfit).slice(0, 5);
-        const unsold = products.filter(p => !productPerformance[p.id]).map(p => ({ name: p.name, stock: p.stock }));
+        const unsold = products.filter(p => !productPerformance[p.id]).map(p => ({ name: p.name }));
 
         container.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
@@ -709,7 +813,7 @@
             </div>
             <div class="mt-8">
                 <h3 class="text-xl font-semibold mb-3">Produtos Sem Vendas</h3>
-                ${createPerformanceTable(unsold, ['Produto', 'Estoque Atual'], ['stock'], false)}
+                ${createPerformanceTable(unsold, ['Produto'], [], false)}
             </div>
         `;
     }
@@ -724,7 +828,7 @@
             if (includeRank) table += `<td class="p-2">${index + 1}</td>`;
             table += `<td class="p-2 font-medium">${item.name}</td>`;
             dataKeys.forEach(key => {
-                table += `<td class="p-2">${typeof item[key] === 'number' && key !== 'stock' ? formatCurrency(item[key]) : item[key]}</td>`;
+                table += `<td class="p-2">${typeof item[key] === 'number' ? formatCurrency(item[key]) : item[key]}</td>`;
             });
             table += '</tr>';
         });
@@ -732,22 +836,16 @@
         return table;
     }
     
-    // VERSÃO NOVA E CORRIGIDA
     function setReportPeriod(period) {
         currentReportPeriod = period;
         document.querySelectorAll('#report-period-buttons .period-button').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`#report-period-buttons .period-button[data-period="${period}"]`).classList.add('active');
         
-        // --- LÓGICA ALTERADA ---
-        // Agora, tratamos a chamada para o relatório mensal de forma explícita
         if (period === 'monthly') {
             populateMonthYearSelectors();
             const now = new Date();
-            // Chamamos 'renderReports' passando o mês e ano atuais diretamente.
-            // Isso força a renderização correta na primeira vez.
             renderReports(period, now.getMonth(), now.getFullYear()); 
         } else {
-            // Para os outros períodos, a chamada continua simples.
             renderReports(period);
         }
     }
@@ -777,42 +875,33 @@
     }
     function addToCart(productId) {
         const product = products.find(p => p.id === productId);
-        if (product && product.stock > 0) {
+        if (product) {
             const cartItem = cart.items.find(item => item.id === productId);
             if (cartItem) {
                 cartItem.quantity++;
             } else {
                 cart.items.push({ ...product, quantity: 1, discount: { type: 'fixed', value: 0 } });
             }
-            product.stock--;
-            renderProducts(document.getElementById('search-product').value, document.querySelector('.category-filter-btn.active').dataset.categoryId); 
             renderCart(); 
             showToast(`'${product.name}' adicionado.`);
-        } else { showToast('Produto sem estoque!', 'error'); }
+        }
     }
     function increaseCartItemQuantity(index) {
-        const product = products.find(p => p.id === cart.items[index].id);
-        if (product && product.stock > 0) { cart.items[index].quantity++; product.stock--; renderCart(); renderProducts(document.getElementById('search-product').value, document.querySelector('.category-filter-btn.active').dataset.categoryId); } 
-        else { showToast('Não há mais estoque para este produto.', 'error'); }
+        cart.items[index].quantity++;
+        renderCart();
     }
     function decreaseCartItemQuantity(index) {
-        const product = products.find(p => p.id === cart.items[index].id);
-        cart.items[index].quantity--; product.stock++;
+        cart.items[index].quantity--;
         if (cart.items[index].quantity === 0) cart.items.splice(index, 1);
-        renderCart(); renderProducts(document.getElementById('search-product').value, document.querySelector('.category-filter-btn.active').dataset.categoryId);
+        renderCart();
     }
     function removeFromCart(index) {
-        const product = products.find(p => p.id === cart.items[index].id);
-        if (product) product.stock += cart.items[index].quantity;
         cart.items.splice(index, 1);
-        renderProducts(document.getElementById('search-product').value, document.querySelector('.category-filter-btn.active').dataset.categoryId); 
         renderCart();
     }
     function clearCart() {
-        cart.items.forEach(item => { const product = products.find(p => p.id === item.id); if (product) product.stock += item.quantity; });
         cart.items = [];
         cart.generalDiscount = { type: 'fixed', value: 0 };
-        renderProducts(document.getElementById('search-product').value, document.querySelector('.category-filter-btn.active').dataset.categoryId); 
         renderCart();
     }
     function processSale(paymentDetails) {
@@ -899,7 +988,7 @@
         const productId = parseInt(document.getElementById('edit-product-form').elements.productId.value);
         openConfirmationModal('Excluir Produto', 'Tem a certeza de que deseja excluir este produto? Esta ação não pode ser desfeita.', () => {
             products = products.filter(p => p.id !== productId);
-            renderProducts(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod);
+            renderProducts();
             closeModal('modal-edit-produto'); showToast('Produto excluído com sucesso!'); saveData();
         });
     }
@@ -921,11 +1010,10 @@
         const sale = transactions.find(t => t.id === transactionId);
         if (!sale || sale.reversed) return;
         openConfirmationModal('Estornar Venda', 'Tem a certeza de que deseja estornar esta venda?', () => {
-            sale.items.forEach(item => { const product = products.find(p => p.id === item.id); if (product) product.stock += item.quantity; });
             if (sale.status !== 'Não Pago') cashBalance -= sale.amount;
             sale.reversed = true;
             transactions.push({ id: Date.now(), type: 'estorno', amount: -sale.amount, description: `Estorno da venda #${sale.id}`, date: new Date().toISOString() });
-            renderProducts(); updateCashBalance(); renderReports(currentReportPeriod);
+            updateCashBalance(); renderReports(currentReportPeriod);
             showToast('Venda estornada com sucesso!'); saveData();
         });
     }
@@ -949,7 +1037,7 @@
     function resetSystem() {
         openConfirmationModal('Zerar Todo o Sistema', 'Esta ação é irreversível e apagará TODOS os dados. Deseja continuar?', () => {
             localStorage.clear();
-            products = [...sampleProducts]; rawMaterials = [...sampleRawMaterials]; customers = [{ id: 1, name: 'Cliente Balcão', contact: '' }];
+            products = []; rawMaterials = []; customers = [{ id: 1, name: 'Cliente Balcão', contact: '' }];
             categories = [{ id: 1, name: 'Sem Categoria' }];
             transactions = []; cashBalance = 0;
             initializeAppUI();
@@ -977,7 +1065,6 @@
         form.elements.productName.value = product.name; 
         form.elements.productPrice.value = product.price; 
         form.elements.productCost.value = product.cost; 
-        form.elements.productStock.value = product.stock;
         form.elements.productBarcode.value = product.barcode || '';
         populateCategoryDropdowns();
         form.elements.editProductCategory.value = product.categoryId;
@@ -1057,7 +1144,7 @@
                 receiptDetails.innerHTML += `<div class="flex justify-between text-xs text-red-500 pl-4"><span>&nbsp;&nbsp;Desconto</span><span>-${formatCurrency(discountValue)}</span></div>`;
             }
         });
-         if (transaction.discount > 0 && transaction.items.some(i => i.discount.value > 0)) {
+        if (transaction.discount > 0 && transaction.items.some(i => i.discount.value > 0)) {
         }
         receiptDetails.innerHTML += `<div class="mt-2 pt-2 border-t flex justify-between"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>`;
         receiptDetails.innerHTML += `<div class="flex justify-between text-red-500"><span>Descontos</span><span>-${formatCurrency(transaction.discount)}</span></div>`;
@@ -1073,17 +1160,16 @@
         const activeBtn = document.querySelector(`#theme-selector .theme-button[data-theme="${themeName}"]`);
         if(activeBtn) activeBtn.classList.add('active');
     }
-   function renderUnpaidSales() {
-        const list = document.getElementById('unpaid-sales-list');
-        const unpaidSales = transactions.filter(t => t.type === 'venda' && t.status === 'Não Pago' && !t.reversed);
-        if (unpaidSales.length === 0) { list.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-4">Nenhuma conta pendente.</p>'; return; }
-        list.innerHTML = '';
-        unpaidSales.forEach(sale => {
-            // A comparação foi alterada de '===' para '=='
-            const customer = customers.find(c => c.id == sale.customerId);
-            list.innerHTML += `<div class="flex justify-between items-center p-3 border-b border-[var(--border-color)]"><div><p class="font-bold">${customer ? customer.name : 'Cliente desconhecido'}</p><p class="text-sm text-[var(--text-secondary)]">Venda de ${new Date(sale.date).toLocaleDateString('pt-BR')}</p></div><div class="text-right"><p class="font-bold text-lg text-red-500">${formatCurrency(sale.amount)}</p><button data-id="${sale.id}" class="receive-payment-btn text-sm text-green-600 hover:underline">Receber Pagamento</button></div></div>`;
-        });
-    }
+    function renderUnpaidSales() {
+        const list = document.getElementById('unpaid-sales-list');
+        const unpaidSales = transactions.filter(t => t.type === 'venda' && t.status === 'Não Pago' && !t.reversed);
+        if (unpaidSales.length === 0) { list.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-4">Nenhuma conta pendente.</p>'; return; }
+        list.innerHTML = '';
+        unpaidSales.forEach(sale => {
+            const customer = customers.find(c => c.id == sale.customerId);
+            list.innerHTML += `<div class="flex justify-between items-center p-3 border-b border-[var(--border-color)]"><div><p class="font-bold">${customer ? customer.name : 'Cliente desconhecido'}</p><p class="text-sm text-[var(--text-secondary)]">Venda de ${new Date(sale.date).toLocaleDateString('pt-BR')}</p></div><div class="text-right"><p class="font-bold text-lg text-red-500">${formatCurrency(sale.amount)}</p><button data-id="${sale.id}" class="receive-payment-btn text-sm text-green-600 hover:underline">Receber Pagamento</button></div></div>`;
+        });
+    }
     function openReceivePaymentModal(transactionId) {
         const sale = transactions.find(t => t.id === transactionId); if (!sale) return;
         const form = document.getElementById('receive-payment-form');
@@ -1091,16 +1177,16 @@
         document.getElementById('receive-payment-total').textContent = formatCurrency(sale.amount);
         openModal('modal-receber-pagamento');
     }
-function handleReceivedPayment(e) {
-        e.preventDefault();
-        const form = document.getElementById('receive-payment-form');
-        const sale = transactions.find(t => t.id == form.elements.transactionId.value); 
+    function handleReceivedPayment(e) {
+        e.preventDefault();
+        const form = document.getElementById('receive-payment-form');
+        const sale = transactions.find(t => t.id == form.elements.transactionId.value); 
         if (!sale) return;
 
-        sale.status = 'Pago';
-        sale.method = form.elements.paymentMethod.value;
-        sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
-        
+        sale.status = 'Pago';
+        sale.method = form.elements.paymentMethod.value;
+        sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
+        
         transactions.push({ 
             id: Date.now(), 
             type: 'recebimento', 
@@ -1111,13 +1197,13 @@ function handleReceivedPayment(e) {
             installments: sale.installments 
         });
 
-        cashBalance += sale.amount;
-        updateCashBalance(); 
-        renderUnpaidSales(); // <-- ESTA É A LINHA ESSENCIAL QUE ATUALIZA A LISTA.
-        closeModal('modal-receber-pagamento');
-        showToast('Pagamento recebido com sucesso!', 'success'); 
-        saveData();
-    }
+        cashBalance += sale.amount;
+        updateCashBalance(); 
+        renderUnpaidSales();
+        closeModal('modal-receber-pagamento');
+        showToast('Pagamento recebido com sucesso!', 'success'); 
+        saveData();
+    }
     function handleImportSales(e) {
         e.preventDefault();
         const file = document.getElementById('csv-file-input').files[0]; const logDiv = document.getElementById('import-log');
@@ -1130,18 +1216,17 @@ function handleReceivedPayment(e) {
                 const [dateStr, productIdStr, quantityStr, customerIdStr, paymentMethod, status] = row.split(',');
                 const product = products.find(p => p.id == productIdStr); const customer = customers.find(c => c.id == customerIdStr);
                 if (!dateStr || !product || !customer || !quantityStr || !paymentMethod || !status) { logDiv.innerHTML += `<p class="text-red-500">Linha ${index + 1}: Dados inválidos. (${row})</p>`; return; }
-                product.stock -= parseInt(quantityStr);
                 newTransactions.push({ id: new Date(dateStr).getTime() + index, type: 'venda', amount: product.price * parseInt(quantityStr), cost: product.cost * parseInt(quantityStr), description: `Venda importada`, date: new Date(dateStr).toISOString(), items: [{...product, quantity: parseInt(quantityStr)}], customerId: parseInt(customerIdStr), method: paymentMethod.trim(), installments: 1, status: status.trim(), reversed: false, discount: 0 });
             });
             transactions.push(...newTransactions);
             transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
             showToast(`${newTransactions.length} vendas importadas!`, 'success');
             document.getElementById('csv-file-input').value = '';
-            renderProducts(); saveData();
+            saveData();
         };
         reader.readAsText(file);
     }
- function openSaleDetailsModal(transactionId) {
+    function openSaleDetailsModal(transactionId) {
         const sale = transactions.find(t => t.id === transactionId);
         if (!sale) return;
 
@@ -1153,13 +1238,10 @@ function handleReceivedPayment(e) {
         itemsTable.innerHTML = '';
         sale.items.forEach(item => itemsTable.innerHTML += `<tr><td class="p-2">${item.name}</td><td class="p-2 text-center">${item.quantity}</td><td class="p-2 text-right">${formatCurrency(item.price)}</td><td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td></tr>`);
 
-        const subtotal = sale.amount + (sale.discount || 0); // Subtotal antes dos descontos
+        const subtotal = sale.amount + (sale.discount || 0);
         const profit = sale.amount - sale.cost;
-        // --- CÁLCULO NOVO ---
         const discountPercentage = subtotal > 0 ? ((sale.discount || 0) / subtotal) * 100 : 0;
 
-        // --- HTML ALTERADO ---
-        // Limpamos o conteúdo antigo e remontamos com os descontos
         const detailsSummaryDiv = document.querySelector('#modal-venda-detalhes .space-y-1');
         detailsSummaryDiv.innerHTML = `
             <div class="flex justify-between"><span>Subtotal:</span> <span id="details-subtotal">${formatCurrency(subtotal)}</span></div>
@@ -1206,14 +1288,12 @@ function handleReceivedPayment(e) {
             return;
         }
         [...transactionList].reverse().forEach(t => {
-            let color = '', icon = 'fa-question-circle', profitHtml = '', actionsHtml = '', paymentInfo = '', rowClass = '', discountHtml = ''; // Variável nova
-
+            let color = '', icon = 'fa-question-circle', profitHtml = '', actionsHtml = '', paymentInfo = '', rowClass = '', discountHtml = '';
             if (t.type === 'venda') {
                 icon = 'fa-shopping-cart';
                 const profit = t.amount - (t.cost || 0);
                 profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
                 
-                // --- LÓGICA ADICIONADA ---
                 if (t.discount > 0) {
                     discountHtml = `<div class="text-xs text-red-500">Desconto: ${formatCurrency(t.discount)}</div>`;
                 }
@@ -1245,8 +1325,6 @@ function handleReceivedPayment(e) {
             if (t.type === 'entrada' || t.type === 'recebimento') { color = 'text-blue-600'; icon = 'fa-arrow-down'; }
             if (t.type === 'saida') { color = 'text-red-600'; icon = 'fa-arrow-up'; }
             if (t.type === 'estorno') { color = 'text-yellow-600'; icon = 'fa-undo'; }
-            
-            // --- HTML ALTERADO (para incluir discountHtml) ---
             container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(t.amount)}</p>${profitHtml}${discountHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
         });
     }
@@ -1358,14 +1436,13 @@ function handleReceivedPayment(e) {
         reader.readAsText(file);
     }
     function saveToGoogleSheets(isAuto = false) {
-        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
-            if (!isAuto) showToast("URL do Google Script não configurada.", "error");
-            return;
-        }
-        if (!isAuto) { showToast("A guardar na nuvem... Aguarde.", "success"); toggleLoading(true); }
-        
-        // CORREÇÃO: Cria uma cópia limpa dos dados para garantir que não há problemas.
-        try {
+        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
+            if (!isAuto) showToast("URL do Google Script não configurada.", "error");
+            return;
+        }
+        if (!isAuto) { showToast("A guardar na nuvem... Aguarde.", "success"); toggleLoading(true); }
+        
+        try {
             const allData = { products, customers, rawMaterials, transactions, cashBalance, categories };
             const cleanDataString = JSON.stringify(allData);
 
@@ -1374,7 +1451,7 @@ function handleReceivedPayment(e) {
                 mode: 'no-cors', 
                 cache: 'no-cache', 
                 headers: { 'Content-Type': 'application/json' }, 
-                body: cleanDataString, // Envia a string de dados limpa
+                body: cleanDataString,
                 keepalive: true 
             })
             .then(() => {
@@ -1393,38 +1470,38 @@ function handleReceivedPayment(e) {
             }
             console.error("Erro ao converter dados para JSON antes de salvar:", error);
         }
-    }
-function loadFromGoogleSheets(isAuto = false) {
-        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
-            if (isAuto) {
-                loadDataFromLocalStorage();
-            } else {
-                showToast("URL do Google Script não configurada.", "error");
-            }
-            return;
-        }
+    }
+    function loadFromGoogleSheets(isAuto = false) {
+        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'COLE_A_URL_DO_SEU_APP_DA_WEB_AQUI') {
+            if (isAuto) {
+                loadDataFromLocalStorage();
+            } else {
+                showToast("URL do Google Script não configurada.", "error");
+            }
+            return;
+        }
 
-        const execution = () => {
-            if (!isAuto) showToast("A carregar dados da nuvem... Aguarde.", "success");
-            toggleLoading(true);
-            fetch(GOOGLE_SCRIPT_URL)
-                .then(response => {
-                    if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`) }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.status === 'error') {
-                        throw new Error(`Erro retornado pelo Google Script: ${data.message}`);
-                    }
-                    
-                    if (data && typeof data === 'object' && Array.isArray(data.customers)) {
-                        products = data.products || [];
-                        customers = data.customers || [];
-                        transactions = data.transactions || [];
-                        cashBalance = data.cashBalance || 0;
-                        rawMaterials = data.rawMaterials || [];
-                        categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
-                        
+        const execution = () => {
+            if (!isAuto) showToast("A carregar dados da nuvem... Aguarde.", "success");
+            toggleLoading(true);
+            fetch(GOOGLE_SCRIPT_URL)
+                .then(response => {
+                    if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`) }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'error') {
+                        throw new Error(`Erro retornado pelo Google Script: ${data.message}`);
+                    }
+                    
+                    if (data && typeof data === 'object' && Array.isArray(data.customers)) {
+                        products = data.products || [];
+                        customers = data.customers || [];
+                        transactions = data.transactions || [];
+                        cashBalance = data.cashBalance || 0;
+                        rawMaterials = data.rawMaterials || [];
+                        categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
+                        
                         transactions.forEach(t => {
                             if (t.customerid !== undefined) {
                                 t.customerId = t.customerid;
@@ -1432,75 +1509,56 @@ function loadFromGoogleSheets(isAuto = false) {
                             }
                         });
 
-                        saveData(); 
-                        initializeAppUI();
-                        
-                        if (!isAuto) closeModal('modal-settings');
-                        showToast("Dados carregados da nuvem com sucesso!", "success");
-                    } else {
-                        throw new Error("Dados da nuvem estão em formato inválido ou corrompidos.");
-                    }
-                })
-                .catch(error => {
-                    console.error('Falha detalhada ao carregar do Google Sheets:', error);
-                    showToast(`Falha ao carregar: ${error.message}. A usar dados locais.`, "error");
-                    if (isAuto) loadDataFromLocalStorage();
-                })
-                .finally(() => { toggleLoading(false); });
-        };
+                        saveData(); 
+                        initializeAppUI();
+                        
+                        if (!isAuto) closeModal('modal-settings');
+                        showToast("Dados carregados da nuvem com sucesso!", "success");
+                    } else {
+                        throw new Error("Dados da nuvem estão em formato inválido ou corrompidos.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Falha detalhada ao carregar do Google Sheets:', error);
+                    showToast(`Falha ao carregar: ${error.message}. A usar dados locais.`, "error");
+                    if (isAuto) loadDataFromLocalStorage();
+                })
+                .finally(() => { toggleLoading(false); });
+        };
 
-        if (isAuto) {
-          execution();
-        } else {
-          openConfirmationModal('Carregar Dados da Nuvem?', 'Isto substituirá TODOS os dados atuais...', execution);
-        }
-    }
+        if (isAuto) {
+            execution();
+        } else {
+            openConfirmationModal('Carregar Dados da Nuvem?', 'Isto substituirá TODOS os dados atuais...', execution);
+        }
+    }
 
-    // ++ FUNÇÃO RESTAURADA E MOVIDA PARA O LUGAR CORRETO ++
-    function manageAutoSaveInterval(enable) {
-        const TWO_MINUTES = 120000;
-        if (autoSaveInterval) clearInterval(autoSaveInterval);
-        autoSaveInterval = null;
-        if (enable) {
-            isAutoSaveEnabled = true;
-            autoSaveInterval = setInterval(() => saveToGoogleSheets(true), TWO_MINUTES);
-            console.log("Auto-save started. Saving every 2 minutes.");
-        } else {
-            isAutoSaveEnabled = false;
-            console.log("Auto-save stopped.");
-        }
-    }
+    function manageAutoSaveInterval(enable) {
+        const TWO_MINUTES = 120000;
+        if (autoSaveInterval) clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
+        if (enable) {
+            isAutoSaveEnabled = true;
+            autoSaveInterval = setInterval(() => saveToGoogleSheets(true), TWO_MINUTES);
+            console.log("Auto-save started. Saving every 2 minutes.");
+        } else {
+            isAutoSaveEnabled = false;
+            console.log("Auto-save stopped.");
+        }
+    }
 
-    function handleAutoSaveToggle(event) {
-        const enabled = event.target.checked;
-        manageAutoSaveInterval(enabled);
-        localStorage.setItem('isAutoSaveEnabled', JSON.stringify(enabled));
-        showToast(`Guardar automaticamente ${enabled ? 'ativado' : 'desativado'}.`, "success");
-    }
+    function handleAutoSaveToggle(event) {
+        const enabled = event.target.checked;
+        manageAutoSaveInterval(enabled);
+        localStorage.setItem('isAutoSaveEnabled', JSON.stringify(enabled));
+        showToast(`Guardar automaticamente ${enabled ? 'ativado' : 'desativado'}.`, "success");
+    }
 
-    function handleAutoLoadToggle(event) {
-        isAutoLoadEnabled = event.target.checked;
-        localStorage.setItem('isAutoLoadEnabled', JSON.stringify(isAutoLoadEnabled));
-        showToast(`Carregamento automático ao iniciar ${isAutoLoadEnabled ? 'ativado' : 'desativado'}.`, "success");
-    }
-    
-    function initializeAppUI() {
-        switchView('dashboard-view');
-        renderProducts();
-        renderCart();
-        updateCashBalance();
-        renderCustomers();
-        renderCategoryFilters();
-
-        if (!areEventListenersAdded) {
-            addEventListeners();
-            areEventListenersAdded = true;
-        }
-        
-        if (isAutoSaveEnabled) {
-            manageAutoSaveInterval(true);
-        }
-    }
+    function handleAutoLoadToggle(event) {
+        isAutoLoadEnabled = event.target.checked;
+        localStorage.setItem('isAutoLoadEnabled', JSON.stringify(isAutoLoadEnabled));
+        showToast(`Carregamento automático ao iniciar ${isAutoLoadEnabled ? 'ativado' : 'desativado'}.`, "success");
+    }
     
     // --- LÓGICA DE EDIÇÃO DE VENDA ---
     function openEditSaleModal(transactionId) {
@@ -1562,7 +1620,7 @@ function loadFromGoogleSheets(isAuto = false) {
             openCustomerDetailsModal(customerId);
         }
          if (!document.getElementById('modal-contas-receber').classList.contains('hidden')) {
-            renderUnpaidSales();
+             renderUnpaidSales();
         }
 
         saveData();
@@ -1589,15 +1647,21 @@ function loadFromGoogleSheets(isAuto = false) {
     function renderDashboard() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        
         const todaysTransactions = transactions.filter(t => new Date(t.date) >= today && t.type === 'venda' && !t.reversed);
+        
         const salesToday = todaysTransactions.reduce((sum, t) => sum + t.amount, 0);
         const profitToday = todaysTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
+        const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
+
+        const salesCountToday = todaysTransactions.length;
+        const averageTicket = salesCountToday > 0 ? salesToday / salesCountToday : 0;
+
         document.getElementById('kpi-sales-today').textContent = formatCurrency(salesToday);
         document.getElementById('kpi-profit-today').textContent = formatCurrency(profitToday);
-        const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= 10).length;
-        document.getElementById('kpi-low-stock').textContent = `${lowStockCount} Produtos`;
-        const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
         document.getElementById('kpi-unpaid').textContent = formatCurrency(unpaidAmount);
+        document.getElementById('kpi-avg-ticket').textContent = formatCurrency(averageTicket);
+
         const recentTransactionsList = document.getElementById('recent-transactions-list');
         renderTransactionList(recentTransactionsList, transactions.slice(-5));
     }
@@ -1641,7 +1705,7 @@ function loadFromGoogleSheets(isAuto = false) {
     function addEventListeners() {
         document.getElementById('add-product-form').addEventListener('submit', function(e) { 
             e.preventDefault(); 
-            addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productStock.value, this.elements.productCategory.value, this.elements.productBarcode.value); 
+            addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productCategory.value, this.elements.productBarcode.value); 
             this.reset(); 
             closeModal('modal-produto'); 
         });
@@ -1654,9 +1718,8 @@ function loadFromGoogleSheets(isAuto = false) {
                     showToast('Este código de barras já está associado a outro produto!', 'error');
                     return;
                 }
-                Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), stock: parseInt(this.elements.productStock.value), categoryId: parseInt(this.elements.editProductCategory.value), barcode: newBarcode }); 
+                Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), categoryId: parseInt(this.elements.editProductCategory.value), barcode: newBarcode }); 
                 renderProducts(); 
-                if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); 
                 closeModal('modal-edit-produto'); 
                 showToast('Produto atualizado!'); 
                 saveData(); 
@@ -1664,7 +1727,7 @@ function loadFromGoogleSheets(isAuto = false) {
         });
         document.getElementById('add-category-form').addEventListener('submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
         document.getElementById('edit-category-form').addEventListener('submit', handleEditCategory);
-        document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); if (!document.getElementById('modal-relatorios').classList.contains('hidden')) renderReports(currentReportPeriod); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
+        document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
         document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
         document.getElementById('edit-customer-form').addEventListener('submit', function(e) { e.preventDefault(); const c = customers.find(c => c.id == this.elements.customerId.value); if(c) { Object.assign(c, { name: this.elements.customerName.value, contact: this.elements.customerContact.value }); renderCustomers(); closeModal('modal-edit-cliente'); showToast('Cliente atualizado!'); saveData(); } });
         document.getElementById('add-customer-form').addEventListener('submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
@@ -1758,5 +1821,3 @@ function loadFromGoogleSheets(isAuto = false) {
 </script>
 </body>
 </html>
-
-

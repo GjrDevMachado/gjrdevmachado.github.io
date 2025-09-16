@@ -464,43 +464,40 @@
     function toggleLoading(isLoading) { document.getElementById('loading-overlay').classList.toggle('hidden', !isLoading); }
     
     function renderProducts(filter = '', categoryId = 'all') {
-        const productGrid = document.getElementById('product-grid');
-        productGrid.innerHTML = '';
-        
-        let filteredProducts = products;
-        if (categoryId !== 'all') {
-            filteredProducts = filteredProducts.filter(p => p.categoryId == categoryId);
-        }
-        if (filter) {
-            filteredProducts = filteredProducts.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
-        }
-
-        if (filteredProducts.length === 0) { 
-            productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado.</p>`; 
-            return; 
-        }
-        
-        filteredProducts.forEach(product => {
-            const card = document.createElement('div');
-            card.className = `product-card relative p-4 rounded-lg shadow cursor-pointer hover:bg-[var(--bg-secondary)]`;
-            card.setAttribute('title', product.name); 
-
-            card.innerHTML = `
-                <button data-id="${product.id}" class="edit-product-btn absolute bottom-1 right-1 text-blue-500 hover:text-blue-700 p-1 transition-colors z-10" title="Editar ${product.name}">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                <div class="flex flex-col h-full" data-action="add-to-cart" data-id="${product.id}">
-                    <h3 class="font-bold truncate mb-1">${product.name}</h3>
-                    <div class="mt-auto">
-                        <p class="text-[var(--primary-600)] font-semibold">${formatCurrency(product.price)}</p>
-                        <p class="text-xs text-red-500/80">Custo: ${formatCurrency(product.cost)}</p>
-                    </div>
-                </div>
-            `;
-            
-            productGrid.appendChild(card);
-        });
+    const productGrid = document.getElementById('product-grid');
+    productGrid.innerHTML = '';
+    
+    let filteredProducts = products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
+    if (categoryId !== 'all') {
+        filteredProducts = filteredProducts.filter(p => p.categoryId == categoryId);
     }
+
+    if (filteredProducts.length === 0) { 
+        productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado.</p>`; 
+        return; 
+    }
+    
+    filteredProducts.forEach(product => {
+        const card = document.createElement('div');
+        card.className = `product-card relative p-4 rounded-lg shadow cursor-pointer hover:bg-[var(--bg-secondary)]`;
+        card.setAttribute('title', product.name); 
+
+        card.innerHTML = `
+            <button data-id="${product.id}" class="edit-product-btn absolute bottom-1 right-1 text-blue-500 hover:text-blue-700 p-1 transition-colors z-10" title="Editar ${product.name}">
+                <i class="fas fa-edit"></i>
+            </button>
+            <div class="flex flex-col h-full" data-action="add-to-cart" data-id="${product.id}">
+                <h3 class="font-bold truncate mb-1">${product.name}</h3>
+                <div class="mt-auto">
+                    <p class="text-[var(--primary-600)] font-semibold">${formatCurrency(product.price)}</p>
+                    <p class="text-xs text-red-500/80">Custo: ${formatCurrency(product.cost)}</p>
+                </div>
+            </div>
+        `;
+        
+        productGrid.appendChild(card);
+    });
+}
 
     function renderProductEditList(filter = '') {
         const container = document.getElementById('edit-product-list-container');
@@ -1702,122 +1699,154 @@
     }
 
     // --- CENTRAL DE EVENT LISTENERS ---
-    function addEventListeners() {
-        document.getElementById('add-product-form').addEventListener('submit', function(e) { 
-            e.preventDefault(); 
-            addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productCategory.value, this.elements.productBarcode.value); 
-            this.reset(); 
-            closeModal('modal-produto'); 
-        });
-        document.getElementById('edit-product-form').addEventListener('submit', function(e) { 
-            e.preventDefault(); 
-            const p = products.find(p => p.id == this.elements.productId.value); 
-            if(p) { 
-                const newBarcode = this.elements.productBarcode.value.trim();
-                if (newBarcode && products.some(prod => prod.barcode === newBarcode && prod.id != p.id)) {
-                    showToast('Este código de barras já está associado a outro produto!', 'error');
-                    return;
-                }
-                Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), categoryId: parseInt(this.elements.editProductCategory.value), barcode: newBarcode }); 
-                renderProducts(); 
-                closeModal('modal-edit-produto'); 
-                showToast('Produto atualizado!'); 
-                saveData(); 
-            } 
-        });
-        document.getElementById('add-category-form').addEventListener('submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
-        document.getElementById('edit-category-form').addEventListener('submit', handleEditCategory);
-        document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const rm = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(rm) { Object.assign(rm, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); closeModal('modal-edit-materiaprima'); showToast('Insumo atualizado!'); saveData(); } });
-        document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
-        document.getElementById('edit-customer-form').addEventListener('submit', function(e) { e.preventDefault(); const c = customers.find(c => c.id == this.elements.customerId.value); if(c) { Object.assign(c, { name: this.elements.customerName.value, contact: this.elements.customerContact.value }); renderCustomers(); closeModal('modal-edit-cliente'); showToast('Cliente atualizado!'); saveData(); } });
-        document.getElementById('add-customer-form').addEventListener('submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
-        document.getElementById('cash-flow-form').addEventListener('submit', function(e) { e.preventDefault(); handleCashFlow(this.elements.cashFlowType.value, parseFloat(this.elements.cashFlowAmount.value), this.elements.cashFlowDescription.value); this.reset(); closeModal('modal-caixa'); });
-        document.getElementById('payment-form').addEventListener('submit', processPaidSale);
-        document.getElementById('receive-payment-form').addEventListener('submit', handleReceivedPayment);
-        document.getElementById('import-sales-form').addEventListener('submit', handleImportSales);
-        document.getElementById('edit-sale-form').addEventListener('submit', handleEditSale);
-        document.getElementById('discount-form').addEventListener('submit', handleDiscountForm);
-        
-        document.getElementById('search-barcode').addEventListener('change', function(e) {
-            const barcode = e.target.value.trim();
-            addByBarcode(barcode);
-            e.target.value = '';
-        });
+   function addEventListeners() {
+    // Formulários
+    document.getElementById('add-product-form').addEventListener('submit', function(e) { 
+        e.preventDefault(); 
+        addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productCategory.value, this.elements.productBarcode.value); 
+        this.reset(); 
+        closeModal('modal-produto'); 
+    });
+    document.getElementById('edit-product-form').addEventListener('submit', function(e) { 
+        e.preventDefault(); 
+        const p = products.find(p => p.id == this.elements.productId.value); 
+        if(p) { 
+            const newBarcode = this.elements.productBarcode.value.trim();
+            if (newBarcode && products.some(prod => prod.barcode === newBarcode && prod.id != p.id)) {
+                showToast('Este código de barras já está associado a outro produto!', 'error');
+                return;
+            }
+            Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), categoryId: parseInt(this.elements.editProductCategory.value), barcode: newBarcode }); 
+            renderProducts(); 
+            if(document.getElementById('modal-edit-product-list') && !document.getElementById('modal-edit-product-list').classList.contains('hidden')) {
+                renderProductEditList();
+            }
+            closeModal('modal-edit-produto'); 
+            showToast('Produto atualizado!'); 
+            saveData(); 
+        } 
+    });
+    document.getElementById('add-category-form').addEventListener('submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
+    document.getElementById('edit-category-form').addEventListener('submit', handleEditCategory);
+    document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addStockItem(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
+    document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const item = stockItems.find(rm => rm.id == this.elements.rawMaterialId.value); if(item) { Object.assign(item, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, rawMaterialStock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderStockItems(); closeModal('modal-edit-materiaprima'); showToast('Item de estoque atualizado!'); saveData(); } });
+    document.getElementById('add-customer-form').addEventListener('submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
+    document.getElementById('edit-customer-form').addEventListener('submit', function(e) { e.preventDefault(); const c = customers.find(c => c.id == this.elements.customerId.value); if(c) { Object.assign(c, { name: this.elements.customerName.value, contact: this.elements.customerContact.value }); renderCustomers(); closeModal('modal-edit-cliente'); showToast('Cliente atualizado!'); saveData(); } });
+    document.getElementById('payment-form').addEventListener('submit', processPaidSale);
+    document.getElementById('receive-payment-form').addEventListener('submit', handleReceivedPayment);
+    document.getElementById('edit-sale-form').addEventListener('submit', handleEditSale);
+    document.getElementById('discount-form').addEventListener('submit', handleDiscountForm);
+    document.getElementById('import-sales-form').addEventListener('submit', handleImportSales);
 
-        document.getElementById('checkout-button').addEventListener('click', openPaymentModal);
-        document.getElementById('clear-cart-button').addEventListener('click', clearCart);
-        document.getElementById('search-product').addEventListener('input', (e) => {
-            const activeCategory = document.querySelector('.category-filter-btn.active');
-            renderProducts(e.target.value, activeCategory.dataset.categoryId);
-        });
-        document.getElementById('open-settings-modal-btn').addEventListener('click', () => openModal('modal-settings'));
-        document.getElementById('kpi-card-unpaid').addEventListener('click', () => openModal('modal-contas-receber'));
+    // Barras de Pesquisa e Botões Principais
+    document.getElementById('search-barcode').addEventListener('change', function(e) {
+        const barcode = e.target.value.trim();
+        addByBarcode(barcode);
+        e.target.value = '';
+    });
+    document.getElementById('checkout-button').addEventListener('click', openPaymentModal);
+    document.getElementById('clear-cart-button').addEventListener('click', clearCart);
+    document.getElementById('search-product').addEventListener('input', (e) => {
+        const activeCategory = document.querySelector('.category-filter-btn.active');
+        renderProducts(e.target.value, activeCategory ? activeCategory.dataset.categoryId : 'all');
+    });
+    document.getElementById('open-settings-modal-btn').addEventListener('click', () => openModal('modal-settings'));
+    if(document.getElementById('kpi-card-unpaid')) document.getElementById('kpi-card-unpaid').addEventListener('click', () => openModal('modal-contas-receber'));
+    if(document.getElementById('search-edit-product')) document.getElementById('search-edit-product').addEventListener('input', function(e) { renderProductEditList(e.target.value); });
+    
+    // ====================================================================
+    // LISTENER DA GRELHA DE PRODUTOS CORRIGIDO E FUNCIONAL
+    // ====================================================================
+    document.getElementById('product-grid').addEventListener('click', function(e) {
+        const target = e.target;
         
-        document.querySelectorAll('.open-modal-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.modalId)));
-        document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));
-        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.addEventListener('click', (e) => { if (e.target === backdrop) closeModal(backdrop.id); }));
-        
-        document.getElementById('confirm-cancel-btn').addEventListener('click', () => closeModal('modal-confirm'));
-        document.getElementById('confirm-confirm-btn').addEventListener('click', () => { if (typeof confirmCallback === 'function') confirmCallback(); closeModal('modal-confirm'); });
-        
-        document.getElementById('reset-system-btn').addEventListener('click', resetSystem);
-        document.getElementById('theme-selector').addEventListener('click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
-        
-        document.getElementById('export-data-btn').addEventListener('click', exportAllData);
-        document.getElementById('import-file-input').addEventListener('change', importAllData);
-        document.getElementById('save-to-google-sheets-btn').addEventListener('click', () => saveToGoogleSheets(false));
-        document.getElementById('load-from-google-sheets-btn').addEventListener('click', () => loadFromGoogleSheets(false));
-        document.getElementById('autosave-toggle').addEventListener('change', handleAutoSaveToggle);
-        document.getElementById('autoload-toggle').addEventListener('change', handleAutoLoadToggle);
-        window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
-        
-        document.getElementById('payment-method').addEventListener('change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });
-        document.getElementById('receive-payment-method').addEventListener('change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
-        document.getElementById('edit-sale-method').addEventListener('change', function() { document.getElementById('edit-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
-        document.getElementById('payment-amount-paid').addEventListener('input', updateChange);
-        document.getElementById('process-unpaid-sale-btn').addEventListener('click', processSaleAsUnpaid);
-        document.getElementById('apply-general-discount-btn').addEventListener('click', () => openDiscountModal());
-        document.getElementById('retroactive-sale-toggle').addEventListener('change', function() { document.getElementById('retroactive-date-group').classList.toggle('hidden', !this.checked); });
-        
-        document.getElementById('print-receipt-btn').addEventListener('click', window.print);
-        document.getElementById('print-details-btn').addEventListener('click', window.print);
-        
-        document.getElementById('report-month-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
-        document.getElementById('report-year-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
-        
-        document.body.addEventListener('click', e => {
-            const target = e.target.closest('button, tr'); if (!target) return;
-            const classList = target.classList; const dataset = target.dataset;
-            if (classList.contains('increase-qty-btn')) increaseCartItemQuantity(dataset.index);
-            else if (classList.contains('decrease-qty-btn')) decreaseCartItemQuantity(dataset.index);
-            else if (classList.contains('remove-from-cart-btn')) removeFromCart(dataset.index);
-            else if (classList.contains('edit-product-btn')) openEditProductModal(parseInt(dataset.id));
-            else if (target.id === 'delete-product-btn') deleteProduct();
-            else if (classList.contains('edit-category-btn')) openEditCategoryModal(parseInt(dataset.id));
-            else if (classList.contains('delete-category-btn')) deleteCategory(parseInt(dataset.id));
-            else if (classList.contains('edit-raw-material-btn')) openEditRawMaterialModal(parseInt(dataset.id));
-            else if (classList.contains('delete-raw-material-btn')) deleteRawMaterial(parseInt(dataset.id));
-            else if (classList.contains('edit-customer-btn')) openEditCustomerModal(parseInt(dataset.id));
-            else if (classList.contains('delete-customer-btn')) deleteCustomer(parseInt(dataset.id));
-            else if (classList.contains('open-sale-details-btn')) openSaleDetailsModal(parseInt(dataset.id));
-            else if (classList.contains('cancel-sale-btn')) cancelSale(parseInt(dataset.id));
-            else if (classList.contains('delete-sale-btn')) deleteTransaction(parseInt(dataset.id));
-            else if (classList.contains('edit-sale-btn')) openEditSaleModal(parseInt(dataset.id));
-            else if (classList.contains('receive-payment-btn')) openReceivePaymentModal(parseInt(dataset.id));
-            else if (classList.contains('tab-button')) switchTab(dataset.tab);
-            else if (classList.contains('period-button')) setReportPeriod(dataset.period);
-            else if (classList.contains('customer-details-row')) openCustomerDetailsModal(dataset.customerId);
-            else if (classList.contains('sidebar-item') || classList.contains('quick-action-btn')) {
-                switchView(dataset.view);
-            } else if (classList.contains('apply-item-discount-btn')) {
-                openDiscountModal(parseInt(dataset.index));
-            } else if (classList.contains('category-filter-btn')) {
-                document.querySelectorAll('.category-filter-btn').forEach(btn => btn.classList.remove('active'));
-                target.classList.add('active');
-                renderProducts(document.getElementById('search-product').value, dataset.categoryId);
+        const editButton = target.closest('.edit-product-btn');
+        if (editButton) {
+            e.stopPropagation(); 
+            const productId = parseInt(editButton.dataset.id);
+            if (productId) {
+                openEditProductModal(productId);
+            }
+            return; 
+        }
+
+        const cardAction = target.closest('[data-action="add-to-cart"]');
+        if (cardAction) {
+            const productId = parseInt(cardAction.dataset.id);
+            if (productId) {
+                addToCart(productId);
+            }
+        }
+    });
+
+    // Modais e Ações Gerais (usando delegação de eventos)
+    document.querySelectorAll('.open-modal-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.modalId)));
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+        backdrop.addEventListener('click', (e) => {
+            if (e.target === backdrop) {
+                closeModal(backdrop.id);
             }
         });
-    }
+    });
+    document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));
+    
+    // Outros Botões e Seletores
+    document.getElementById('confirm-cancel-btn').addEventListener('click', () => closeModal('modal-confirm'));
+    document.getElementById('confirm-confirm-btn').addEventListener('click', () => { if (typeof confirmCallback === 'function') confirmCallback(); closeModal('modal-confirm'); });
+    document.getElementById('reset-system-btn').addEventListener('click', resetSystem);
+    document.getElementById('theme-selector').addEventListener('click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
+    document.getElementById('export-data-btn').addEventListener('click', exportAllData);
+    document.getElementById('import-file-input').addEventListener('change', importAllData);
+    document.getElementById('save-to-google-sheets-btn').addEventListener('click', () => saveToGoogleSheets(false));
+    document.getElementById('load-from-google-sheets-btn').addEventListener('click', () => loadFromGoogleSheets(false));
+    document.getElementById('autosave-toggle').addEventListener('change', handleAutoSaveToggle);
+    document.getElementById('autoload-toggle').addEventListener('change', handleAutoLoadToggle);
+    window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
+    document.getElementById('payment-method').addEventListener('change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });
+    document.getElementById('receive-payment-method').addEventListener('change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
+    document.getElementById('edit-sale-method').addEventListener('change', function() { document.getElementById('edit-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
+    document.getElementById('payment-amount-paid').addEventListener('input', updateChange);
+    document.getElementById('process-unpaid-sale-btn').addEventListener('click', processSaleAsUnpaid);
+    document.getElementById('apply-general-discount-btn').addEventListener('click', () => openDiscountModal());
+    document.getElementById('retroactive-sale-toggle').addEventListener('change', function() { document.getElementById('retroactive-date-group').classList.toggle('hidden', !this.checked); });
+    document.getElementById('print-receipt-btn').addEventListener('click', window.print);
+    document.getElementById('print-details-btn').addEventListener('click', window.print);
+    document.getElementById('report-month-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
+    document.getElementById('report-year-select').addEventListener('change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
+    
+    // Delegação de eventos para botões dinâmicos
+    document.body.addEventListener('click', e => {
+        const target = e.target.closest('button, tr'); if (!target) return;
+        const classList = target.classList; const dataset = target.dataset;
+        
+        if (classList.contains('edit-product-btn') && !target.closest('.product-card')) openEditProductModal(parseInt(dataset.id));
+        if (classList.contains('increase-qty-btn')) increaseCartItemQuantity(dataset.index);
+        else if (classList.contains('decrease-qty-btn')) decreaseCartItemQuantity(dataset.index);
+        else if (classList.contains('remove-from-cart-btn')) removeFromCart(dataset.index);
+        else if (target.id === 'delete-product-btn') deleteProduct();
+        else if (classList.contains('edit-category-btn')) openEditCategoryModal(parseInt(dataset.id));
+        else if (classList.contains('delete-category-btn')) deleteCategory(parseInt(dataset.id));
+        else if (classList.contains('edit-stock-item-btn')) openEditStockItemModal(parseInt(dataset.id));
+        else if (classList.contains('delete-stock-item-btn')) deleteStockItem(parseInt(dataset.id));
+        else if (classList.contains('edit-customer-btn')) openEditCustomerModal(parseInt(dataset.id));
+        else if (classList.contains('delete-customer-btn')) deleteCustomer(parseInt(dataset.id));
+        else if (classList.contains('open-sale-details-btn')) openSaleDetailsModal(parseInt(dataset.id));
+        else if (classList.contains('cancel-sale-btn')) cancelSale(parseInt(dataset.id));
+        else if (classList.contains('delete-sale-btn')) deleteTransaction(parseInt(dataset.id));
+        else if (classList.contains('edit-sale-btn')) openEditSaleModal(parseInt(dataset.id));
+        else if (classList.contains('receive-payment-btn')) openReceivePaymentModal(parseInt(dataset.id));
+        else if (classList.contains('tab-button')) switchTab(dataset.tab);
+        else if (classList.contains('period-button')) setReportPeriod(dataset.period);
+        else if (classList.contains('customer-details-row')) openCustomerDetailsModal(dataset.customerId);
+        else if (classList.contains('sidebar-item') || classList.contains('quick-action-btn')) switchView(dataset.view);
+        else if (classList.contains('apply-item-discount-btn')) openDiscountModal(parseInt(dataset.index));
+        else if (classList.contains('category-filter-btn')) {
+            document.querySelectorAll('.category-filter-btn').forEach(btn => btn.classList.remove('active'));
+            target.classList.add('active');
+            renderProducts(document.getElementById('search-product').value, dataset.categoryId);
+        }
+    });
+}
 </script>
 </body>
 </html>

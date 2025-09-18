@@ -1658,27 +1658,35 @@
         }
     }
     
-    function renderDashboard() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const todaysTransactions = transactions.filter(t => new Date(t.date) >= today && t.type === 'venda' && !t.reversed);
-        
-        const salesToday = todaysTransactions.reduce((sum, t) => sum + t.amount, 0);
-        const profitToday = todaysTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
-        const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
+  function renderDashboard() {
+    // Define o início e o fim do dia no fuso horário local
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
 
-        const salesCountToday = todaysTransactions.length;
-        const averageTicket = salesCountToday > 0 ? salesToday / salesCountToday : 0;
+    const todaysTransactions = transactions.filter(t => 
+        t.date >= startOfToday.getTime() && 
+        t.date <= endOfToday.getTime() &&
+        t.type === 'venda' && !t.reversed
+    );
+    
+    const salesToday = todaysTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const profitToday = todaysTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
+    const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
 
-        document.getElementById('kpi-sales-today').textContent = formatCurrency(salesToday);
-        document.getElementById('kpi-profit-today').textContent = formatCurrency(profitToday);
-        document.getElementById('kpi-unpaid').textContent = formatCurrency(unpaidAmount);
-        document.getElementById('kpi-avg-ticket').textContent = formatCurrency(averageTicket);
+    const salesCountToday = todaysTransactions.length;
+    const averageTicket = salesCountToday > 0 ? salesToday / salesCountToday : 0;
 
-        const recentTransactionsList = document.getElementById('recent-transactions-list');
-        renderTransactionList(recentTransactionsList, transactions.slice(-5));
-    }
+    document.getElementById('kpi-sales-today').textContent = formatCurrency(salesToday);
+    document.getElementById('kpi-profit-today').textContent = formatCurrency(profitToday);
+    document.getElementById('kpi-unpaid').textContent = formatCurrency(unpaidAmount);
+    document.getElementById('kpi-avg-ticket').textContent = formatCurrency(averageTicket);
+
+    const recentTransactionsList = document.getElementById('recent-transactions-list');
+    renderTransactionList(recentTransactionsList, transactions.slice(-5));
+}
+
     
     function openDiscountModal(itemIndex) {
         const form = document.getElementById('discount-form');
@@ -1745,8 +1753,8 @@
     });
     document.getElementById('add-category-form').addEventListener('submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
     document.getElementById('edit-category-form').addEventListener('submit', handleEditCategory);
-    document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addStockItem(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
-    document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const item = stockItems.find(rm => rm.id == this.elements.rawMaterialId.value); if(item) { Object.assign(item, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, rawMaterialStock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderStockItems(); closeModal('modal-edit-materiaprima'); showToast('Item de estoque atualizado!'); saveData(); } });
+    document.getElementById('add-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
+    document.getElementById('edit-raw-material-form').addEventListener('submit', function(e) { e.preventDefault(); const item = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(item) { Object.assign(item, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, rawMaterialStock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); closeModal('modal-edit-materiaprima'); showToast('Item de estoque atualizado!'); saveData(); } });
     document.getElementById('add-customer-form').addEventListener('submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
     document.getElementById('edit-customer-form').addEventListener('submit', function(e) { e.preventDefault(); const c = customers.find(c => c.id == this.elements.customerId.value); if(c) { Object.assign(c, { name: this.elements.customerName.value, contact: this.elements.customerContact.value }); renderCustomers(); closeModal('modal-edit-cliente'); showToast('Cliente atualizado!'); saveData(); } });
     document.getElementById('payment-form').addEventListener('submit', processPaidSale);
@@ -1771,28 +1779,20 @@
     if(document.getElementById('kpi-card-unpaid')) document.getElementById('kpi-card-unpaid').addEventListener('click', () => openModal('modal-contas-receber'));
     if(document.getElementById('search-edit-product')) document.getElementById('search-edit-product').addEventListener('input', function(e) { renderProductEditList(e.target.value); });
     
-    // ====================================================================
-    // LISTENER DA GRELHA DE PRODUTOS CORRIGIDO E FUNCIONAL
-    // ====================================================================
+    // Listener da Grelha de Produtos Corrigido
     document.getElementById('product-grid').addEventListener('click', function(e) {
         const target = e.target;
-        
         const editButton = target.closest('.edit-product-btn');
         if (editButton) {
             e.stopPropagation(); 
             const productId = parseInt(editButton.dataset.id);
-            if (productId) {
-                openEditProductModal(productId);
-            }
+            if (productId) openEditProductModal(productId);
             return; 
         }
-
         const cardAction = target.closest('[data-action="add-to-cart"]');
         if (cardAction) {
             const productId = parseInt(cardAction.dataset.id);
-            if (productId) {
-                addToCart(productId);
-            }
+            if (productId) addToCart(productId);
         }
     });
 
@@ -1800,9 +1800,7 @@
     document.querySelectorAll('.open-modal-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.modalId)));
     document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
         backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) {
-                closeModal(backdrop.id);
-            }
+            if (e.target === backdrop) closeModal(backdrop.id);
         });
     });
     document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));

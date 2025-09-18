@@ -902,51 +902,54 @@
         renderCart();
     }
     function processSale(paymentDetails) {
-        if (cart.items.length === 0) return;
-        const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        let totalDiscount = cart.items.reduce((sum, item) => {
-            const itemTotal = item.price * item.quantity;
-            return sum + (item.discount.type === 'percentage' ? (itemTotal * item.discount.value / 100) : item.discount.value);
-        }, 0);
-        if (cart.generalDiscount.value > 0) {
-            totalDiscount += cart.generalDiscount.type === 'percentage' ? ((subtotal - totalDiscount) * cart.generalDiscount.value / 100) : cart.generalDiscount.value;
-        }
-        const total = subtotal - totalDiscount;
-        const totalCost = cart.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-        const customerId = document.getElementById('customer-select').value;
-        const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).toISOString() : new Date().toISOString();
-
-        if (paymentDetails.status === 'Pago' && !paymentDetails.isRetroactive) {
-            cashBalance += total;
-        }
-        
-        const { date, ...otherPaymentDetails } = paymentDetails;
-        const transaction = { 
-            id: Date.now(), 
-            type: 'venda', 
-            amount: total, 
-            cost: totalCost, 
-            description: `Venda de ${cart.items.reduce((s, i) => s + i.quantity, 0)} item(s)`, 
-            date: saleDate, 
-            items: [...cart.items], 
-            customerId: customerId ? parseInt(customerId) : null, 
-            ...otherPaymentDetails, 
-            reversed: false, 
-            discount: totalDiscount 
-        };
-
-        transactions.push(transaction);
-        transactions.sort((a,b) => new Date(a.date) - new Date(b.date));
-
-        if (paymentDetails.status === 'Pago') {
-            showReceipt(transaction);
-        }
-        document.getElementById('customer-select').value = "";
-        clearCart(); 
-        updateCashBalance(); 
-        showToast('Venda registada com sucesso!', 'success');
-        saveData();
+    if (cart.items.length === 0) return;
+    const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    let totalDiscount = cart.items.reduce((sum, item) => {
+        const itemTotal = item.price * item.quantity;
+        return sum + (item.discount.type === 'percentage' ? (itemTotal * item.discount.value / 100) : item.discount.value);
+    }, 0);
+    if (cart.generalDiscount.value > 0) {
+        totalDiscount += cart.generalDiscount.type === 'percentage' ? ((subtotal - totalDiscount) * cart.generalDiscount.value / 100) : cart.generalDiscount.value;
     }
+    const total = subtotal - totalDiscount;
+    const totalCost = cart.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
+    const customerId = document.getElementById('customer-select').value;
+    
+    // --- CORREÇÃO APLICADA AQUI ---
+    // Trocamos .toISOString() por .getTime() ou Date.now() para usar o fuso horário local
+    const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).getTime() : Date.now();
+
+    if (paymentDetails.status === 'Pago' && !paymentDetails.isRetroactive) {
+        cashBalance += total;
+    }
+    
+    const { date, ...otherPaymentDetails } = paymentDetails;
+    const transaction = { 
+        id: Date.now(), 
+        type: 'venda', 
+        amount: total, 
+        cost: totalCost, 
+        description: `Venda de ${cart.items.reduce((s, i) => s + i.quantity, 0)} item(s)`, 
+        date: saleDate, 
+        items: [...cart.items], 
+        customerId: customerId ? parseInt(customerId) : null, 
+        ...otherPaymentDetails, 
+        reversed: false, 
+        discount: totalDiscount 
+    };
+
+    transactions.push(transaction);
+    transactions.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    if (paymentDetails.status === 'Pago') {
+        showReceipt(transaction);
+    }
+    document.getElementById('customer-select').value = "";
+    clearCart(); 
+    showToast('Venda registada com sucesso!', 'success');
+    saveData();
+}
+
     function processPaidSale(e) {
         e.preventDefault();
         const form = document.getElementById('payment-form');
@@ -976,10 +979,11 @@
         renderCustomers(); showToast('Novo cliente adicionado!'); saveData();
     }
     function handleCashFlow(type, amount, description) {
-        if (type === 'saida' && amount > cashBalance) { showToast('Saldo insuficiente para esta saída!', 'error'); return; }
-        cashBalance += (type === 'entrada' ? amount : -amount);
-        transactions.push({ id: Date.now(), type, amount, description, date: new Date().toISOString() });
-        updateCashBalance(); showToast(`Movimentação registada.`); saveData();
+    if (type === 'saida' && amount > cashBalance) { showToast('Saldo insuficiente para esta saída!', 'error'); return; }
+    cashBalance += (type === 'entrada' ? amount : -amount);
+    // --- CORREÇÃO APLICADA AQUI ---
+    transactions.push({ id: Date.now(), type, amount, description, date: Date.now() });
+    showToast(`Movimentação registada.`); saveData();
     }
     function deleteProduct() {
         const productId = parseInt(document.getElementById('edit-product-form').elements.productId.value);
@@ -1004,15 +1008,16 @@
         });
     }
     function cancelSale(transactionId) {
-        const sale = transactions.find(t => t.id === transactionId);
-        if (!sale || sale.reversed) return;
-        openConfirmationModal('Estornar Venda', 'Tem a certeza de que deseja estornar esta venda?', () => {
-            if (sale.status !== 'Não Pago') cashBalance -= sale.amount;
-            sale.reversed = true;
-            transactions.push({ id: Date.now(), type: 'estorno', amount: -sale.amount, description: `Estorno da venda #${sale.id}`, date: new Date().toISOString() });
-            updateCashBalance(); renderReports(currentReportPeriod);
-            showToast('Venda estornada com sucesso!'); saveData();
-        });
+    const sale = transactions.find(t => t.id === transactionId);
+    if (!sale || sale.reversed) return;
+    openConfirmationModal('Estornar Venda', 'Tem a certeza de que deseja estornar esta venda?', () => {
+        if (sale.status !== 'Não Pago') cashBalance -= sale.amount;
+        sale.reversed = true;
+        // --- CORREÇÃO APLICADA AQUI ---
+        transactions.push({ id: Date.now(), type: 'estorno', amount: -sale.amount, description: `Estorno da venda #${sale.id}`, date: Date.now() });
+        renderReports(currentReportPeriod);
+        showToast('Venda estornada com sucesso!'); saveData();
+    });
     }
     function deleteTransaction(transactionId) {
         openConfirmationModal('Excluir Venda Permanentemente?', 'Esta ação é irreversível e não pode ser desfeita. A venda será apagada do histórico. Deseja continuar?', () => {
@@ -1175,54 +1180,66 @@
         openModal('modal-receber-pagamento');
     }
     function handleReceivedPayment(e) {
-        e.preventDefault();
-        const form = document.getElementById('receive-payment-form');
-        const sale = transactions.find(t => t.id == form.elements.transactionId.value); 
-        if (!sale) return;
+    e.preventDefault();
+    const form = document.getElementById('receive-payment-form');
+    const sale = transactions.find(t => t.id == form.elements.transactionId.value); 
+    if (!sale) return;
 
-        sale.status = 'Pago';
-        sale.method = form.elements.paymentMethod.value;
-        sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
-        
-        transactions.push({ 
-            id: Date.now(), 
-            type: 'recebimento', 
-            amount: sale.amount, 
-            description: `Recebimento da venda #${sale.id}`, 
-            date: new Date().toISOString(), 
-            method: sale.method, 
-            installments: sale.installments 
-        });
+    sale.status = 'Pago';
+    sale.method = form.elements.paymentMethod.value;
+    sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
+    
+    // --- CORREÇÃO APLICADA AQUI ---
+    transactions.push({ 
+        id: Date.now(), 
+        type: 'recebimento', 
+        amount: sale.amount, 
+        description: `Recebimento da venda #${sale.id}`, 
+        date: Date.now(), 
+        method: sale.method, 
+        installments: sale.installments 
+    });
 
-        cashBalance += sale.amount;
-        updateCashBalance(); 
-        renderUnpaidSales();
-        closeModal('modal-receber-pagamento');
-        showToast('Pagamento recebido com sucesso!', 'success'); 
-        saveData();
-    }
+    cashBalance += sale.amount;
+    renderUnpaidSales();
+    closeModal('modal-receber-pagamento');
+    showToast('Pagamento recebido com sucesso!', 'success'); 
+    saveData();
+}
     function handleImportSales(e) {
-        e.preventDefault();
-        const file = document.getElementById('csv-file-input').files[0]; const logDiv = document.getElementById('import-log');
-        if (!file) { showToast('Por favor, selecione um ficheiro.', 'error'); return; }
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const rows = event.target.result.split('\n').filter(row => row.trim() !== ''); logDiv.innerHTML = '';
-            let newTransactions = [];
-            rows.forEach((row, index) => {
-                const [dateStr, productIdStr, quantityStr, customerIdStr, paymentMethod, status] = row.split(',');
-                const product = products.find(p => p.id == productIdStr); const customer = customers.find(c => c.id == customerIdStr);
-                if (!dateStr || !product || !customer || !quantityStr || !paymentMethod || !status) { logDiv.innerHTML += `<p class="text-red-500">Linha ${index + 1}: Dados inválidos. (${row})</p>`; return; }
-                newTransactions.push({ id: new Date(dateStr).getTime() + index, type: 'venda', amount: product.price * parseInt(quantityStr), cost: product.cost * parseInt(quantityStr), description: `Venda importada`, date: new Date(dateStr).toISOString(), items: [{...product, quantity: parseInt(quantityStr)}], customerId: parseInt(customerIdStr), method: paymentMethod.trim(), installments: 1, status: status.trim(), reversed: false, discount: 0 });
-            });
-            transactions.push(...newTransactions);
-            transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
-            showToast(`${newTransactions.length} vendas importadas!`, 'success');
-            document.getElementById('csv-file-input').value = '';
-            saveData();
-        };
-        reader.readAsText(file);
-    }
+    e.preventDefault();
+    const file = document.getElementById('csv-file-input').files[0]; const logDiv = document.getElementById('import-log');
+    if (!file) { showToast('Por favor, selecione um ficheiro.', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const rows = event.target.result.split('\n').filter(row => row.trim() !== ''); logDiv.innerHTML = '';
+        let newTransactions = [];
+        rows.forEach((row, index) => {
+            const [dateStr, productIdStr, quantityStr, customerIdStr, paymentMethod, status] = row.split(',');
+            const product = products.find(p => p.id == productIdStr); const customer = customers.find(c => c.id == customerIdStr);
+            if (!dateStr || !product || !customer || !quantityStr || !paymentMethod || !status) { logDiv.innerHTML += `<p class="text-red-500">Linha ${index + 1}: Dados inválidos. (${row})</p>`; return; }
+            
+            // --- CORREÇÃO DEFINITIVA APLICADA AQUI ---
+            // Desmontamos a data do texto para evitar erros de fuso horário na interpretação.
+            const dateParts = dateStr.split(/[-T:]/);
+            const year = parseInt(dateParts[0], 10);
+            const month = parseInt(dateParts[1], 10) - 1; // Mês em JavaScript é de 0 a 11
+            const day = parseInt(dateParts[2], 10);
+            const hour = parseInt(dateParts[3], 10);
+            const minute = parseInt(dateParts[4], 10);
+            const localDate = new Date(year, month, day, hour, minute);
+            
+            newTransactions.push({ id: localDate.getTime() + index, type: 'venda', amount: product.price * parseInt(quantityStr), cost: product.cost * parseInt(quantityStr), description: `Venda importada`, date: localDate.getTime(), items: [{...product, quantity: parseInt(quantityStr)}], customerId: parseInt(customerIdStr), method: paymentMethod.trim(), installments: 1, status: status.trim(), reversed: false, discount: 0 });
+        });
+        transactions.push(...newTransactions);
+        transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+        showToast(`${newTransactions.length} vendas importadas!`, 'success');
+        document.getElementById('csv-file-input').value = '';
+        saveData();
+    };
+    reader.readAsText(file);
+}
+
     function openSaleDetailsModal(transactionId) {
         const sale = transactions.find(t => t.id === transactionId);
         if (!sale) return;

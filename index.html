@@ -191,14 +191,18 @@
                     <div class="lg:col-span-2">
                         <div class="lg:sticky top-6">
                             <div class="bg-[var(--bg-primary)] shadow-lg rounded-lg flex flex-col p-4 sm:p-6">
-                                <div class="flex-grow">
-                                    <h2 class="text-xl lg:text-2xl font-bold mb-4 border-b pb-2 border-[var(--border-color)]">Caixa</h2>
-                                    <div class="mb-4">
-                                        <label for="customer-select" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Associar Cliente (Obrigatório)</label>
-                                        <select id="customer-select" class="w-full border-[var(--border-color)] rounded-lg shadow-sm focus:ring-[var(--primary-500)] focus:border-[var(--primary-500)] bg-[var(--bg-primary)]"></select>
-                                    </div>
-                                    <div id="cart-items" class="space-y-3 max-h-[40vh] overflow-y-auto"></div>
-                                </div>
+                                 <div class="flex-grow">
+                            <h2 class="text-xl lg:text-2xl font-bold mb-4 border-b pb-2 border-[var(--border-color)]">Caixa</h2>
+                            <div class="mb-4">
+    <label for="customer-select" ...>Associar Cliente (Obrigatório)</label>
+    <select id="customer-select" ...></select>
+</div>
+
+<div id="customer-info-summary" class="hidden mt-2 p-3 bg-[var(--bg-tertiary)] rounded-lg text-sm border border-[var(--border-color)] space-y-1">
+    </div>
+                            
+                            <div id="cart-items" class="space-y-3 mt-4 max-h-[40vh] overflow-y-auto"></div>
+                        </div>
                                 <div class="border-t border-[var(--border-color)] pt-4 mt-4 space-y-3 flex-shrink-0">
                                     <div class="flex justify-between font-medium text-lg"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
                                     <div class="flex justify-between font-medium text-lg text-red-500"><span>Descontos</span><span id="discounts-total">R$ 0,00</span></div>
@@ -610,8 +614,12 @@
     </div>
 
     <div id="modal-venda-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+        <div class="modal w-[95%] max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
             <h3 class="text-xl font-bold mb-4">Detalhes da Venda</h3>
+            
+            <div id="sale-details-content" class="space-y-2">
+                </div>
+
             <div class="flex justify-end mt-4 no-print">
                 <button id="print-details-btn" class="px-4 py-2 rounded bg-blue-600 text-white mr-2">Imprimir</button>
                 <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
@@ -1349,6 +1357,7 @@ function processSale(paymentDetails) {
         showReceipt(transaction);
     }
     document.getElementById('customer-select').value = "";
+    displayCustomerSummary(null); // <-- ADICIONE ESTA LINHA
     clearCart(); 
     showToast('Venda registada com sucesso!', 'success');
     saveData();
@@ -1646,32 +1655,80 @@ function handleImportSales(e) {
 
 function openSaleDetailsModal(transactionId) {
     const sale = transactions.find(t => t.id === transactionId);
-    if (!sale) return;
+    if (!sale) {
+        showToast("Venda não encontrada.", "error");
+        return;
+    }
 
-    document.getElementById('details-id').textContent = sale.id;
-    document.getElementById('details-date').textContent = new Date(sale.date).toLocaleString('pt-BR');
-    document.getElementById('details-customer').textContent = customers.find(c => c.id == sale.customerId)?.name || 'Não identificado';
-    
-    const itemsTable = document.getElementById('details-items-table');
-    itemsTable.innerHTML = '';
-    sale.items.forEach(item => itemsTable.innerHTML += `<tr><td class="p-2">${item.name}</td><td class="p-2 text-center">${item.quantity}</td><td class="p-2 text-right">${formatCurrency(item.price)}</td><td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td></tr>`);
+    const contentDiv = document.getElementById('sale-details-content');
+    if (!contentDiv) {
+        console.error("Elemento 'sale-details-content' não foi encontrado no modal.");
+        return;
+    }
 
-    const subtotal = sale.amount + (sale.discount || 0);
+    // --- Monta a tabela de itens ---
+    let itemsHtml = `
+        <table class="w-full text-sm my-4">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left p-1">Item</th>
+                    <th class="text-center p-1">Qtd.</th>
+                    <th class="text-right p-1">Preço Unit.</th>
+                    <th class="text-right p-1">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    sale.items.forEach(item => {
+        itemsHtml += `
+            <tr>
+                <td class="p-1">${item.name}</td>
+                <td class="text-center p-1">${item.quantity}</td>
+                <td class="text-right p-1">${formatCurrency(item.price)}</td>
+                <td class="text-right p-1">${formatCurrency(item.price * item.quantity)}</td>
+            </tr>
+        `;
+    });
+    itemsHtml += '</tbody></table>';
+
+    // --- Monta o resumo financeiro ---
+    const subtotal = sale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const profit = sale.amount - sale.cost;
-    const discountPercentage = subtotal > 0 ? ((sale.discount || 0) / subtotal) * 100 : 0;
+    const discountValue = subtotal - sale.amount;
 
-    const detailsSummaryDiv = document.querySelector('#modal-venda-detalhes .space-y-1');
-    detailsSummaryDiv.innerHTML = `
-        <div class="flex justify-between"><span>Subtotal:</span> <span id="details-subtotal">${formatCurrency(subtotal)}</span></div>
-        <div class="flex justify-between text-red-600">
-            <span>Descontos:</span> 
-            <span id="details-discount">-${formatCurrency(sale.discount || 0)} (${discountPercentage.toFixed(2)}%)</span>
+    // --- Monta o HTML completo para o modal ---
+    contentDiv.innerHTML = `
+        <div class="space-y-2 text-sm mb-4">
+            <p><strong>ID da Venda:</strong> ${sale.id}</p>
+            <p><strong>Data:</strong> ${new Date(sale.date).toLocaleString('pt-BR')}</p>
+            <p><strong>Cliente:</strong> ${customers.find(c => c.id == sale.customerId)?.name || 'Não identificado'}</p>
         </div>
-        <div class="flex justify-between font-bold text-xl border-t pt-2 mt-2"><span>TOTAL PAGO:</span> <span>${formatCurrency(sale.amount)}</span></div>
-        <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm">
-            <div class="flex justify-between"><span>Custo Total:</span> <span id="details-cost" class="text-red-600">${formatCurrency(sale.cost)}</span></div>
-            <div class="flex justify-between font-bold"><span>Lucro Líquido:</span> <span id="details-profit" class="text-green-600">${formatCurrency(profit)}</span></div>
-            <div class="flex justify-between font-bold"><span>Margem de Lucro:</span> <span id="details-margin" class="text-green-600">${(sale.amount > 0 ? (profit / sale.amount) * 100 : 0).toFixed(2)}%</span></div>
+        
+        ${itemsHtml}
+
+        <div class="space-y-1 text-sm border-t pt-2">
+            <div class="flex justify-between">
+                <span>Subtotal:</span> 
+                <span>${formatCurrency(subtotal)}</span>
+            </div>
+            <div class="flex justify-between text-red-600">
+                <span>Descontos:</span> 
+                <span>-${formatCurrency(discountValue)}</span>
+            </div>
+            <div class="flex justify-between font-bold text-lg border-t pt-2 mt-2">
+                <span>TOTAL PAGO:</span> 
+                <span>${formatCurrency(sale.amount)}</span>
+            </div>
+            <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm">
+                <div class="flex justify-between">
+                    <span>Custo Total:</span> 
+                    <span class="text-red-600">-${formatCurrency(sale.cost)}</span>
+                </div>
+                <div class="flex justify-between font-bold">
+                    <span>Lucro Líquido:</span> 
+                    <span class="text-green-600">${formatCurrency(profit)}</span>
+                </div>
+            </div>
         </div>
     `;
     
@@ -2140,6 +2197,10 @@ function addEventListeners() {
     };
 
     // --- Formulários ---
+
+    safeAddListener('customer-select', 'change', (e) => {
+        displayCustomerSummary(e.target.value);
+    });
     safeAddListener('add-product-form', 'submit', function(e) {
         e.preventDefault();
         addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productCategory.value, this.elements.productBarcode.value);

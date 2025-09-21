@@ -722,9 +722,15 @@
                     <label for="order-customer-select" class="block text-sm font-medium">Cliente</label>
                     <select id="order-customer-select" name="orderCustomer" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required></select>
                 </div>
-                <div>
-                    <label for="order-delivery-date" class="block text-sm font-medium">Data de Entrega</label>
-                    <input type="date" name="orderDeliveryDate" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required>
+                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="add-order-order-date" class="block text-sm font-medium">Data do Pedido</label>
+                        <input type="date" id="add-order-order-date" name="orderOrderDate" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required>
+                    </div>
+                    <div>
+                        <label for="add-order-delivery-date" class="block text-sm font-medium">Data de Entrega</label>
+                        <input type="date" id="add-order-delivery-date" name="orderDeliveryDate" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required>
+                    </div>
                 </div>
                 <div>
                     <label for="order-description" class="block text-sm font-medium">Descrição do Pedido</label>
@@ -761,9 +767,15 @@
                     <label class="block text-sm font-medium">Cliente</label>
                     <p id="edit-order-customer-name" class="mt-1 font-semibold"></p>
                 </div>
-                <div>
-                    <label for="edit-order-delivery-date" class="block text-sm font-medium">Data de Entrega</label>
-                    <input type="date" id="edit-order-delivery-date" name="orderDeliveryDate" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="edit-order-order-date" class="block text-sm font-medium">Data do Pedido</label>
+                        <input type="date" id="edit-order-order-date" name="orderOrderDate" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required>
+                    </div>
+                    <div>
+                        <label for="edit-order-delivery-date" class="block text-sm font-medium">Data de Entrega</label>
+                        <input type="date" id="edit-order-delivery-date" name="orderDeliveryDate" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required>
+                    </div>
                 </div>
                 <div>
                     <label for="edit-order-description" class="block text-sm font-medium">Descrição do Pedido</label>

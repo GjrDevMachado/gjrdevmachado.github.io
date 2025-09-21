@@ -1,7 +1,7 @@
 // ===================================================================================
 // CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM
 // ===================================================================================
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygN5cle6Dqd7PQIb6uYabncFRnFOrTAq1su1DfoZCDgF3F4ROVR3QL-3A2DYWsXAhsXg/exec'; // INSIRA A URL DO SEU SCRIPT DO GOOGLE SHEETS AQUI
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwOGj63auvKoIknFhy9uc8ncvP-qLp8xnNnKI3MFZSMy-IQU8hoikoAq3xmxAOGMV8BQ/exec'; // INSIRA A URL DO SEU SCRIPT DO GOOGLE SHEETS AQUI
 
 // --- DADOS EM MEMÓRIA ---
 let products = [];
@@ -2173,4 +2173,5 @@ function addEventListeners() {
         }
     });
 }
+
 

@@ -1,7 +1,8 @@
 // ===================================================================================
-// CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM
+// CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM (REMOVIDO)
+// A constante abaixo não é mais usada, mas pode ser mantida caso queira reativar no futuro.
+// const GOOGLE_SCRIPT_URL = 'URL_DO_SEU_SCRIPT';
 // ===================================================================================
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwOGj63auvKoIknFhy9uc8ncvP-qLp8xnNnKI3MFZSMy-IQU8hoikoAq3xmxAOGMV8BQ/exec'; // INSIRA A URL DO SEU SCRIPT DO GOOGLE SHEETS AQUI
 
 // --- DADOS EM MEMÓRIA ---
 let products = [];
@@ -18,9 +19,6 @@ let cart = {
 let salesChart;
 let currentReportPeriod = 'weekly';
 let confirmCallback = null;
-let autoSaveInterval = null;
-let isAutoSaveEnabled = false;
-let isAutoLoadEnabled = false;
 let areEventListenersAdded = false;
 let calendarDate = new Date();
 let productSalesReportData = null; // Armazena os dados do relatório de vendas por produto
@@ -36,6 +34,7 @@ function saveData() {
         localStorage.setItem('rawMaterials', JSON.stringify(rawMaterials));
         localStorage.setItem('categories', JSON.stringify(categories));
         localStorage.setItem('theme', document.documentElement.getAttribute('data-theme'));
+        // A lógica de auto-save na nuvem foi removida daqui. O salvamento agora é sempre local.
     } catch (error) {
         console.error("Erro ao guardar dados:", error);
         showToast("Não foi possível guardar os dados. O armazenamento pode estar cheio.", "error");
@@ -56,9 +55,9 @@ function loadDataFromLocalStorage() {
         applyTheme(savedTheme);
 
         transactions.forEach(t => {
-            if (t.customerid !== undefined) { 
-                t.customerId = t.customerid; 
-                delete t.customerid;    
+            if (t.customerid !== undefined) {
+                t.customerId = t.customerid;
+                delete t.customerid;
             }
         });
 
@@ -83,57 +82,45 @@ function initializeAppUI() {
         addEventListeners();
         areEventListenersAdded = true;
     }
-    
-    if (isAutoSaveEnabled) {
-        manageAutoSaveInterval(true);
-    }
 }
 
+// ALTERAÇÃO PRINCIPAL: Simplificação da inicialização para sempre usar dados locais.
 window.onload = function() {
     try {
-        isAutoSaveEnabled = JSON.parse(localStorage.getItem('isAutoSaveEnabled')) || false;
-        isAutoLoadEnabled = JSON.parse(localStorage.getItem('isAutoLoadEnabled')) || false;
-        
-        const autosaveToggle = document.getElementById('autosave-toggle');
-        const autoloadToggle = document.getElementById('autoload-toggle');
-
-        if(autosaveToggle) autosaveToggle.checked = isAutoSaveEnabled;
-        if(autoloadToggle) autoloadToggle.checked = isAutoLoadEnabled;
-
-        if (isAutoLoadEnabled && GOOGLE_SCRIPT_URL) {
-            loadFromGoogleSheets(true);
-        } else {
-            if(isAutoLoadEnabled) {
-                console.warn("Carregamento automático da nuvem está ativado, mas a URL não foi configurada. A carregar dados locais.");
-            }
-            loadDataFromLocalStorage();
-        }
+        // A lógica que decidia entre carregar da nuvem ou local foi removida.
+        // Agora, sempre carrega do armazenamento local.
+        loadDataFromLocalStorage();
     } catch (e) {
         alert("Ocorreu um erro crítico ao iniciar a aplicação. Por favor, limpe o cache do seu navegador e tente novamente. Erro: " + e.message);
         console.error("Erro fatal no window.onload:", e);
     }
 };
 
+
+// --- O RESTANTE DO CÓDIGO PERMANECE IGUAL ---
+// --- As funções de importação/exportação manual (exportAllData, importAllData) continuam aqui ---
+
+
 // --- FUNÇÕES DE LÓGICA PRINCIPAL (vendas, produtos, etc.) ---
 function addProduct(name, price, cost, categoryId, barcode) {
-    if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) { 
-        showToast('Produto com este nome já está registado!', 'error'); 
-        return; 
+    if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+        showToast('Produto com este nome já está registado!', 'error');
+        return;
     }
     if (barcode && products.some(p => p.barcode === barcode)) {
         showToast('Este código de barras já está associado a outro produto!', 'error');
         return;
     }
-    products.push({ 
-        id: Date.now(), 
-        name, 
-        price: parseFloat(price), 
-        cost: parseFloat(cost), 
+    products.push({
+        id: Date.now(),
+        name,
+        price: parseFloat(price),
+        cost: parseFloat(cost),
         categoryId: parseInt(categoryId),
         barcode: barcode.trim()
     });
-    renderProducts(); 
-    showToast('Novo produto adicionado!'); 
+    renderProducts();
+    showToast('Novo produto adicionado!');
     saveData();
 }
 
@@ -156,21 +143,21 @@ function renderProducts(filter = '', categoryId = 'all') {
     const productGrid = document.getElementById('product-grid');
     if(!productGrid) return;
     productGrid.innerHTML = '';
-    
+
     let filteredProducts = products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
     if (categoryId !== 'all') {
         filteredProducts = filteredProducts.filter(p => p.categoryId == categoryId);
     }
 
-    if (filteredProducts.length === 0) { 
-        productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado.</p>`; 
-        return; 
+    if (filteredProducts.length === 0) {
+        productGrid.innerHTML = `<p class="col-span-full text-center text-gray-500 mt-8">Nenhum produto encontrado.</p>`;
+        return;
     }
-    
+
     filteredProducts.forEach(product => {
         const card = document.createElement('div');
         card.className = `product-card relative p-4 rounded-lg shadow cursor-pointer hover:bg-[var(--bg-secondary)]`;
-        card.setAttribute('title', product.name); 
+        card.setAttribute('title', product.name);
 
         card.innerHTML = `
             <button data-id="${product.id}" class="edit-product-btn absolute bottom-1 right-1 text-blue-500 hover:text-blue-700 p-1 transition-colors z-10" title="Editar ${product.name}">
@@ -184,7 +171,7 @@ function renderProducts(filter = '', categoryId = 'all') {
                 </div>
             </div>
         `;
-        
+
         productGrid.appendChild(card);
     });
 }
@@ -236,7 +223,7 @@ function renderProductEditList(filter = '') {
 function renderCart() {
     const cartItems = document.getElementById('cart-items');
     if (!cartItems) return;
-    if (cart.items.length === 0) { cartItems.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-8">O caixa está vazio.</p>'; } 
+    if (cart.items.length === 0) { cartItems.innerHTML = '<p class="text-center text-[var(--text-secondary)] mt-8">O caixa está vazio.</p>'; }
     else {
         cartItems.innerHTML = '';
         cart.items.forEach((item, index) => {
@@ -301,7 +288,7 @@ function renderReports(period = currentReportPeriod, month, year) {
             const annualSummaryTable = document.getElementById('annual-summary-table');
             const transactionsList = document.getElementById('transactions-list');
             let filteredTransactions, startDate;
-            
+
             const monthYearSelector = document.getElementById('month-year-selector');
             if(monthYearSelector) {
                 monthYearSelector.classList.toggle('hidden', period !== 'monthly');
@@ -325,12 +312,12 @@ function renderReports(period = currentReportPeriod, month, year) {
                     case 'daily': startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break;
                     case 'weekly': default: startDate = new Date(); startDate.setDate(startDate.getDate() - 7); break;
                 }
-                 filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
+                   filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
             }
 
             if(transactionsList) transactionsList.classList.toggle('hidden', period === 'annual');
             if(annualSummaryTable) annualSummaryTable.classList.toggle('hidden', period !== 'annual');
-            
+
             const salesSummary = document.getElementById('sales-summary');
             const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
 
@@ -354,12 +341,12 @@ function renderReports(period = currentReportPeriod, month, year) {
             if (period !== 'annual') {
                 renderTransactionList(transactionsList, filteredTransactions);
             }
-            
+
             const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
             if (period === 'annual') {
                 const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
                 const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0, discount: 0 }));
-                
+
                 salesTransactions.forEach(t => {
                     const month = new Date(t.date).getMonth();
                     if (t.status === 'Não Pago') monthlyData[month].unpaid += t.amount;
@@ -367,11 +354,11 @@ function renderReports(period = currentReportPeriod, month, year) {
                     monthlyData[month].cost += (t.cost || 0);
                     monthlyData[month].discount += (t.discount || 0);
                 });
-                
+
                 salesData.labels = monthNames;
                 salesData.datasets[0].data = monthlyData.map(m => m.paid);
                 salesData.datasets[1].data = monthlyData.map(m => m.unpaid);
-                
+
                 if(annualSummaryTable) {
                     annualSummaryTable.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th class="text-right">Fat. Bruto</th><th class="text-right">Descontos</th><th class="text-right">Custo</th><th class="text-right">Lucro Líquido</th><th class="text-right">Margem %</th></tr></thead><tbody></tbody></table>`;
                     const annualTbody = annualSummaryTable.querySelector('tbody');
@@ -389,8 +376,8 @@ function renderReports(period = currentReportPeriod, month, year) {
                 let endDate = (period === 'monthly') ? new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0) : new Date();
 
                 while(loopDate <= endDate) {
-                     salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 };
-                     loopDate.setDate(loopDate.getDate() + 1);
+                       salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 };
+                       loopDate.setDate(loopDate.getDate() + 1);
                 }
 
                 salesTransactions.forEach(t => {
@@ -414,7 +401,7 @@ function renderReports(period = currentReportPeriod, month, year) {
                     }
                 }
             }
-            
+
             const canvas = document.getElementById('salesChart');
             if (canvas) {
                 const ctx = canvas.getContext('2d');
@@ -422,9 +409,9 @@ function renderReports(period = currentReportPeriod, month, year) {
                 salesChart = new Chart(ctx, { type: 'bar', data: salesData, options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } } });
             }
 
-        } catch (error) { 
-            console.error("Erro ao renderizar relatórios:", error); 
-            showToast("Ocorreu um erro ao gerar o relatório.", "error"); 
+        } catch (error) {
+            console.error("Erro ao renderizar relatórios:", error);
+            showToast("Ocorreu um erro ao gerar o relatório.", "error");
         }
     }
 
@@ -433,14 +420,14 @@ function renderSalesByCustomerReport() {
     if(!container) return;
     const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
         const customerId = sale.customerId || 'unknown';
-        if (!acc[customerId]) { 
-            acc[customerId] = { 
-                paid: 0, 
-                unpaid: 0, 
-                total: 0, 
-                count: 0, 
-                customerName: customers.find(c => c.id == customerId)?.name || 'Cliente Não Identificado' 
-            }; 
+        if (!acc[customerId]) {
+            acc[customerId] = {
+                paid: 0,
+                unpaid: 0,
+                total: 0,
+                count: 0,
+                customerName: customers.find(c => c.id == customerId)?.name || 'Cliente Não Identificado'
+            };
         }
         acc[customerId].total += sale.amount; acc[customerId].count++;
         if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount; else acc[customerId].paid += sale.amount;
@@ -601,20 +588,20 @@ function generateClientSideSalesReport() {
 
             const reportProduct = salesReport[productId];
             const itemTotal = item.price * item.quantity;
-            
+
             let itemDiscountValue = 0;
             if (item.discount && item.discount.value > 0) {
-                 itemDiscountValue = item.discount.type === 'percentage' 
-                    ? (itemTotal * item.discount.value / 100) 
+                   itemDiscountValue = item.discount.type === 'percentage'
+                    ? (itemTotal * item.discount.value / 100)
                     : item.discount.value;
             }
-            
+
             const totalItemDiscountsInTransaction = (transaction.items.reduce((sum, i) => {
                 const iTotal = i.price * i.quantity;
                 const dVal = (i.discount && i.discount.value > 0) ? (i.discount.type === 'percentage' ? (iTotal * i.discount.value / 100) : i.discount.value) : 0;
                 return sum + dVal;
             }, 0));
-            
+
             const generalDiscountAmount = (transaction.discount || 0) - totalItemDiscountsInTransaction;
             if (generalDiscountAmount > 0) {
                 const transactionSubtotal = transaction.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
@@ -625,7 +612,7 @@ function generateClientSideSalesReport() {
             }
 
             reportProduct.totalSold += item.quantity;
-            
+
             reportProduct.salesDetails.push({
                 customerName: customerName,
                 quantity: item.quantity,
@@ -636,7 +623,7 @@ function generateClientSideSalesReport() {
             });
         });
     });
-    
+
     return salesReport;
 }
 
@@ -646,21 +633,21 @@ function displayProductSalesReport(productId, customerFilter = '') {
     if (!container || !searchInput) return;
 
     searchInput.value = customerFilter;
-    
+
     if (!productId) {
         container.innerHTML = `<p class="text-center text-gray-500">Selecione um produto para ver os detalhes das vendas.</p>`;
         searchInput.disabled = true;
         searchInput.value = '';
         return;
     }
-    
+
     searchInput.disabled = false;
 
     if (productSalesReportData === null) {
         container.innerHTML = `<p class="text-center text-red-500 mt-4">Os dados do relatório não estão disponíveis. Tente reabrir a janela.</p>`;
         return;
     }
-    
+
     const productData = productSalesReportData[productId];
 
     if (!productData || productData.salesDetails.length === 0) {
@@ -675,7 +662,7 @@ function displayProductSalesReport(productId, customerFilter = '') {
         return;
     }
 
-    const filteredSales = productData.salesDetails.filter(sale => 
+    const filteredSales = productData.salesDetails.filter(sale =>
         sale.customerName.toLowerCase().includes(customerFilter.toLowerCase())
     );
 
@@ -732,11 +719,11 @@ function setReportPeriod(period) {
     currentReportPeriod = period;
     document.querySelectorAll('#report-period-buttons .period-button').forEach(btn => btn.classList.remove('active'));
     document.querySelector(`#report-period-buttons .period-button[data-period="${period}"]`).classList.add('active');
-    
+
     if (period === 'monthly') {
         populateMonthYearSelectors();
         const now = new Date();
-        renderReports(period, now.getMonth(), now.getFullYear()); 
+        renderReports(period, now.getMonth(), now.getFullYear());
     } else {
         renderReports(period);
     }
@@ -765,7 +752,7 @@ function updateTotals() {
     discountsTotalEl.textContent = formatCurrency(-totalDiscount);
     totalEl.textContent = formatCurrency(total);
 }
-function updateCashBalance() { 
+function updateCashBalance() {
     const cashBalanceElement = document.getElementById('cash-balance');
     if (cashBalanceElement) {
         cashBalanceElement.textContent = formatCurrency(cashBalance);
@@ -780,7 +767,7 @@ function addToCart(productId) {
         } else {
             cart.items.push({ ...product, quantity: 1, discount: { type: 'fixed', value: 0 } });
         }
-        renderCart(); 
+        renderCart();
         showToast(`'${product.name}' adicionado.`);
     }
 }
@@ -815,26 +802,26 @@ function processSale(paymentDetails) {
     const total = subtotal - totalDiscount;
     const totalCost = cart.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
     const customerId = document.getElementById('customer-select').value;
-    
+
     const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).getTime() : Date.now();
 
     if (paymentDetails.status === 'Pago' && !paymentDetails.isRetroactive) {
         cashBalance += total;
     }
-    
+
     const { date, ...otherPaymentDetails } = paymentDetails;
-    const transaction = { 
-        id: Date.now(), 
-        type: 'venda', 
-        amount: total, 
-        cost: totalCost, 
-        description: `Venda de ${cart.items.reduce((s, i) => s + i.quantity, 0)} item(s)`, 
-        date: saleDate, 
-        items: [...cart.items], 
-        customerId: customerId ? parseInt(customerId) : null, 
-        ...otherPaymentDetails, 
-        reversed: false, 
-        discount: totalDiscount 
+    const transaction = {
+        id: Date.now(),
+        type: 'venda',
+        amount: total,
+        cost: totalCost,
+        description: `Venda de ${cart.items.reduce((s, i) => s + i.quantity, 0)} item(s)`,
+        date: saleDate,
+        items: [...cart.items],
+        customerId: customerId ? parseInt(customerId) : null,
+        ...otherPaymentDetails,
+        reversed: false,
+        discount: totalDiscount
     };
 
     transactions.push(transaction);
@@ -845,7 +832,7 @@ function processSale(paymentDetails) {
     }
     document.getElementById('customer-select').value = "";
     displayCustomerSummary(null);
-    clearCart(); 
+    clearCart();
     showToast('Venda registada com sucesso!', 'success');
     saveData();
 }
@@ -939,7 +926,7 @@ function resetSystem() {
         localStorage.clear();
         products = []; rawMaterials = []; customers = [{ id: 1, name: 'Cliente Balcão', contact: '' }];
         categories = [{ id: 1, name: 'Sem Categoria' }];
-        transactions = []; 
+        transactions = [];
         orders = [];
         cashBalance = 0;
         initializeAppUI();
@@ -949,9 +936,9 @@ function resetSystem() {
     });
 }
 function openModal(modalId) {
-    if (modalId === 'modal-relatorios') { 
-      setReportPeriod('daily'); 
-      switchTab('vendas'); 
+    if (modalId === 'modal-relatorios') {
+      setReportPeriod('daily');
+      switchTab('vendas');
     }
     if(modalId === 'modal-contas-receber') renderUnpaidSales();
     if (modalId === 'modal-materiaprima') renderRawMaterials();
@@ -966,10 +953,10 @@ function closeModal(modalId) { const modal = typeof modalId === 'string' ? docum
 function openEditProductModal(productId) {
     const product = products.find(p => p.id === productId); if (!product) return;
     const form = document.getElementById('edit-product-form');
-    form.elements.productId.value = product.id; 
-    form.elements.productName.value = product.name; 
-    form.elements.productPrice.value = product.price; 
-    form.elements.productCost.value = product.cost; 
+    form.elements.productId.value = product.id;
+    form.elements.productName.value = product.name;
+    form.elements.productPrice.value = product.price;
+    form.elements.productCost.value = product.cost;
     form.elements.productBarcode.value = product.barcode || '';
     populateCategoryDropdowns();
     form.elements.editProductCategory.value = product.categoryId;
@@ -1016,7 +1003,7 @@ function openPaymentModal() {
     document.getElementById('payment-retroactive-date').value = '';
     updateChange(); openModal('modal-payment');
 }
-function updateChange() { 
+function updateChange() {
     const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     let totalDiscount = cart.items.reduce((sum, item) => {
         const itemTotal = item.price * item.quantity;
@@ -1027,7 +1014,7 @@ function updateChange() {
     }
     const total = subtotal - totalDiscount;
     const paid = parseFloat(document.getElementById('payment-amount-paid').value) || 0;
-    document.getElementById('payment-change').textContent = formatCurrency(paid - total > 0 ? paid - total : 0); 
+    document.getElementById('payment-change').textContent = formatCurrency(paid - total > 0 ? paid - total : 0);
 }
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
@@ -1040,10 +1027,10 @@ function showReceipt(transaction) {
     const receiptDetails = document.getElementById('receipt-details');
     receiptDetails.innerHTML = '';
     let subtotal = 0;
-    transaction.items.forEach(item => { 
+    transaction.items.forEach(item => {
         const itemTotal = item.price * item.quantity;
         subtotal += itemTotal;
-        receiptDetails.innerHTML += `<div class="flex justify-between"><span>${item.quantity}x ${item.name}</span><span>${formatCurrency(itemTotal)}</span></div>`; 
+        receiptDetails.innerHTML += `<div class="flex justify-between"><span>${item.quantity}x ${item.name}</span><span>${formatCurrency(itemTotal)}</span></div>`;
         if (item.discount && item.discount.value > 0) {
             const discountValue = item.discount.type === 'percentage' ? (itemTotal * item.discount.value / 100) : item.discount.value;
             receiptDetails.innerHTML += `<div class="flex justify-between text-xs text-red-500 pl-4"><span>&nbsp;&nbsp;Desconto</span><span>-${formatCurrency(discountValue)}</span></div>`;
@@ -1085,27 +1072,27 @@ function openReceivePaymentModal(transactionId) {
 function handleReceivedPayment(e) {
     e.preventDefault();
     const form = document.getElementById('receive-payment-form');
-    const sale = transactions.find(t => t.id == form.elements.transactionId.value); 
+    const sale = transactions.find(t => t.id == form.elements.transactionId.value);
     if (!sale) return;
 
     sale.status = 'Pago';
     sale.method = form.elements.paymentMethod.value;
     sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
-    
-    transactions.push({ 
-        id: Date.now(), 
-        type: 'recebimento', 
-        amount: sale.amount, 
-        description: `Recebimento da venda #${sale.id}`, 
-        date: Date.now(), 
-        method: sale.method, 
-        installments: sale.installments 
+
+    transactions.push({
+        id: Date.now(),
+        type: 'recebimento',
+        amount: sale.amount,
+        description: `Recebimento da venda #${sale.id}`,
+        date: Date.now(),
+        method: sale.method,
+        installments: sale.installments
     });
 
     cashBalance += sale.amount;
     renderUnpaidSales();
     closeModal('modal-receber-pagamento');
-    showToast('Pagamento recebido com sucesso!', 'success'); 
+    showToast('Pagamento recebido com sucesso!', 'success');
     saveData();
 }
 function handleImportSales(e) {
@@ -1120,7 +1107,7 @@ function handleImportSales(e) {
             const [dateStr, productIdStr, quantityStr, customerIdStr, paymentMethod, status] = row.split(',');
             const product = products.find(p => p.id == productIdStr); const customer = customers.find(c => c.id == customerIdStr);
             if (!dateStr || !product || !customer || !quantityStr || !paymentMethod || !status) { logDiv.innerHTML += `<p class="text-red-500">Linha ${index + 1}: Dados inválidos. (${row})</p>`; return; }
-            
+
             const dateParts = dateStr.split(/[-T:]/);
             const year = parseInt(dateParts[0], 10);
             const month = parseInt(dateParts[1], 10) - 1; // Mês em JavaScript é de 0 a 11
@@ -1128,7 +1115,7 @@ function handleImportSales(e) {
             const hour = parseInt(dateParts[3], 10);
             const minute = parseInt(dateParts[4], 10);
             const localDate = new Date(year, month, day, hour, minute);
-            
+
             newTransactions.push({ id: localDate.getTime() + index, type: 'venda', amount: product.price * parseInt(quantityStr), cost: product.cost * parseInt(quantityStr), description: `Venda importada`, date: localDate.getTime(), items: [{...product, quantity: parseInt(quantityStr)}], customerId: parseInt(customerIdStr), method: paymentMethod.trim(), installments: 1, status: status.trim(), reversed: false, discount: 0 });
         });
         transactions.push(...newTransactions);
@@ -1187,35 +1174,35 @@ function openSaleDetailsModal(transactionId) {
             <p><strong>Data:</strong> ${new Date(sale.date).toLocaleString('pt-BR')}</p>
             <p><strong>Cliente:</strong> ${customers.find(c => c.id == sale.customerId)?.name || 'Não identificado'}</p>
         </div>
-        
+
         ${itemsHtml}
 
         <div class="space-y-1 text-sm border-t pt-2">
             <div class="flex justify-between">
-                <span>Subtotal:</span> 
+                <span>Subtotal:</span>
                 <span>${formatCurrency(subtotal)}</span>
             </div>
             <div class="flex justify-between text-red-600">
-                <span>Descontos:</span> 
+                <span>Descontos:</span>
                 <span>-${formatCurrency(discountValue)}</span>
             </div>
             <div class="flex justify-between font-bold text-lg border-t pt-2 mt-2">
-                <span>TOTAL PAGO:</span> 
+                <span>TOTAL PAGO:</span>
                 <span>${formatCurrency(sale.amount)}</span>
             </div>
             <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm">
                 <div class="flex justify-between">
-                    <span>Custo Total:</span> 
+                    <span>Custo Total:</span>
                     <span class="text-red-600">-${formatCurrency(sale.cost)}</span>
                 </div>
                 <div class="flex justify-between font-bold">
-                    <span>Lucro Líquido:</span> 
+                    <span>Lucro Líquido:</span>
                     <span class="text-green-600">${formatCurrency(profit)}</span>
                 </div>
             </div>
         </div>
     `;
-    
+
     openModal('modal-venda-detalhes');
 }
 function openCustomerDetailsModal(customerId) {
@@ -1254,7 +1241,7 @@ function renderTransactionList(container, transactionList) {
             icon = 'fa-shopping-cart';
             const profit = t.amount - (t.cost || 0);
             profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
-            
+
             if (t.discount > 0) {
                 discountHtml = `<div class="text-xs text-red-500">Desconto: ${formatCurrency(t.discount)}</div>`;
             }
@@ -1369,13 +1356,13 @@ function deleteCategory(categoryId) {
     });
 }
 
-// --- FUNÇÕES DE BACKUP E RESTAURAÇÃO ---
+// --- FUNÇÕES DE BACKUP E RESTAURAÇÃO (Manual Local) ---
 function exportAllData() {
     const allData = { products, customers, transactions, orders, cashBalance, rawMaterials, categories, theme: document.documentElement.getAttribute('data-theme'), backupDate: new Date().toISOString() };
-    const dataStr = JSON.stringify(allData, null, 2); 
+    const dataStr = JSON.stringify(allData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob); const a = document.createElement('a');
-    a.href = url; a.download = `backup-sistema-papelaria-${new Date().toISOString().slice(0, 10)}.json`; 
+    a.href = url; a.download = `backup-sistema-papelaria-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url); showToast("Backup exportado com sucesso!", "success");
 }
@@ -1391,141 +1378,16 @@ function importAllData(event) {
                     orders = importedData.orders || [];
                     cashBalance = importedData.cashBalance || 0; rawMaterials = importedData.rawMaterials || []; categories = importedData.categories || [{ id: 1, name: 'Sem Categoria' }];
                     if (importedData.theme) applyTheme(importedData.theme);
-                    saveData(); initializeAppUI(); 
+                    saveData(); initializeAppUI();
                     showToast("Backup restaurado com sucesso!", "success"); closeModal('modal-settings');
                 });
             } else { showToast("O ficheiro selecionado não parece ser um backup válido.", "error"); }
-        } catch (error) { showToast("Erro ao ler o ficheiro de backup.", "error"); } 
+        } catch (error) { showToast("Erro ao ler o ficheiro de backup.", "error"); }
         finally { event.target.value = ''; }
     };
     reader.readAsText(file);
 }
-function saveToGoogleSheets(isAuto = false) {
-    if (!GOOGLE_SCRIPT_URL) {
-        if (!isAuto) showToast("URL do Google Script não configurada.", "error");
-        return;
-    }
-    if (!isAuto) { showToast("A guardar na nuvem... Aguarde.", "success"); toggleLoading(true); }
-    
-    try {
-        const allData = { products, customers, rawMaterials, transactions, orders, cashBalance, categories };
-        
-        fetch(GOOGLE_SCRIPT_URL, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(allData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                if (!isAuto) { showToast("Dados salvos na nuvem com sucesso!", "success"); }
-                console.log("Save to cloud successful at " + new Date().toLocaleTimeString());
-            } else {
-                 throw new Error(data.message || "Erro desconhecido ao salvar.");
-            }
-        })
-        .catch(error => {
-            if (!isAuto) { showToast(`Falha ao guardar na nuvem: ${error.message}`, "error"); }
-            console.error('Error saving to cloud:', error);
-        })
-        .finally(() => { if (!isAuto) { toggleLoading(false); } });
-    } catch (error) {
-        if (!isAuto) {
-            toggleLoading(false);
-            showToast("Erro ao preparar dados para salvar. Verifique o console (F12).", "error");
-        }
-        console.error("Erro ao converter dados para JSON antes de salvar:", error);
-    }
-}
-function loadFromGoogleSheets(isAuto = false) {
-    if (!GOOGLE_SCRIPT_URL) {
-        if (isAuto) {
-            loadDataFromLocalStorage();
-        } else {
-            showToast("URL do Google Script não configurada.", "error");
-        }
-        return;
-    }
 
-    const execution = () => {
-        if (!isAuto) showToast("A carregar dados da nuvem... Aguarde.", "success");
-        toggleLoading(true);
-        fetch(GOOGLE_SCRIPT_URL)
-            .then(response => {
-                if (!response.ok) { throw new Error(`Erro de rede: ${response.statusText} (Status: ${response.status})`) }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'error') {
-                    throw new Error(`Erro retornado pelo Google Script: ${data.message}`);
-                }
-                
-                if (data && typeof data === 'object' && Array.isArray(data.customers)) {
-                    products = data.products || [];
-                    customers = data.customers || [];
-                    transactions = data.transactions || [];
-                    orders = data.orders || [];
-                    cashBalance = data.cashBalance || 0;
-                    rawMaterials = data.rawMaterials || [];
-                    categories = data.categories || [{ id: 1, name: 'Sem Categoria' }];
-                    
-                    transactions.forEach(t => {
-                        if (t.customerid !== undefined) {
-                            t.customerId = t.customerid;
-                            delete t.customerid;
-                        }
-                    });
-
-                    saveData(); 
-                    initializeAppUI();
-                    
-                    if (!isAuto) closeModal('modal-settings');
-                    showToast("Dados carregados da nuvem com sucesso!", "success");
-                } else {
-                    throw new Error("Dados da nuvem estão em formato inválido ou corrompidos.");
-                }
-            })
-            .catch(error => {
-                console.error('Falha detalhada ao carregar do Google Sheets:', error);
-                showToast(`Falha ao carregar: ${error.message}. A usar dados locais.`, "error");
-                if (isAuto) loadDataFromLocalStorage();
-            })
-            .finally(() => { toggleLoading(false); });
-    };
-
-    if (isAuto) {
-        execution();
-    } else {
-        openConfirmationModal('Carregar Dados da Nuvem?', 'Isto substituirá TODOS os dados atuais...', execution);
-    }
-}
-
-function manageAutoSaveInterval(enable) {
-    const TWO_MINUTES = 120000;
-    if (autoSaveInterval) clearInterval(autoSaveInterval);
-    autoSaveInterval = null;
-    if (enable) {
-        isAutoSaveEnabled = true;
-        autoSaveInterval = setInterval(() => saveToGoogleSheets(true), TWO_MINUTES);
-        console.log("Auto-save started. Saving every 2 minutes.");
-    } else {
-        isAutoSaveEnabled = false;
-        console.log("Auto-save stopped.");
-    }
-}
-
-function handleAutoSaveToggle(event) {
-    const enabled = event.target.checked;
-    manageAutoSaveInterval(enabled);
-    localStorage.setItem('isAutoSaveEnabled', JSON.stringify(enabled));
-    showToast(`Guardar automaticamente ${enabled ? 'ativado' : 'desativado'}.`, "success");
-}
-
-function handleAutoLoadToggle(event) {
-    isAutoLoadEnabled = event.target.checked;
-    localStorage.setItem('isAutoLoadEnabled', JSON.stringify(isAutoLoadEnabled));
-    showToast(`Carregamento automático ao iniciar ${isAutoLoadEnabled ? 'ativado' : 'desativado'}.`, "success");
-}
 
 // --- LÓGICA DE EDIÇÃO DE VENDA ---
 function openEditSaleModal(transactionId) {
@@ -1578,7 +1440,7 @@ function handleEditSale(e) {
     updateCashBalance();
     showToast("Venda atualizada com sucesso!", "success");
     closeModal('modal-edit-venda');
-    
+
     if (!document.getElementById('modal-relatorios').classList.contains('hidden')) {
         renderReports(currentReportPeriod);
     }
@@ -1622,12 +1484,12 @@ function renderDashboard() {
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 
-    const todaysTransactions = transactions.filter(t => 
-        t.date >= startOfToday.getTime() && 
+    const todaysTransactions = transactions.filter(t =>
+        t.date >= startOfToday.getTime() &&
         t.date <= endOfToday.getTime() &&
         t.type === 'venda' && !t.reversed
     );
-    
+
     const salesToday = todaysTransactions.reduce((sum, t) => sum + t.amount, 0);
     const profitToday = todaysTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
     const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
@@ -1760,12 +1622,12 @@ function renderOrderCalendar(date) {
     for (let i = 0; i < firstDayOfMonth; i++) {
         grid.innerHTML += `<div></div>`;
     }
-    
+
     for (let i = 1; i <= daysInMonth; i++) {
         const dayDate = new Date(year, month, i);
         const dateString = dayDate.toISOString().split('T')[0];
         const ordersForDay = orders.filter(order => order.deliveryDate === dateString);
-        
+
         const dayElement = document.createElement('div');
         dayElement.className = `calendar-day cursor-pointer w-8 h-8 flex items-center justify-center`;
         dayElement.textContent = i;
@@ -1788,10 +1650,10 @@ function renderOrderList(filterDate = null) {
     const container = document.getElementById('order-list-container');
     if (!container) return;
 
-    let ordersToDisplay = filterDate 
+    let ordersToDisplay = filterDate
         ? orders.filter(o => o.deliveryDate === filterDate)
         : [...orders];
-    
+
     ordersToDisplay.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
 
     if (ordersToDisplay.length === 0) {
@@ -1803,19 +1665,19 @@ function renderOrderList(filterDate = null) {
     ordersToDisplay.forEach(order => {
         const customer = customers.find(c => c.id === order.customerId);
         let cardStatusClass = '', statusTextClass = '', statusText = '';
-        
+
         switch (order.status) {
-            case 'em espera': 
+            case 'em espera':
                 cardStatusClass = 'order-card-espera';
                 statusTextClass = 'status-text-espera';
-                statusText = 'Em Espera'; 
+                statusText = 'Em Espera';
                 break;
-            case 'em producao': 
+            case 'em producao':
                 cardStatusClass = 'order-card-producao';
                 statusTextClass = 'status-text-producao';
-                statusText = 'Em Produção'; 
+                statusText = 'Em Produção';
                 break;
-            case 'finalizado': 
+            case 'finalizado':
                 cardStatusClass = 'order-card-finalizado';
                 statusTextClass = 'status-text-finalizado';
                 statusText = 'Finalizado';
@@ -1876,7 +1738,7 @@ function handleAddOrder(e) {
     const form = e.target;
     const status = form.elements.orderStatus.value;
     const value = status === 'em espera' ? 0 : parseFloat(form.elements.orderValue.value);
-    
+
     const newOrder = {
         id: Date.now(),
         customerId: parseInt(form.elements.orderCustomer.value),
@@ -1895,7 +1757,7 @@ function handleAddOrder(e) {
 function openEditOrderModal(orderId) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
-    
+
     const form = document.getElementById('edit-order-form');
     const customer = customers.find(c => c.id === order.customerId);
 
@@ -1905,7 +1767,7 @@ function openEditOrderModal(orderId) {
     form.elements.orderDescription.value = order.description;
     form.elements.orderValue.value = order.value;
     form.elements.orderStatus.value = order.status;
-    
+
     toggleOrderValueField(order.status, 'edit-order-value-wrapper', 'edit-order-value');
     openModal('modal-edit-order');
 }
@@ -1989,7 +1851,7 @@ function addEventListeners() {
             saveData();
         }
     });
-    
+
     safeAddListener('add-category-form', 'submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
     safeAddListener('edit-category-form', 'submit', handleEditCategory);
     safeAddListener('add-raw-material-form', 'submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
@@ -2016,7 +1878,7 @@ function addEventListeners() {
     safeAddListener('open-settings-modal-btn', 'click', () => openModal('modal-settings'));
     safeAddListener('kpi-card-unpaid', 'click', () => openModal('modal-contas-receber'));
     safeAddListener('search-edit-product', 'input', function(e) { renderProductEditList(e.target.value); });
-    
+
     safeAddListener('product-grid', 'click', function(e) {
         const target = e.target;
         const editButton = target.closest('.edit-product-btn');
@@ -2040,18 +1902,21 @@ function addEventListeners() {
         });
     });
     document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));
-    
+
     safeAddListener('confirm-cancel-btn', 'click', () => closeModal('modal-confirm'));
     safeAddListener('confirm-confirm-btn', 'click', () => { if (typeof confirmCallback === 'function') confirmCallback(); closeModal('modal-confirm'); });
     safeAddListener('reset-system-btn', 'click', resetSystem);
     safeAddListener('theme-selector', 'click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
     safeAddListener('export-data-btn', 'click', exportAllData);
     safeAddListener('import-file-input', 'change', importAllData);
-    safeAddListener('save-to-google-sheets-btn', 'click', () => saveToGoogleSheets(false));
-    safeAddListener('load-from-google-sheets-btn', 'click', () => loadFromGoogleSheets(false));
-    safeAddListener('autosave-toggle', 'change', handleAutoSaveToggle);
-    safeAddListener('autoload-toggle', 'change', handleAutoLoadToggle);
-    window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
+    
+    // REMOVIDO: Listeners para salvar/carregar da nuvem
+    // safeAddListener('save-to-google-sheets-btn', 'click', () => saveToGoogleSheets(false));
+    // safeAddListener('load-from-google-sheets-btn', 'click', () => loadFromGoogleSheets(false));
+    // safeAddListener('autosave-toggle', 'change', handleAutoSaveToggle);
+    // safeAddListener('autoload-toggle', 'change', handleAutoLoadToggle);
+    // window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
+
     safeAddListener('payment-method', 'change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });
     safeAddListener('receive-payment-method', 'change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
     safeAddListener('edit-sale-method', 'change', function() { document.getElementById('edit-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
@@ -2071,7 +1936,7 @@ function addEventListeners() {
         const selectedProductId = document.getElementById('sales-report-product-select').value;
         displayProductSalesReport(selectedProductId, e.target.value);
     });
-    
+
     // Listeners da Agenda
     safeAddListener('open-add-order-modal-btn', 'click', openAddOrderModal);
     safeAddListener('add-order-form', 'submit', handleAddOrder);
@@ -2148,15 +2013,15 @@ function addEventListeners() {
             openEditOrderModal(parseInt(dataset.id));
         }
     });
-    
+
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
-    
+
     const openSidebar = () => {
         sidebar.classList.remove('-translate-x-full');
         overlay.classList.remove('hidden');
     };
-    
+
     const closeSidebar = () => {
         sidebar.classList.add('-translate-x-full');
         overlay.classList.add('hidden');
@@ -2164,7 +2029,7 @@ function addEventListeners() {
 
     safeAddListener('hamburger-btn', 'click', openSidebar);
     safeAddListener('sidebar-overlay', 'click', closeSidebar);
-    
+
     sidebar.addEventListener('click', (e) => {
         if (e.target.closest('.sidebar-item')) {
             if (!overlay.classList.contains('hidden')) {
@@ -2173,5 +2038,3 @@ function addEventListeners() {
         }
     });
 }
-
-

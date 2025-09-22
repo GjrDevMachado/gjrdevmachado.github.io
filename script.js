@@ -1,7 +1,5 @@
 // ===================================================================================
 // CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM (REMOVIDO)
-// A constante abaixo não é mais usada, mas pode ser mantida caso queira reativar no futuro.
-// const GOOGLE_SCRIPT_URL = 'URL_DO_SEU_SCRIPT';
 // ===================================================================================
 
 // --- DADOS EM MEMÓRIA ---
@@ -21,7 +19,11 @@ let currentReportPeriod = 'weekly';
 let confirmCallback = null;
 let areEventListenersAdded = false;
 let calendarDate = new Date();
-let productSalesReportData = null; // Armazena os dados do relatório de vendas por produto
+let productSalesReportData = null;
+
+// Variáveis para o Backup Automático (Lembrete)
+let backupInterval = null;
+const BACKUP_INTERVAL_MINUTES = 60; // Lembrete a cada 60 minutos
 
 // --- FUNÇÕES DE PERSISTÊNCIA E INICIALIZAÇÃO ---
 function saveData() {
@@ -34,7 +36,6 @@ function saveData() {
         localStorage.setItem('rawMaterials', JSON.stringify(rawMaterials));
         localStorage.setItem('categories', JSON.stringify(categories));
         localStorage.setItem('theme', document.documentElement.getAttribute('data-theme'));
-        // A lógica de auto-save na nuvem foi removida daqui. O salvamento agora é sempre local.
     } catch (error) {
         console.error("Erro ao guardar dados:", error);
         showToast("Não foi possível guardar os dados. O armazenamento pode estar cheio.", "error");
@@ -82,24 +83,19 @@ function initializeAppUI() {
         addEventListeners();
         areEventListenersAdded = true;
     }
+    
+    // Inicia o timer do backup
+    startBackupTimer();
 }
 
-// ALTERAÇÃO PRINCIPAL: Simplificação da inicialização para sempre usar dados locais.
 window.onload = function() {
     try {
-        // A lógica que decidia entre carregar da nuvem ou local foi removida.
-        // Agora, sempre carrega do armazenamento local.
         loadDataFromLocalStorage();
     } catch (e) {
         alert("Ocorreu um erro crítico ao iniciar a aplicação. Por favor, limpe o cache do seu navegador e tente novamente. Erro: " + e.message);
         console.error("Erro fatal no window.onload:", e);
     }
 };
-
-
-// --- O RESTANTE DO CÓDIGO PERMANECE IGUAL ---
-// --- As funções de importação/exportação manual (exportAllData, importAllData) continuam aqui ---
-
 
 // --- FUNÇÕES DE LÓGICA PRINCIPAL (vendas, produtos, etc.) ---
 function addProduct(name, price, cost, categoryId, barcode) {
@@ -532,19 +528,16 @@ function createPerformanceTable(data, headers, dataKeys, includeRank = true) {
     return table;
 }
 
-// Funções para o relatório de vendas por produto
 function initializeProductSalesReport() {
     const select = document.getElementById('sales-report-product-select');
     const container = document.getElementById('sales-report-details-container');
     const searchInput = document.getElementById('sales-report-customer-search');
     if (!select || !container || !searchInput) return;
 
-    // Reseta a view
     container.innerHTML = `<p class="text-center text-gray-500">Selecione um produto para ver os detalhes das vendas.</p>`;
     searchInput.value = '';
     searchInput.disabled = true;
 
-    // Popula o dropdown com produtos locais
     if (products.length > 0) {
         select.innerHTML = '<option value="">Selecione um produto</option>';
         products.sort((a, b) => a.name.localeCompare(b.name)).forEach(product => {
@@ -555,13 +548,11 @@ function initializeProductSalesReport() {
         return;
     }
 
-    // Gera o relatório a partir dos dados locais em memória
     productSalesReportData = generateClientSideSalesReport();
 }
 
 function generateClientSideSalesReport() {
     const salesReport = {};
-
     const customerMap = customers.reduce((map, customer) => {
         map[customer.id] = customer.name;
         return map;
@@ -612,7 +603,6 @@ function generateClientSideSalesReport() {
             }
 
             reportProduct.totalSold += item.quantity;
-
             reportProduct.salesDetails.push({
                 customerName: customerName,
                 quantity: item.quantity,
@@ -623,7 +613,6 @@ function generateClientSideSalesReport() {
             });
         });
     });
-
     return salesReport;
 }
 
@@ -713,7 +702,6 @@ function displayProductSalesReport(productId, customerFilter = '') {
     tableHtml += `</tbody></table></div>`;
     container.innerHTML = tableHtml;
 }
-
 
 function setReportPeriod(period) {
     currentReportPeriod = period;
@@ -1110,7 +1098,7 @@ function handleImportSales(e) {
 
             const dateParts = dateStr.split(/[-T:]/);
             const year = parseInt(dateParts[0], 10);
-            const month = parseInt(dateParts[1], 10) - 1; // Mês em JavaScript é de 0 a 11
+            const month = parseInt(dateParts[1], 10) - 1;
             const day = parseInt(dateParts[2], 10);
             const hour = parseInt(dateParts[3], 10);
             const minute = parseInt(dateParts[4], 10);
@@ -1174,9 +1162,7 @@ function openSaleDetailsModal(transactionId) {
             <p><strong>Data:</strong> ${new Date(sale.date).toLocaleString('pt-BR')}</p>
             <p><strong>Cliente:</strong> ${customers.find(c => c.id == sale.customerId)?.name || 'Não identificado'}</p>
         </div>
-
         ${itemsHtml}
-
         <div class="space-y-1 text-sm border-t pt-2">
             <div class="flex justify-between">
                 <span>Subtotal:</span>
@@ -1388,7 +1374,6 @@ function importAllData(event) {
     reader.readAsText(file);
 }
 
-
 // --- LÓGICA DE EDIÇÃO DE VENDA ---
 function openEditSaleModal(transactionId) {
     const sale = transactions.find(t => t.id === transactionId);
@@ -1505,7 +1490,6 @@ function renderDashboard() {
     const recentTransactionsList = document.getElementById('recent-transactions-list');
     renderTransactionList(recentTransactionsList, transactions.slice(-5));
 }
-
 
 function openDiscountModal(itemIndex) {
     const form = document.getElementById('discount-form');
@@ -1705,7 +1689,6 @@ function renderOrderList(filterDate = null) {
     });
 }
 
-
 function toggleOrderValueField(status, valueWrapperId, valueInputId) {
     const wrapper = document.getElementById(valueWrapperId);
     const input = document.getElementById(valueInputId);
@@ -1742,6 +1725,7 @@ function handleAddOrder(e) {
     const newOrder = {
         id: Date.now(),
         customerId: parseInt(form.elements.orderCustomer.value),
+        orderDate: form.elements.orderOrderDate.value,
         deliveryDate: form.elements.orderDeliveryDate.value,
         description: form.elements.orderDescription.value,
         value: value,
@@ -1763,6 +1747,7 @@ function openEditOrderModal(orderId) {
 
     form.elements.orderId.value = order.id;
     document.getElementById('edit-order-customer-name').textContent = customer ? customer.name : 'Cliente não encontrado';
+    form.elements.orderOrderDate.value = order.orderDate;
     form.elements.orderDeliveryDate.value = order.deliveryDate;
     form.elements.orderDescription.value = order.description;
     form.elements.orderValue.value = order.value;
@@ -1787,6 +1772,7 @@ function handleEditOrder(e) {
 
     orders[orderIndex] = {
         ...orders[orderIndex],
+        orderDate: form.elements.orderOrderDate.value,
         deliveryDate: form.elements.orderDeliveryDate.value,
         description: form.elements.orderDescription.value,
         value: value,
@@ -1808,6 +1794,21 @@ function deleteOrder() {
         closeModal('modal-edit-order');
         renderOrderScheduleView();
     });
+}
+
+// --- FUNÇÕES DE BACKUP AUTOMÁTICO (LEMBRETE) ---
+function showBackupReminder() {
+    console.log("Mostrando lembrete de backup...");
+    openModal('modal-backup-reminder');
+}
+
+function startBackupTimer() {
+    if (backupInterval) {
+        clearInterval(backupInterval);
+    }
+    const intervalMilliseconds = BACKUP_INTERVAL_MINUTES * 60 * 1000;
+    backupInterval = setInterval(showBackupReminder, intervalMilliseconds);
+    console.log(`Lembrete de backup configurado para cada ${BACKUP_INTERVAL_MINUTES} minutos.`);
 }
 
 // --- CENTRAL DE EVENT LISTENERS ---
@@ -1910,12 +1911,11 @@ function addEventListeners() {
     safeAddListener('export-data-btn', 'click', exportAllData);
     safeAddListener('import-file-input', 'change', importAllData);
     
-    // REMOVIDO: Listeners para salvar/carregar da nuvem
-    // safeAddListener('save-to-google-sheets-btn', 'click', () => saveToGoogleSheets(false));
-    // safeAddListener('load-from-google-sheets-btn', 'click', () => loadFromGoogleSheets(false));
-    // safeAddListener('autosave-toggle', 'change', handleAutoSaveToggle);
-    // safeAddListener('autoload-toggle', 'change', handleAutoLoadToggle);
-    // window.addEventListener('beforeunload', () => { if (isAutoSaveEnabled) { saveToGoogleSheets(true); } });
+    safeAddListener('execute-backup-btn', 'click', () => {
+        exportAllData();
+        closeModal('modal-backup-reminder');
+        startBackupTimer(); 
+    });
 
     safeAddListener('payment-method', 'change', function() { document.getElementById('installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); document.getElementById('amount-paid-group').classList.toggle('hidden', this.value === 'Cartão de Crédito'); });
     safeAddListener('receive-payment-method', 'change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
@@ -1937,7 +1937,6 @@ function addEventListeners() {
         displayProductSalesReport(selectedProductId, e.target.value);
     });
 
-    // Listeners da Agenda
     safeAddListener('open-add-order-modal-btn', 'click', openAddOrderModal);
     safeAddListener('add-order-form', 'submit', handleAddOrder);
     safeAddListener('edit-order-form', 'submit', handleEditOrder);

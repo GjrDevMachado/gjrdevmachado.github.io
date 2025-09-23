@@ -1,5 +1,5 @@
 // ===================================================================================
-// CONFIGURAÇÃO OPCIONAL: BACKUP NA NUVEM (REMOVIDO)
+// CONFIGURAÇÕES GLOBAIS
 // ===================================================================================
 
 // --- DADOS EM MEMÓRIA ---
@@ -84,7 +84,7 @@ function initializeAppUI() {
         areEventListenersAdded = true;
     }
     
-    // Inicia o timer do backup
+    // Inicia o timer do lembrete de backup
     startBackupTimer();
 }
 
@@ -849,9 +849,16 @@ function addRawMaterial(name, stock, unit, totalCost, supplier, receiptDate) {
     renderRawMaterials(); showToast('Insumo adicionado!'); saveData();
 }
 function addCustomer(name, contact) {
-    if (customers.some(c => c.name.toLowerCase() === name.toLowerCase())) { showToast('Cliente com este nome já existe.', 'error'); return; }
-    customers.push({ id: Date.now(), name, contact });
-    renderCustomers(); showToast('Novo cliente adicionado!'); saveData();
+    if (customers.some(c => c.name.toLowerCase() === name.toLowerCase())) { 
+        showToast('Cliente com este nome já existe.', 'error'); 
+        return null;
+    }
+    const newCustomer = { id: Date.now(), name, contact };
+    customers.push(newCustomer);
+    renderCustomers(); 
+    showToast('Novo cliente adicionado!'); 
+    saveData();
+    return newCustomer;
 }
 function handleCashFlow(type, amount, description) {
     if (type === 'saida' && amount > cashBalance) { showToast('Saldo insuficiente para esta saída!', 'error'); return; }
@@ -1610,21 +1617,22 @@ function renderOrderCalendar(date) {
     for (let i = 1; i <= daysInMonth; i++) {
         const dayDate = new Date(year, month, i);
         const dateString = dayDate.toISOString().split('T')[0];
-        const ordersForDay = orders.filter(order => order.deliveryDate === dateString);
-
+        
+        // CORREÇÃO: Lógica de destaque do calendário
+        const finalizedOrdersForDay = orders.filter(order => order.finalizationDate === dateString);
+        const deliveryOrdersForDay = orders.filter(order => order.deliveryDate === dateString && order.status !== 'finalizado');
+        
         const dayElement = document.createElement('div');
         dayElement.className = `calendar-day cursor-pointer w-8 h-8 flex items-center justify-center`;
         dayElement.textContent = i;
         dayElement.dataset.date = dateString;
 
-        if (ordersForDay.length > 0) {
-            if (ordersForDay.some(o => o.status === 'em espera')) {
-                dayElement.classList.add('has-order-espera');
-            } else if (ordersForDay.some(o => o.status === 'em producao')) {
-                dayElement.classList.add('has-order-producao');
-            } else {
-                dayElement.classList.add('has-order-finalizado');
-            }
+        if (finalizedOrdersForDay.length > 0) {
+            dayElement.classList.add('has-order-finalizado');
+        } else if (deliveryOrdersForDay.some(o => o.status === 'em espera')) {
+            dayElement.classList.add('has-order-espera');
+        } else if (deliveryOrdersForDay.some(o => o.status === 'em producao')) {
+            dayElement.classList.add('has-order-producao');
         }
         grid.appendChild(dayElement);
     }
@@ -1635,7 +1643,7 @@ function renderOrderList(filterDate = null) {
     if (!container) return;
 
     let ordersToDisplay = filterDate
-        ? orders.filter(o => o.deliveryDate === filterDate)
+        ? orders.filter(o => o.deliveryDate === filterDate || o.finalizationDate === filterDate)
         : [...orders];
 
     ordersToDisplay.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
@@ -1729,7 +1737,8 @@ function handleAddOrder(e) {
         deliveryDate: form.elements.orderDeliveryDate.value,
         description: form.elements.orderDescription.value,
         value: value,
-        status: status
+        status: status,
+        finalizationDate: status === 'finalizado' ? new Date().toISOString().slice(0, 10) : null
     };
     orders.push(newOrder);
     saveData();
@@ -1767,8 +1776,10 @@ function handleEditOrder(e) {
         showToast('Erro: Pedido não encontrado.', 'error');
         return;
     }
-    const status = form.elements.orderStatus.value;
-    const value = status === 'em espera' ? 0 : parseFloat(form.elements.orderValue.value);
+    
+    const oldStatus = orders[orderIndex].status;
+    const newStatus = form.elements.orderStatus.value;
+    const value = newStatus === 'em espera' ? 0 : parseFloat(form.elements.orderValue.value);
 
     orders[orderIndex] = {
         ...orders[orderIndex],
@@ -1776,8 +1787,15 @@ function handleEditOrder(e) {
         deliveryDate: form.elements.orderDeliveryDate.value,
         description: form.elements.orderDescription.value,
         value: value,
-        status: status
+        status: newStatus
     };
+
+    // CORREÇÃO: Define a data de finalização apenas quando o status MUDA para "finalizado"
+    if (newStatus === 'finalizado' && oldStatus !== 'finalizado') {
+        orders[orderIndex].finalizationDate = new Date().toISOString().slice(0, 10);
+    } else if (newStatus !== 'finalizado') {
+        orders[orderIndex].finalizationDate = null; // Limpa a data se o status for revertido
+    }
 
     saveData();
     showToast('Pedido atualizado com sucesso!', 'success');
@@ -1955,6 +1973,21 @@ function addEventListeners() {
         }
     });
 
+    safeAddListener('add-customer-from-order-btn', 'click', () => {
+        const customerName = prompt("Digite o nome do novo cliente:");
+        if (customerName && customerName.trim()) {
+            const newCustomer = addCustomer(customerName.trim(), '');
+            if (newCustomer) {
+                const customerSelect = document.getElementById('order-customer-select');
+                const option = document.createElement('option');
+                option.value = newCustomer.id;
+                option.textContent = newCustomer.name;
+                customerSelect.appendChild(option);
+                customerSelect.value = newCustomer.id;
+            }
+        }
+    });
+
     document.body.addEventListener('click', e => {
         const target = e.target.closest('button, tr');
         if (!target) return;
@@ -2037,3 +2070,4 @@ function addEventListeners() {
         }
     });
 }
+

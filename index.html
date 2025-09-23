@@ -70,6 +70,7 @@
         #modal-venda-detalhes, #modal-cliente-detalhes, #modal-edit-venda, #modal-desconto { z-index: 115; }
         #modal-confirm, #modal-contas-receber { z-index: 120; }
         #modal-receber-pagamento { z-index: 125; }
+        #modal-backup-reminder { z-index: 150; }
         #loading-overlay { z-index: 9999; }
         .toggle-checkbox:checked { right: 0; border-color: var(--secondary-500); background-color: white; }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--secondary-500); }
@@ -507,17 +508,6 @@
                         </label>
                      </div>
                 </div>
-                 <div class="border-t pt-4">
-                     <h4 class="font-semibold">Backup na Nuvem (Google Sheets)</h4>
-                     <div class="flex gap-3 mt-2">
-                        <button id="save-to-google-sheets-btn" class="px-4 py-2 bg-green-600 text-white rounded">Salvar na Nuvem</button>
-                        <button id="load-from-google-sheets-btn" class="px-4 py-2 bg-blue-600 text-white rounded">Carregar da Nuvem</button>
-                     </div>
-                      <div class="mt-2 space-y-1">
-                        <div class="flex items-center gap-2"><input type="checkbox" id="autosave-toggle"><label for="autosave-toggle">Salvar na nuvem a cada 2 minutos</label></div>
-                        <div class="flex items-center gap-2"><input type="checkbox" id="autoload-toggle"><label for="autoload-toggle">Carregar da nuvem ao iniciar</label></div>
-                    </div>
-                </div>
                 <div class="border-t pt-4">
                      <h4 class="font-semibold text-[var(--danger-600)]">Área de Risco</h4>
                      <button id="reset-system-btn" class="mt-2 px-4 py-2 bg-[var(--danger-500)] text-white rounded">Zerar Todo o Sistema</button>
@@ -720,7 +710,12 @@
             <form id="add-order-form" class="space-y-4">
                 <div>
                     <label for="order-customer-select" class="block text-sm font-medium">Cliente</label>
-                    <select id="order-customer-select" name="orderCustomer" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" required></select>
+                    <div class="flex items-center gap-2 mt-1">
+                        <select id="order-customer-select" name="orderCustomer" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required></select>
+                        <button type="button" id="add-customer-from-order-btn" class="flex-shrink-0 px-3 py-2 bg-[var(--secondary-600)] text-white rounded hover:bg-[var(--secondary-700)] transition-colors" title="Adicionar Novo Cliente">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
                 </div>
                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -806,6 +801,18 @@
         </div>
     </div>
 
+    <div id="modal-backup-reminder" class="fixed inset-0 hidden items-center justify-center modal-backdrop z-[150]">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Lembrete de Backup</h3>
+            <p class="text-[var(--text-secondary)] mb-6">
+                Já faz um tempo desde o seu último backup. Recomendamos salvar uma cópia de segurança dos seus dados agora para evitar perdas.
+            </p>
+            <div class="flex justify-end gap-3">
+                <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Lembrar Mais Tarde</button>
+                <button type="button" id="execute-backup-btn" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Fazer Backup Agora</button>
+            </div>
+        </div>
+    </div>
 
     <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg opacity-0 translate-y-10 transition-all duration-300 z-[200]">
         <span>Mensagem aqui</span>
@@ -814,4 +821,3 @@
 <script src="script.js"></script>
 </body>
 </html>
-

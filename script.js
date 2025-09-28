@@ -269,12 +269,14 @@ function switchTab(tabName) {
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
     document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
 
-    if (tabName === 'vendas-cliente') renderSalesByCustomerReport();
-    else if (tabName === 'desempenho-produtos') renderProductPerformanceReport();
-    else if (tabName === 'vendas-produto') initializeProductSalesReport();
-    else if (['vendas', 'estoque-materias'].includes(tabName)) {
-        populateMonthYearSelectors();
-        renderReports(currentReportPeriod);
+    if (tabName === 'vendas-cliente') {
+        renderSalesByCustomerReport();
+    } else if (tabName === 'desempenho-produtos') {
+        renderProductPerformanceReport();
+    } else if (tabName === 'vendas-produto') {
+        initializeProductSalesReport();
+    } else if (tabName === 'vendas' || tabName === 'recebimentos') {
+        setReportPeriod(currentReportPeriod);
     }
 }
 
@@ -284,11 +286,6 @@ function renderReports(period = currentReportPeriod, month, year) {
             const annualSummaryTable = document.getElementById('annual-summary-table');
             const transactionsList = document.getElementById('transactions-list');
             let filteredTransactions, startDate;
-
-            const monthYearSelector = document.getElementById('month-year-selector');
-            if(monthYearSelector) {
-                monthYearSelector.classList.toggle('hidden', period !== 'monthly');
-            }
 
             if (period === 'annual') {
                 startDate = new Date(now.getFullYear(), 0, 1);
@@ -410,6 +407,115 @@ function renderReports(period = currentReportPeriod, month, year) {
             showToast("Ocorreu um erro ao gerar o relatório.", "error");
         }
     }
+
+function renderRecebimentosReport(period = currentReportPeriod, month, year) {
+    const container = document.getElementById('tab-recebimentos');
+    if (!container) return;
+
+    const now = new Date();
+    let startDate;
+    let endDate = new Date(); // Default to now
+
+    if (period === 'annual') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+        endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    } else if (period === 'monthly') {
+        const selectedYear = parseInt(year) || now.getFullYear();
+        const selectedMonth = parseInt(month) ?? now.getMonth();
+        startDate = new Date(selectedYear, selectedMonth, 1);
+        endDate = new Date(selectedYear, selectedMonth + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+    } else {
+        switch(period) {
+            case 'daily': 
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); 
+                break;
+            case 'weekly': default: 
+                startDate = new Date(); 
+                startDate.setDate(startDate.getDate() - 7);
+                startDate.setHours(0, 0, 0, 0);
+                break;
+        }
+    }
+    
+    const filteredTransactions = transactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate >= startDate && transactionDate <= endDate;
+    });
+
+    const recebimentos = filteredTransactions.filter(t => (t.type === 'venda' && t.status === 'Pago' && !t.reversed) || t.type === 'recebimento');
+    
+    const totalsByMethod = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'total': 0 };
+    
+    recebimentos.forEach(t => {
+        if (totalsByMethod.hasOwnProperty(t.method)) {
+            totalsByMethod[t.method] += t.amount;
+        }
+        totalsByMethod.total += t.amount;
+    });
+    
+    let summaryHtml = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="p-4 bg-green-100 rounded-lg text-center shadow">
+                <p class="text-sm font-medium text-green-800">Total Dinheiro</p>
+                <p class="text-2xl font-bold text-green-900">${formatCurrency(totalsByMethod['Dinheiro'])}</p>
+            </div>
+            <div class="p-4 bg-cyan-100 rounded-lg text-center shadow">
+                <p class="text-sm font-medium text-cyan-800">Total Pix</p>
+                <p class="text-2xl font-bold text-cyan-900">${formatCurrency(totalsByMethod['Pix'])}</p>
+            </div>
+            <div class="p-4 bg-blue-100 rounded-lg text-center shadow">
+                <p class="text-sm font-medium text-blue-800">Total Cartão</p>
+                <p class="text-2xl font-bold text-blue-900">${formatCurrency(totalsByMethod['Cartão de Crédito'])}</p>
+            </div>
+            <div class="p-4 bg-gray-200 rounded-lg text-center shadow">
+                <p class="text-sm font-medium text-gray-800">Total Geral Recebido</p>
+                <p class="text-2xl font-bold text-gray-900">${formatCurrency(totalsByMethod.total)}</p>
+            </div>
+        </div>
+    `;
+    
+    let tableHtml = `<div class="overflow-x-auto"><table class="w-full text-left text-sm">
+        <thead>
+            <tr class="border-b">
+                <th class="p-2">Data</th>
+                <th class="p-2">Descrição</th>
+                <th class="p-2">Método</th>
+                <th class="p-2 text-right">Valor</th>
+            </tr>
+        </thead>
+        <tbody>`;
+        
+    if (recebimentos.length === 0) {
+        tableHtml += '<tr><td colspan="4" class="text-center p-4 text-gray-500">Nenhum recebimento no período.</td></tr>';
+    } else {
+        recebimentos.sort((a, b) => b.date - a.date).forEach(t => {
+            let badgeClass = '';
+            let methodText = t.method || 'N/A';
+            switch (t.method) {
+                case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
+                case 'Pix': badgeClass = 'badge-pix'; break;
+                case 'Cartão de Crédito': 
+                    badgeClass = 'badge-credito'; 
+                    methodText = `CRÉDITO ${t.installments > 1 ? `(${t.installments}x)` : ''}`;
+                    break;
+            }
+
+            tableHtml += `
+                <tr class="border-b hover:bg-[var(--bg-tertiary)]">
+                    <td class="p-2">${new Date(t.date).toLocaleString('pt-BR')}</td>
+                    <td class="p-2">${t.description}</td>
+                    <td class="p-2"><span class="payment-badge ${badgeClass}">${methodText}</span></td>
+                    <td class="p-2 text-right font-semibold text-green-600">${formatCurrency(t.amount)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    tableHtml += `</tbody></table></div>`;
+    container.innerHTML = summaryHtml + tableHtml;
+}
+
 
 function renderSalesByCustomerReport() {
     const container = document.getElementById('tab-vendas-cliente');
@@ -707,15 +813,28 @@ function setReportPeriod(period) {
     currentReportPeriod = period;
     document.querySelectorAll('#report-period-buttons .period-button').forEach(btn => btn.classList.remove('active'));
     document.querySelector(`#report-period-buttons .period-button[data-period="${period}"]`).classList.add('active');
+    
+    const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+    const monthYearSelector = document.getElementById('month-year-selector');
 
+    if (monthYearSelector) {
+        monthYearSelector.classList.toggle('hidden', period !== 'monthly');
+    }
+
+    let month, year;
     if (period === 'monthly') {
         populateMonthYearSelectors();
-        const now = new Date();
-        renderReports(period, now.getMonth(), now.getFullYear());
-    } else {
-        renderReports(period);
+        month = document.getElementById('report-month-select').value;
+        year = document.getElementById('report-year-select').value;
+    }
+
+    if (activeTab === 'recebimentos') {
+        renderRecebimentosReport(period, month, year);
+    } else if (activeTab === 'vendas') {
+        renderReports(period, month, year);
     }
 }
+
 function updateTotals() {
     const subtotalEl = document.getElementById('subtotal');
     const discountsTotalEl = document.getElementById('discounts-total');
@@ -930,20 +1049,35 @@ function resetSystem() {
         saveData();
     });
 }
+
 function openModal(modalId) {
-    if (modalId === 'modal-relatorios') {
-      setReportPeriod('daily');
-      switchTab('vendas');
-    }
-    if(modalId === 'modal-contas-receber') renderUnpaidSales();
-    if (modalId === 'modal-materiaprima') renderRawMaterials();
-    if (modalId === 'modal-clientes') renderCustomers();
-    if (modalId === 'modal-categorias') renderCategoriesManagement();
-    if (modalId === 'modal-fechamento') renderCashClosingReport();
-    if (modalId === 'modal-produto' || modalId === 'modal-edit-produto') populateCategoryDropdowns();
     const modal = document.getElementById(modalId);
-    if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+    if (!modal) {
+        console.error(`Modal com ID "${modalId}" não encontrado.`);
+        return;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    if (modalId === 'modal-relatorios') {
+        switchTab('vendas');
+        setReportPeriod('daily');
+    } else if (modalId === 'modal-contas-receber') {
+        renderUnpaidSales();
+    } else if (modalId === 'modal-materiaprima') {
+        renderRawMaterials();
+    } else if (modalId === 'modal-clientes') {
+        renderCustomers();
+    } else if (modalId === 'modal-categorias') {
+        renderCategoriesManagement();
+    } else if (modalId === 'modal-fechamento') {
+        renderCashClosingReport();
+    } else if (modalId === 'modal-produto' || modalId === 'modal-edit-produto') {
+        populateCategoryDropdowns();
+    }
 }
+
 function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } }
 function openEditProductModal(productId) {
     const product = products.find(p => p.id === productId); if (!product) return;
@@ -1618,7 +1752,6 @@ function renderOrderCalendar(date) {
         const dayDate = new Date(year, month, i);
         const dateString = dayDate.toISOString().split('T')[0];
         
-        // CORREÇÃO: Lógica de destaque do calendário
         const finalizedOrdersForDay = orders.filter(order => order.finalizationDate === dateString);
         const deliveryOrdersForDay = orders.filter(order => order.deliveryDate === dateString && order.status !== 'finalizado');
         
@@ -1790,11 +1923,10 @@ function handleEditOrder(e) {
         status: newStatus
     };
 
-    // CORREÇÃO: Define a data de finalização apenas quando o status MUDA para "finalizado"
     if (newStatus === 'finalizado' && oldStatus !== 'finalizado') {
         orders[orderIndex].finalizationDate = new Date().toISOString().slice(0, 10);
     } else if (newStatus !== 'finalizado') {
-        orders[orderIndex].finalizationDate = null; // Limpa a data se o status for revertido
+        orders[orderIndex].finalizationDate = null;
     }
 
     saveData();
@@ -1944,8 +2076,22 @@ function addEventListeners() {
     safeAddListener('retroactive-sale-toggle', 'change', function() { document.getElementById('retroactive-date-group').classList.toggle('hidden', !this.checked); });
     safeAddListener('print-receipt-btn', 'click', window.print);
     safeAddListener('print-details-btn', 'click', window.print);
-    safeAddListener('report-month-select', 'change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
-    safeAddListener('report-year-select', 'change', () => renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value));
+    safeAddListener('report-month-select', 'change', () => {
+        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+        if(activeTab === 'recebimentos') {
+            renderRecebimentosReport('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
+        } else {
+            renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
+        }
+    });
+    safeAddListener('report-year-select', 'change', () => {
+        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+        if(activeTab === 'recebimentos') {
+            renderRecebimentosReport('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
+        } else {
+            renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
+        }
+    });
     safeAddListener('sales-report-product-select', 'change', (e) => {
         document.getElementById('sales-report-customer-search').value = '';
         displayProductSalesReport(e.target.value);

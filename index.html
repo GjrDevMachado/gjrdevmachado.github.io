@@ -58,19 +58,18 @@
         .badge-espera { background-color: #fef3c7; color: #92400e; }
         .badge-producao { background-color: #dbeafe; color: #1e40af; }
         .badge-finalizado { background-color: #d1fae5; color: #065f46; }
-        .order-card-espera { background-color: #fefce8; border-left: 4px solid #facc15; }
-        .order-card-producao { background-color: #eff6ff; border-left: 4px solid #60a5fa; }
-        .order-card-finalizado { background-color: #f0fdf4; border-left: 4px solid #4ade80; }
+        .order-card-espera { background-color: #ffebee; border-left: 4px solid #F44336; }
+        .order-card-producao { background-color: #fffde7; border-left: 4px solid #FFEB3B; }
+        .order-card-finalizado { background-color: #e8f5e9; border-left: 4px solid #4CAF50; }
         .calendar-day { transition: background-color 0.2s ease; }
-        .calendar-day.has-order-espera { background-color: #ef4444; color: white; font-weight: bold; border-radius: 50%; }
-        .calendar-day.has-order-producao { background-color: #f59e0b; color: white; font-weight: bold; border-radius: 50%; }
-        .calendar-day.has-order-finalizado { background-color: #22c55e; color: white; font-weight: bold; border-radius: 50%; }
+        .calendar-day.has-order-espera { background-color: #F44336; color: white; font-weight: bold; border-radius: 50%; }
+        .calendar-day.has-order-producao { background-color: #FFEB3B; color: #333; font-weight: bold; border-radius: 50%; }
+        .calendar-day.has-order-finalizado { background-color: #4CAF50; color: white; font-weight: bold; border-radius: 50%; }
         .calendar-day.selected { box-shadow: 0 0 0 3px var(--primary-600); border-radius: 50%; }
         #modal-edit-produto, #modal-edit-materiaprima, #modal-edit-cliente, #modal-venda-antiga, #modal-importar-vendas, #modal-edit-categoria, #modal-edit-product-list, #modal-add-order, #modal-edit-order { z-index: 110; }
         #modal-venda-detalhes, #modal-cliente-detalhes, #modal-edit-venda, #modal-desconto { z-index: 115; }
         #modal-confirm, #modal-contas-receber { z-index: 120; }
         #modal-receber-pagamento { z-index: 125; }
-        #modal-backup-reminder { z-index: 150; }
         #loading-overlay { z-index: 9999; }
         .toggle-checkbox:checked { right: 0; border-color: var(--secondary-500); background-color: white; }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--secondary-500); }
@@ -292,8 +291,9 @@
                     </div>
                 </div>
 
-                <div class="mb-4 border-b">
+                <div class="mb-4 border-b flex flex-wrap">
                     <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="vendas">Vendas</button>
+                    <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="recebimentos">Recebimentos</button>
                     <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="vendas-cliente">Por Cliente</button>
                     <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="desempenho-produtos">Produtos</button>
                     <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="vendas-produto">Vendas por Produto</button>
@@ -312,12 +312,16 @@
                     </div>
                 </div>
 
+                <div id="tab-recebimentos" class="tab-content hidden space-y-4">
+                    <!-- Conteúdo do Relatório de Recebimentos será inserido aqui pelo JS -->
+                </div>
+
                 <div id="tab-vendas-cliente" class="tab-content hidden overflow-x-auto">
                     <div class="min-w-[600px]"></div>
                 </div>
 
                 <div id="tab-desempenho-produtos" class="tab-content hidden overflow-x-auto">
-                     <div class="min-w-[600px]"></div>
+                       <div class="min-w-[600px]"></div>
                 </div>
                 
                 <div id="tab-vendas-produto" class="tab-content hidden">
@@ -326,7 +330,7 @@
                         <label for="sales-report-product-select" class="block text-sm font-medium mb-1">Selecione um Produto</label>
                         <select id="sales-report-product-select" class="w-full max-w-md border rounded p-2 bg-[var(--bg-tertiary)]"></select>
                     </div>
-                     <div class="mb-4 relative">
+                       <div class="mb-4 relative">
                         <input type="text" id="sales-report-customer-search" placeholder="Procurar por cliente..." class="w-full max-w-md p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]" disabled>
                         <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
                     </div>
@@ -499,18 +503,18 @@
                     </div>
                 </div>
                 <div class="border-t pt-4">
-                     <h4 class="font-semibold">Backup e Restauração</h4>
-                     <div class="flex gap-3 mt-2">
-                        <button id="export-data-btn" class="px-4 py-2 bg-green-600 text-white rounded">Exportar Backup (JSON)</button>
-                        <label class="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer">
-                            Importar Backup (JSON)
-                            <input type="file" id="import-file-input" class="hidden" accept=".json">
-                        </label>
-                     </div>
+                       <h4 class="font-semibold">Backup e Restauração</h4>
+                       <div class="flex gap-3 mt-2">
+                           <button id="export-data-btn" class="px-4 py-2 bg-green-600 text-white rounded">Exportar Backup (JSON)</button>
+                           <label class="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer">
+                               Importar Backup (JSON)
+                               <input type="file" id="import-file-input" class="hidden" accept=".json">
+                           </label>
+                       </div>
                 </div>
                 <div class="border-t pt-4">
-                     <h4 class="font-semibold text-[var(--danger-600)]">Área de Risco</h4>
-                     <button id="reset-system-btn" class="mt-2 px-4 py-2 bg-[var(--danger-500)] text-white rounded">Zerar Todo o Sistema</button>
+                       <h4 class="font-semibold text-[var(--danger-600)]">Área de Risco</h4>
+                       <button id="reset-system-btn" class="mt-2 px-4 py-2 bg-[var(--danger-500)] text-white rounded">Zerar Todo o Sistema</button>
                 </div>
             </div>
              <div class="flex justify-end mt-6">
@@ -594,7 +598,7 @@
         <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
             <h3 class="text-xl font-bold mb-2">Receber Pagamento</h3>
             <p class="text-center text-3xl font-bold my-4" id="receive-payment-total">R$ 0,00</p>
-             <form id="receive-payment-form" class="space-y-4">
+               <form id="receive-payment-form" class="space-y-4">
                 <input type="hidden" name="transactionId">
                 <div>
                     <label for="receive-payment-method">Forma de Pagamento</label>
@@ -632,7 +636,7 @@
         <div class="modal w-full max-w-4xl h-[80vh] flex flex-col rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
             <h3 class="text-xl font-bold mb-4">Histórico de <span id="details-customer-name"></span></h3>
             <div id="details-customer-sales-list" class="flex-grow overflow-y-auto"></div>
-             <div class="flex justify-end mt-4">
+               <div class="flex justify-end mt-4">
                 <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
             </div>
         </div>
@@ -641,7 +645,7 @@
         <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
             <h3 class="text-xl font-bold mb-2">Editar Venda</h3>
             <p class="text-center text-3xl font-bold my-4" id="edit-sale-total">R$ 0,00</p>
-             <form id="edit-sale-form" class="space-y-4">
+               <form id="edit-sale-form" class="space-y-4">
                 <input type="hidden" name="transactionId">
                 <div>
                     <label>Status</label>
@@ -800,7 +804,7 @@
             </form>
         </div>
     </div>
-
+    
     <div id="modal-backup-reminder" class="fixed inset-0 hidden items-center justify-center modal-backdrop z-[150]">
         <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
             <h3 class="text-xl font-bold mb-4">Lembrete de Backup</h3>
@@ -821,3 +825,4 @@
 <script src="script.js"></script>
 </body>
 </html>
+

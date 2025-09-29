@@ -438,12 +438,39 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         }
     }
     
+    // Get all transactions within the selected date range
     const filteredTransactions = transactions.filter(t => {
         const transactionDate = new Date(t.date);
         return transactionDate >= startDate && transactionDate <= endDate;
     });
 
-    const recebimentos = filteredTransactions.filter(t => (t.type === 'venda' && t.status === 'Pago' && !t.reversed) || t.type === 'recebimento');
+    // 1. Get the IDs of all sales that were paid via a separate "recebimento" transaction.
+    const paidLaterSaleIds = new Set();
+    transactions.forEach(t => {
+        if (t.type === 'recebimento' && t.description.includes('Recebimento da venda #')) {
+            const saleId = parseInt(t.description.split('#')[1]);
+            if (!isNaN(saleId)) {
+                paidLaterSaleIds.add(saleId);
+            }
+        }
+    });
+
+    // 2. Now filter for what counts as a "recebimento" in the report.
+    const recebimentos = filteredTransactions.filter(t => {
+        // A) Always include explicit 'recebimento' transactions. These represent payment of old debts.
+        if (t.type === 'recebimento') {
+            return true;
+        }
+        
+        // B) Include 'venda' transactions that were paid instantly, but EXCLUDE those that were paid later.
+        if (t.type === 'venda' && t.status === 'Pago' && !t.reversed) {
+            // If the sale's ID is in our set, it means it was paid later and will be accounted for by its 'recebimento' transaction. So, exclude it here.
+            return !paidLaterSaleIds.has(t.id);
+        }
+
+        // C) Exclude all other transaction types.
+        return false;
+    });
     
     const totalsByMethod = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'total': 0 };
     
@@ -827,7 +854,7 @@ function setReportPeriod(period) {
         month = document.getElementById('report-month-select').value;
         year = document.getElementById('report-year-select').value;
     }
-
+    
     if (activeTab === 'recebimentos') {
         renderRecebimentosReport(period, month, year);
     } else if (activeTab === 'vendas') {
@@ -2077,20 +2104,10 @@ function addEventListeners() {
     safeAddListener('print-receipt-btn', 'click', window.print);
     safeAddListener('print-details-btn', 'click', window.print);
     safeAddListener('report-month-select', 'change', () => {
-        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
-        if(activeTab === 'recebimentos') {
-            renderRecebimentosReport('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
-        } else {
-            renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
-        }
+        setReportPeriod('monthly');
     });
     safeAddListener('report-year-select', 'change', () => {
-        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
-        if(activeTab === 'recebimentos') {
-            renderRecebimentosReport('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
-        } else {
-            renderReports('monthly', document.getElementById('report-month-select').value, document.getElementById('report-year-select').value);
-        }
+        setReportPeriod('monthly');
     });
     safeAddListener('sales-report-product-select', 'change', (e) => {
         document.getElementById('sales-report-customer-search').value = '';

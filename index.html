@@ -70,6 +70,7 @@
         #modal-venda-detalhes, #modal-cliente-detalhes, #modal-edit-venda, #modal-desconto { z-index: 115; }
         #modal-confirm, #modal-contas-receber { z-index: 120; }
         #modal-receber-pagamento { z-index: 125; }
+        #modal-backup-reminder { z-index: 150; }
         #loading-overlay { z-index: 9999; }
         .toggle-checkbox:checked { right: 0; border-color: var(--secondary-500); background-color: white; }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--secondary-500); }
@@ -260,6 +261,10 @@
                         <div class="flex items-center justify-between mb-4">
                              <h3 class="text-xl font-bold">Pedidos Agendados</h3>
                              <button id="show-all-orders-btn" class="text-sm text-[var(--primary-600)] hover:underline">Mostrar Todos</button>
+                        </div>
+                        <div class="mb-4 relative">
+                            <input type="text" id="order-search-input" placeholder="Buscar por nome do cliente..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-secondary)] border-[var(--border-color)]">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
                         </div>
                         <div id="order-list-container" class="space-y-3 max-h-[60vh] overflow-y-auto">
                         </div>

@@ -263,7 +263,8 @@
                              <button id="show-all-orders-btn" class="text-sm text-[var(--primary-600)] hover:underline">Mostrar Todos</button>
                         </div>
                         <div class="mb-4 relative">
-                            <input type="text" id="order-search-input" placeholder="Buscar por nome do cliente..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-secondary)] border-[var(--border-color)]">
+                            <input type="text" id="order-search-input" list="customer-suggestions" placeholder="Buscar por nome do cliente..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-secondary)] border-[var(--border-color)]">
+                            <datalist id="customer-suggestions"></datalist>
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
                         </div>
                         <div id="order-list-container" class="space-y-3 max-h-[60vh] overflow-y-auto">

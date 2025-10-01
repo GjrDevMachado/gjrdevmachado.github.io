@@ -269,14 +269,18 @@ function switchTab(tabName) {
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
     document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
 
-    if (tabName === 'vendas-cliente') {
+    const currentPeriod = document.querySelector('#report-period-buttons .period-button.active').dataset.period;
+    
+    if (tabName === 'vendas') {
+        renderReports(currentPeriod);
+    } else if (tabName === 'recebimentos') {
+        renderRecebimentosReport(currentPeriod);
+    } else if (tabName === 'vendas-cliente') {
         renderSalesByCustomerReport();
     } else if (tabName === 'desempenho-produtos') {
         renderProductPerformanceReport();
     } else if (tabName === 'vendas-produto') {
         initializeProductSalesReport();
-    } else if (tabName === 'vendas' || tabName === 'recebimentos') {
-        setReportPeriod(currentReportPeriod);
     }
 }
 
@@ -438,13 +442,11 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         }
     }
     
-    // Get all transactions within the selected date range
     const filteredTransactions = transactions.filter(t => {
         const transactionDate = new Date(t.date);
         return transactionDate >= startDate && transactionDate <= endDate;
     });
 
-    // 1. Get the IDs of all sales that were paid via a separate "recebimento" transaction.
     const paidLaterSaleIds = new Set();
     transactions.forEach(t => {
         if (t.type === 'recebimento' && t.description.includes('Recebimento da venda #')) {
@@ -455,20 +457,13 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         }
     });
 
-    // 2. Now filter for what counts as a "recebimento" in the report.
     const recebimentos = filteredTransactions.filter(t => {
-        // A) Always include explicit 'recebimento' transactions. These represent payment of old debts.
         if (t.type === 'recebimento') {
             return true;
         }
-        
-        // B) Include 'venda' transactions that were paid instantly, but EXCLUDE those that were paid later.
         if (t.type === 'venda' && t.status === 'Pago' && !t.reversed) {
-            // If the sale's ID is in our set, it means it was paid later and will be accounted for by its 'recebimento' transaction. So, exclude it here.
             return !paidLaterSaleIds.has(t.id);
         }
-
-        // C) Exclude all other transaction types.
         return false;
     });
     
@@ -1751,6 +1746,7 @@ function renderDashboardAlerts() {
 function renderOrderScheduleView() {
     renderOrderCalendar(calendarDate);
     renderOrderList();
+    populateOrderCustomerSuggestions();
 }
 
 function renderOrderCalendar(date) {
@@ -1798,18 +1794,36 @@ function renderOrderCalendar(date) {
     }
 }
 
-function renderOrderList(filterDate = null) {
+function renderOrderList(filterDate = null, customerNameFilter = '') {
     const container = document.getElementById('order-list-container');
     if (!container) return;
 
-    let ordersToDisplay = filterDate
-        ? orders.filter(o => o.deliveryDate === filterDate || o.finalizationDate === filterDate)
-        : [...orders];
+    let ordersToDisplay;
+
+    if (filterDate) {
+        ordersToDisplay = orders.filter(o => o.deliveryDate === filterDate || o.finalizationDate === filterDate);
+    } else {
+        ordersToDisplay = orders.filter(o => o.status !== 'finalizado');
+    }
+
+    if (customerNameFilter) {
+        const lowerCaseFilter = customerNameFilter.toLowerCase();
+        ordersToDisplay = ordersToDisplay.filter(order => {
+            const customer = customers.find(c => c.id === order.customerId);
+            return customer && customer.name.toLowerCase().includes(lowerCaseFilter);
+        });
+    }
 
     ordersToDisplay.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
 
     if (ordersToDisplay.length === 0) {
-        container.innerHTML = `<p class="text-center text-gray-500 mt-8">${filterDate ? 'Nenhum pedido para esta data.' : 'Nenhum pedido agendado.'}</p>`;
+        let message = 'Nenhum pedido pendente encontrado.';
+        if (filterDate) {
+            message = 'Nenhum pedido para esta data.';
+        } else if (customerNameFilter) {
+            message = `Nenhum pedido pendente encontrado para "${customerNameFilter}".`;
+        }
+        container.innerHTML = `<p class="text-center text-gray-500 mt-8">${message}</p>`;
         return;
     }
 
@@ -1854,6 +1868,25 @@ function renderOrderList(filterDate = null) {
                 </div>
             </div>
         `;
+    });
+}
+
+function populateOrderCustomerSuggestions() {
+    const datalist = document.getElementById('customer-suggestions');
+    if (!datalist) return;
+    
+    const customerIdsWithOrders = new Set(orders.map(order => order.customerId));
+    const customerNames = new Set();
+    customerIdsWithOrders.forEach(id => {
+        const customer = customers.find(c => c.id === id);
+        if (customer) {
+            customerNames.add(customer.name);
+        }
+    });
+
+    datalist.innerHTML = '';
+    [...customerNames].sort().forEach(name => {
+        datalist.innerHTML += `<option value="${name}"></option>`;
     });
 }
 
@@ -2103,12 +2136,10 @@ function addEventListeners() {
     safeAddListener('retroactive-sale-toggle', 'change', function() { document.getElementById('retroactive-date-group').classList.toggle('hidden', !this.checked); });
     safeAddListener('print-receipt-btn', 'click', window.print);
     safeAddListener('print-details-btn', 'click', window.print);
-    safeAddListener('report-month-select', 'change', () => {
-        setReportPeriod('monthly');
-    });
-    safeAddListener('report-year-select', 'change', () => {
-        setReportPeriod('monthly');
-    });
+    
+    safeAddListener('report-month-select', 'change', () => setReportPeriod('monthly'));
+    safeAddListener('report-year-select', 'change', () => setReportPeriod('monthly'));
+    
     safeAddListener('sales-report-product-select', 'change', (e) => {
         document.getElementById('sales-report-customer-search').value = '';
         displayProductSalesReport(e.target.value);
@@ -2126,14 +2157,24 @@ function addEventListeners() {
     safeAddListener('edit-order-status', 'change', (e) => toggleOrderValueField(e.target.value, 'edit-order-value-wrapper', 'edit-order-value'));
     safeAddListener('prev-month-btn', 'click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderOrderCalendar(calendarDate); });
     safeAddListener('next-month-btn', 'click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderOrderCalendar(calendarDate); });
-    safeAddListener('show-all-orders-btn', 'click', () => { renderOrderList(); document.querySelectorAll('.calendar-day.selected').forEach(el => el.classList.remove('selected')); });
+    safeAddListener('show-all-orders-btn', 'click', () => { 
+        document.getElementById('order-search-input').value = '';
+        renderOrderList(); 
+        document.querySelectorAll('.calendar-day.selected').forEach(el => el.classList.remove('selected')); 
+    });
     safeAddListener('calendar-grid', 'click', e => {
         const dayElement = e.target.closest('.calendar-day');
         if (dayElement && dayElement.dataset.date) {
             document.querySelectorAll('.calendar-day.selected').forEach(el => el.classList.remove('selected'));
             dayElement.classList.add('selected');
+            document.getElementById('order-search-input').value = '';
             renderOrderList(dayElement.dataset.date);
         }
+    });
+    safeAddListener('order-search-input', 'input', e => {
+        const searchTerm = e.target.value;
+        renderOrderList(null, searchTerm);
+        document.querySelectorAll('.calendar-day.selected').forEach(el => el.classList.remove('selected'));
     });
 
     safeAddListener('add-customer-from-order-btn', 'click', () => {

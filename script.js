@@ -133,6 +133,13 @@ function addByBarcode(barcode) {
 // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
 function formatCurrency(value) { return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
+function getLocalDateAsString(date) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 function toggleLoading(isLoading) { document.getElementById('loading-overlay').classList.toggle('hidden', !isLoading); }
 
 function renderProducts(filter = '', categoryId = 'all') {
@@ -269,6 +276,7 @@ function switchTab(tabName) {
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
     document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
 
+    // This part handles calling the correct render function for the new tab
     const currentPeriod = document.querySelector('#report-period-buttons .period-button.active').dataset.period;
     
     if (tabName === 'vendas') {
@@ -1717,7 +1725,7 @@ function renderDashboardAlerts() {
     const container = document.getElementById('dashboard-alerts-container');
     if (!container) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateAsString(new Date());
     const dueOrders = orders.filter(o => o.deliveryDate === today && o.status !== 'finalizado');
 
     if (dueOrders.length === 0) {
@@ -1773,7 +1781,7 @@ function renderOrderCalendar(date) {
 
     for (let i = 1; i <= daysInMonth; i++) {
         const dayDate = new Date(year, month, i);
-        const dateString = dayDate.toISOString().split('T')[0];
+        const dateString = getLocalDateAsString(dayDate);
         
         const finalizedOrdersForDay = orders.filter(order => order.finalizationDate === dateString);
         const deliveryOrdersForDay = orders.filter(order => order.deliveryDate === dateString && order.status !== 'finalizado');
@@ -1803,6 +1811,7 @@ function renderOrderList(filterDate = null, customerNameFilter = '') {
     if (filterDate) {
         ordersToDisplay = orders.filter(o => o.deliveryDate === filterDate || o.finalizationDate === filterDate);
     } else {
+        // Default view: only pending orders
         ordersToDisplay = orders.filter(o => o.status !== 'finalizado');
     }
 
@@ -1931,7 +1940,7 @@ function handleAddOrder(e) {
         description: form.elements.orderDescription.value,
         value: value,
         status: status,
-        finalizationDate: status === 'finalizado' ? new Date().toISOString().slice(0, 10) : null
+        finalizationDate: status === 'finalizado' ? getLocalDateAsString(new Date()) : null
     };
     orders.push(newOrder);
     saveData();
@@ -1984,7 +1993,7 @@ function handleEditOrder(e) {
     };
 
     if (newStatus === 'finalizado' && oldStatus !== 'finalizado') {
-        orders[orderIndex].finalizationDate = new Date().toISOString().slice(0, 10);
+        orders[orderIndex].finalizationDate = getLocalDateAsString(new Date());
     } else if (newStatus !== 'finalizado') {
         orders[orderIndex].finalizationDate = null;
     }

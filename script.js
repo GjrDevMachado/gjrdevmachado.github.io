@@ -276,7 +276,6 @@ function switchTab(tabName) {
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
     document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
 
-    // This part handles calling the correct render function for the new tab
     const currentPeriod = document.querySelector('#report-period-buttons .period-button.active').dataset.period;
     
     if (tabName === 'vendas') {
@@ -426,7 +425,7 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
 
     const now = new Date();
     let startDate;
-    let endDate = new Date(); // Default to now
+    let endDate = new Date();
 
     if (period === 'annual') {
         startDate = new Date(now.getFullYear(), 0, 1);
@@ -853,7 +852,10 @@ function setReportPeriod(period) {
 
     let month, year;
     if (period === 'monthly') {
-        populateMonthYearSelectors();
+        // We only populate if it's the first time
+        if (document.getElementById('report-month-select').options.length === 0) {
+            populateMonthYearSelectors();
+        }
         month = document.getElementById('report-month-select').value;
         year = document.getElementById('report-year-select').value;
     }
@@ -1087,12 +1089,15 @@ function openModal(modalId) {
         return;
     }
 
+    // First, make the modal visible
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
+    // THEN run setup functions that depend on the modal being visible
     if (modalId === 'modal-relatorios') {
-        switchTab('vendas');
-        setReportPeriod('daily');
+        populateMonthYearSelectors(); // Populate dropdowns first
+        switchTab('vendas');       // Set the initial tab
+        setReportPeriod('daily');  // Set the initial period, which also renders the report
     } else if (modalId === 'modal-contas-receber') {
         renderUnpaidSales();
     } else if (modalId === 'modal-materiaprima') {
@@ -1315,9 +1320,9 @@ function openSaleDetailsModal(transactionId) {
         itemsHtml += `
             <tr>
                 <td class="p-1">${item.name}</td>
-                <td class="text-center p-1">${item.quantity}</td>
-                <td class="text-right p-1">${formatCurrency(item.price)}</td>
-                <td class="text-right p-1">${formatCurrency(item.price * item.quantity)}</td>
+                <td class="p-2 text-center">${item.quantity}</td>
+                <td class="p-2 text-right">${formatCurrency(item.price)}</td>
+                <td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td>
             </tr>
         `;
     });
@@ -1375,14 +1380,19 @@ function openCustomerDetailsModal(customerId) {
 function populateMonthYearSelectors() {
     const monthSelect = document.getElementById('report-month-select');
     const yearSelect = document.getElementById('report-year-select');
-    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
     if (!monthSelect || !yearSelect) return;
-    monthSelect.innerHTML = monthNames.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
-    yearSelect.innerHTML = '';
-    for (let y = currentYear; y >= 2020; y--) {
-        yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+    
+    // Only populate if they are empty, to avoid resetting user selection
+    if (monthSelect.options.length === 0) {
+        const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+        const currentMonth = new Date().getMonth();
+        monthSelect.innerHTML = monthNames.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+    }
+    if (yearSelect.options.length === 0) {
+        const currentYear = new Date().getFullYear();
+        for (let y = currentYear; y >= 2020; y--) {
+            yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+        }
     }
 }
 function renderTransactionList(container, transactionList) {
@@ -2146,8 +2156,20 @@ function addEventListeners() {
     safeAddListener('print-receipt-btn', 'click', window.print);
     safeAddListener('print-details-btn', 'click', window.print);
     
-    safeAddListener('report-month-select', 'change', () => setReportPeriod('monthly'));
-    safeAddListener('report-year-select', 'change', () => setReportPeriod('monthly'));
+    const handleMonthYearChange = () => {
+        const period = 'monthly';
+        const month = document.getElementById('report-month-select').value;
+        const year = document.getElementById('report-year-select').value;
+        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+
+        if (activeTab === 'recebimentos') {
+            renderRecebimentosReport(period, month, year);
+        } else if (activeTab === 'vendas') {
+            renderReports(period, month, year);
+        }
+    };
+    safeAddListener('report-month-select', 'change', handleMonthYearChange);
+    safeAddListener('report-year-select', 'change', handleMonthYearChange);
     
     safeAddListener('sales-report-product-select', 'change', (e) => {
         document.getElementById('sales-report-customer-search').value = '';

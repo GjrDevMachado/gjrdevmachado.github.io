@@ -310,7 +310,14 @@ function switchTab(tabName) {
     document.getElementById(`tab-${tabName}`).classList.remove('hidden');
     document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
     
-    setReportPeriod(currentReportPeriod);
+    // CORREÇÃO: Chamar a função correta para a aba selecionada.
+    if (tabName === 'vendas' || tabName === 'recebimentos' || tabName === 'vendas-cliente') {
+        setReportPeriod(currentReportPeriod);
+    } else if (tabName === 'desempenho-produtos') {
+        renderProductPerformanceReport(); // Esta não depende do filtro de período
+    } else if (tabName === 'vendas-produto') {
+        initializeProductSalesReport(); // Esta tem seus próprios filtros
+    }
 }
 
 function renderReports(period = currentReportPeriod, month, year) {
@@ -1633,6 +1640,7 @@ function switchView(viewId) {
     }
     if (viewId === 'pos-view') {
         renderCategoryFilters();
+        renderProducts();
     }
     if (viewId === 'schedule-view') {
         renderOrderScheduleView();

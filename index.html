@@ -68,11 +68,16 @@
         .calendar-day.has-order-producao { background-color: #FFEB3B; color: #333; font-weight: bold; border-radius: 50%; }
         .calendar-day.has-order-finalizado { background-color: #4CAF50; color: white; font-weight: bold; border-radius: 50%; }
         .calendar-day.selected { box-shadow: 0 0 0 3px var(--primary-600); border-radius: 50%; }
+        
+        /* CORREÇÃO: Hierarquia de Z-index para Modals */
+        #modal-relatorios { z-index: 105; }
         #modal-edit-produto, #modal-edit-materiaprima, #modal-edit-cliente, #modal-venda-antiga, #modal-importar-vendas, #modal-edit-categoria, #modal-edit-product-list, #modal-add-order, #modal-edit-order { z-index: 110; }
-        #modal-venda-detalhes, #modal-cliente-detalhes, #modal-edit-venda, #modal-desconto { z-index: 115; }
-        #modal-confirm, #modal-contas-receber { z-index: 120; }
+        #modal-cliente-detalhes { z-index: 115; }
+        #modal-venda-detalhes, #modal-edit-venda, #modal-desconto, #modal-contas-receber { z-index: 120; }
         #modal-receber-pagamento { z-index: 125; }
+        #modal-confirm { z-index: 130; }
         #modal-backup-reminder { z-index: 150; }
+
         #loading-overlay { z-index: 9999; }
         .toggle-checkbox:checked { right: 0; border-color: var(--secondary-500); background-color: white; }
         .toggle-checkbox:checked + .toggle-label { background-color: var(--secondary-500); }

@@ -46,6 +46,8 @@
         .theme-button.active { box-shadow: 0 0 0 3px var(--primary-500); }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-600); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes blink { 50% { opacity: 0; } }
+        .blinking-icon { animation: blink 1s linear infinite; }
         .payment-badge { padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-left: 8px; display: inline-block; vertical-align: middle; }
         .badge-dinheiro { background-color: #d1fae5; color: #065f46; }
         .badge-pix { background-color: #cffafe; color: #0e7490; }
@@ -125,6 +127,10 @@
                     <p class="text-[var(--text-secondary)]">Resumo do seu negócio em tempo real.</p>
                 </header>
                 
+                <div id="overdue-orders-alert-container" class="mb-6 space-y-4">
+                    <!-- Alertas de pedidos em atraso serão inseridos aqui -->
+                </div>
+
                 <div id="dashboard-alerts-container" class="mb-6 space-y-4">
                     <!-- Alertas de entrega do dia serão inseridos aqui -->
                 </div>
@@ -323,7 +329,7 @@
                 </div>
 
                 <div id="tab-vendas-cliente" class="tab-content hidden overflow-x-auto">
-                    <div class="min-w-[600px]"></div>
+                    <div id="sales-by-customer-container" class="min-w-[600px]"></div>
                 </div>
 
                 <div id="tab-desempenho-produtos" class="tab-content hidden overflow-x-auto">

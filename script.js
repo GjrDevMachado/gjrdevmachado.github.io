@@ -15,7 +15,7 @@ let cart = {
     generalDiscount: { type: 'fixed', value: 0 }
 };
 let salesChart;
-let currentReportPeriod = 'weekly';
+let currentReportPeriod = 'daily';
 let confirmCallback = null;
 let areEventListenersAdded = false;
 let calendarDate = new Date();
@@ -270,159 +270,7 @@ function renderCustomers() {
     });
 }
 
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-    document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
-
-    const currentPeriod = document.querySelector('#report-period-buttons .period-button.active').dataset.period;
-    
-    if (tabName === 'vendas') {
-        renderReports(currentPeriod);
-    } else if (tabName === 'recebimentos') {
-        renderRecebimentosReport(currentPeriod);
-    } else if (tabName === 'vendas-cliente') {
-        renderSalesByCustomerReport();
-    } else if (tabName === 'desempenho-produtos') {
-        renderProductPerformanceReport();
-    } else if (tabName === 'vendas-produto') {
-        initializeProductSalesReport();
-    }
-}
-
-function renderReports(period = currentReportPeriod, month, year) {
-        try {
-            const now = new Date();
-            const annualSummaryTable = document.getElementById('annual-summary-table');
-            const transactionsList = document.getElementById('transactions-list');
-            let filteredTransactions, startDate;
-
-            if (period === 'annual') {
-                startDate = new Date(now.getFullYear(), 0, 1);
-                filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
-            } else if (period === 'monthly') {
-                const selectedYear = parseInt(year) || now.getFullYear();
-                const selectedMonth = parseInt(month) ?? now.getMonth();
-                startDate = new Date(selectedYear, selectedMonth, 1);
-                const endDate = new Date(selectedYear, selectedMonth + 1, 0);
-                endDate.setHours(23, 59, 59, 999);
-                filteredTransactions = transactions.filter(t => {
-                    const transactionDate = new Date(t.date);
-                    return transactionDate >= startDate && transactionDate <= endDate;
-                });
-            } else {
-                switch(period) {
-                    case 'daily': startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break;
-                    case 'weekly': default: startDate = new Date(); startDate.setDate(startDate.getDate() - 7); break;
-                }
-                   filteredTransactions = transactions.filter(t => new Date(t.date) >= startDate);
-            }
-
-            if(transactionsList) transactionsList.classList.toggle('hidden', period === 'annual');
-            if(annualSummaryTable) annualSummaryTable.classList.toggle('hidden', period !== 'annual');
-
-            const salesSummary = document.getElementById('sales-summary');
-            const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
-
-            const totalRevenue = salesTransactions.reduce((s, t) => s + t.amount, 0);
-            const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
-            const grossRevenue = totalRevenue + totalDiscounts;
-            const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0);
-            const profit = totalRevenue - totalCost;
-
-            if(salesSummary) {
-                salesSummary.className = "grid grid-cols-2 md:grid-cols-5 gap-4 text-center mb-4";
-                salesSummary.innerHTML = `
-                    <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Faturamento Bruto</p><p class="text-lg font-bold">${formatCurrency(grossRevenue)}</p></div>
-                    <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Total Descontos</p><p class="text-lg font-bold text-red-500">${formatCurrency(totalDiscounts)}</p></div>
-                    <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div>
-                    <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div>
-                    <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${(grossRevenue > 0 ? (profit / grossRevenue) * 100 : 0).toFixed(2)}%</p></div>
-                `;
-            }
-
-            if (period !== 'annual') {
-                renderTransactionList(transactionsList, filteredTransactions);
-            }
-
-            const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
-            if (period === 'annual') {
-                const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-                const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0, discount: 0 }));
-
-                salesTransactions.forEach(t => {
-                    const month = new Date(t.date).getMonth();
-                    if (t.status === 'Não Pago') monthlyData[month].unpaid += t.amount;
-                    else monthlyData[month].paid += t.amount;
-                    monthlyData[month].cost += (t.cost || 0);
-                    monthlyData[month].discount += (t.discount || 0);
-                });
-
-                salesData.labels = monthNames;
-                salesData.datasets[0].data = monthlyData.map(m => m.paid);
-                salesData.datasets[1].data = monthlyData.map(m => m.unpaid);
-
-                if(annualSummaryTable) {
-                    annualSummaryTable.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th class="text-right">Fat. Bruto</th><th class="text-right">Descontos</th><th class="text-right">Custo</th><th class="text-right">Lucro Líquido</th><th class="text-right">Margem %</th></tr></thead><tbody></tbody></table>`;
-                    const annualTbody = annualSummaryTable.querySelector('tbody');
-                    monthlyData.forEach((monthData, index) => {
-                        const totalPaidAndUnpaid = monthData.paid + monthData.unpaid;
-                        const grossMonthRevenue = totalPaidAndUnpaid + monthData.discount;
-                        const profit = totalPaidAndUnpaid - monthData.cost;
-                        const profitPercentage = grossMonthRevenue > 0 ? (profit / grossMonthRevenue) * 100 : 0;
-                        annualTbody.innerHTML += `<tr><td class="p-2 font-semibold">${monthNames[index]}</td><td class="text-right">${formatCurrency(grossMonthRevenue)}</td><td class="text-right text-red-600">${formatCurrency(monthData.discount)}</td><td class="text-right">${formatCurrency(monthData.cost)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${profitPercentage.toFixed(2)}%</td></tr>`;
-                    });
-                }
-            } else {
-                const salesByDate = {};
-                let loopDate = new Date(startDate);
-                let endDate = (period === 'monthly') ? new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0) : new Date();
-
-                while(loopDate <= endDate) {
-                       salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 };
-                       loopDate.setDate(loopDate.getDate() + 1);
-                }
-
-                salesTransactions.forEach(t => {
-                    const key = new Date(t.date).toISOString().split('T')[0];
-                    if(salesByDate[key]) {
-                        if (t.status === 'Não Pago') salesByDate[key].unpaid += t.amount;
-                        else salesByDate[key].paid += t.amount;
-                    }
-                });
-
-                if (period === 'daily') {
-                    salesData.labels.push('Hoje');
-                    const dailyTotals = Object.values(salesByDate).reduce((acc, curr) => ({ paid: acc.paid + curr.paid, unpaid: acc.unpaid + curr.unpaid }), { paid: 0, unpaid: 0 });
-                    salesData.datasets[0].data.push(dailyTotals.paid);
-                    salesData.datasets[1].data.push(dailyTotals.unpaid);
-                } else {
-                    for(const [day, totals] of Object.entries(salesByDate)) {
-                        salesData.labels.push(new Date(day + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}));
-                        salesData.datasets[0].data.push(totals.paid);
-                        salesData.datasets[1].data.push(totals.unpaid);
-                    }
-                }
-            }
-
-            const canvas = document.getElementById('salesChart');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                if (salesChart) salesChart.destroy();
-                salesChart = new Chart(ctx, { type: 'bar', data: salesData, options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } } });
-            }
-
-        } catch (error) {
-            console.error("Erro ao renderizar relatórios:", error);
-            showToast("Ocorreu um erro ao gerar o relatório.", "error");
-        }
-    }
-
-function renderRecebimentosReport(period = currentReportPeriod, month, year) {
-    const container = document.getElementById('tab-recebimentos');
-    if (!container) return;
-
+function getFilteredTransactions(period, month, year) {
     const now = new Date();
     let startDate;
     let endDate = new Date();
@@ -441,7 +289,8 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
             case 'daily': 
                 startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); 
                 break;
-            case 'weekly': default: 
+            case 'weekly': 
+            default: 
                 startDate = new Date(); 
                 startDate.setDate(startDate.getDate() - 7);
                 startDate.setHours(0, 0, 0, 0);
@@ -449,10 +298,142 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         }
     }
     
-    const filteredTransactions = transactions.filter(t => {
+    return transactions.filter(t => {
         const transactionDate = new Date(t.date);
         return transactionDate >= startDate && transactionDate <= endDate;
     });
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
+    
+    setReportPeriod(currentReportPeriod);
+}
+
+function renderReports(period = currentReportPeriod, month, year) {
+    try {
+        const filteredTransactions = getFilteredTransactions(period, month, year);
+        const annualSummaryTable = document.getElementById('annual-summary-table');
+        const transactionsList = document.getElementById('transactions-list');
+        
+        if(transactionsList) transactionsList.classList.toggle('hidden', period === 'annual');
+        if(annualSummaryTable) annualSummaryTable.classList.toggle('hidden', period !== 'annual');
+
+        const salesSummary = document.getElementById('sales-summary');
+        const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
+
+        const totalRevenue = salesTransactions.reduce((s, t) => s + t.amount, 0);
+        const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
+        const grossRevenue = totalRevenue + totalDiscounts;
+        const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0);
+        const profit = totalRevenue - totalCost;
+
+        if(salesSummary) {
+            salesSummary.className = "grid grid-cols-2 md:grid-cols-5 gap-4 text-center mb-4";
+            salesSummary.innerHTML = `
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Faturamento Bruto</p><p class="text-lg font-bold">${formatCurrency(grossRevenue)}</p></div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Total Descontos</p><p class="text-lg font-bold text-red-500">${formatCurrency(totalDiscounts)}</p></div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${(grossRevenue > 0 ? (profit / grossRevenue) * 100 : 0).toFixed(2)}%</p></div>
+            `;
+        }
+
+        if (period !== 'annual') {
+            renderTransactionList(transactionsList, filteredTransactions);
+        }
+
+        const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
+        if (period === 'annual') {
+            const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+            const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0, discount: 0 }));
+
+            salesTransactions.forEach(t => {
+                const month = new Date(t.date).getMonth();
+                if (t.status === 'Não Pago') monthlyData[month].unpaid += t.amount;
+                else monthlyData[month].paid += t.amount;
+                monthlyData[month].cost += (t.cost || 0);
+                monthlyData[month].discount += (t.discount || 0);
+            });
+
+            salesData.labels = monthNames;
+            salesData.datasets[0].data = monthlyData.map(m => m.paid);
+            salesData.datasets[1].data = monthlyData.map(m => m.unpaid);
+
+            if(annualSummaryTable) {
+                annualSummaryTable.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th class="text-right">Fat. Bruto</th><th class="text-right">Descontos</th><th class="text-right">Custo</th><th class="text-right">Lucro Líquido</th><th class="text-right">Margem %</th></tr></thead><tbody></tbody></table>`;
+                const annualTbody = annualSummaryTable.querySelector('tbody');
+                monthlyData.forEach((monthData, index) => {
+                    const totalPaidAndUnpaid = monthData.paid + monthData.unpaid;
+                    const grossMonthRevenue = totalPaidAndUnpaid + monthData.discount;
+                    const profit = totalPaidAndUnpaid - monthData.cost;
+                    const profitPercentage = grossMonthRevenue > 0 ? (profit / grossMonthRevenue) * 100 : 0;
+                    annualTbody.innerHTML += `<tr><td class="p-2 font-semibold">${monthNames[index]}</td><td class="text-right">${formatCurrency(grossMonthRevenue)}</td><td class="text-right text-red-600">${formatCurrency(monthData.discount)}</td><td class="text-right">${formatCurrency(monthData.cost)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${profitPercentage.toFixed(2)}%</td></tr>`;
+                });
+            }
+        } else {
+            const salesByDate = {};
+            const startDateForLoop = getFilteredTransactions(period, month, year)[0] ? new Date(getFilteredTransactions(period, month, year)[0].date) : new Date();
+            if (period === 'weekly') startDateForLoop.setDate(new Date().getDate() - 7);
+            if (period === 'daily') startDateForLoop.setDate(new Date().getDate());
+            
+            let loopDate = new Date(startDateForLoop);
+            loopDate.setHours(0,0,0,0);
+            
+            let endDate = new Date();
+            if (period === 'monthly') {
+                endDate = new Date(startDateForLoop.getFullYear(), startDateForLoop.getMonth() + 1, 0);
+            }
+
+
+            while(loopDate <= endDate) {
+                   salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 };
+                   loopDate.setDate(loopDate.getDate() + 1);
+            }
+
+            salesTransactions.forEach(t => {
+                const key = new Date(t.date).toISOString().split('T')[0];
+                if(salesByDate[key]) {
+                    if (t.status === 'Não Pago') salesByDate[key].unpaid += t.amount;
+                    else salesByDate[key].paid += t.amount;
+                }
+            });
+
+            if (period === 'daily') {
+                salesData.labels.push('Hoje');
+                const dailyTotals = Object.values(salesByDate).reduce((acc, curr) => ({ paid: acc.paid + curr.paid, unpaid: acc.unpaid + curr.unpaid }), { paid: 0, unpaid: 0 });
+                salesData.datasets[0].data.push(dailyTotals.paid);
+                salesData.datasets[1].data.push(dailyTotals.unpaid);
+            } else {
+                for(const [day, totals] of Object.entries(salesByDate)) {
+                    salesData.labels.push(new Date(day + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}));
+                    salesData.datasets[0].data.push(totals.paid);
+                    salesData.datasets[1].data.push(totals.unpaid);
+                }
+            }
+        }
+
+        const canvas = document.getElementById('salesChart');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (salesChart) salesChart.destroy();
+            salesChart = new Chart(ctx, { type: 'bar', data: salesData, options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } } });
+        }
+
+    } catch (error) {
+        console.error("Erro ao renderizar relatórios:", error);
+        showToast("Ocorreu um erro ao gerar o relatório.", "error");
+    }
+}
+
+function renderRecebimentosReport(period = currentReportPeriod, month, year) {
+    const container = document.getElementById('tab-recebimentos');
+    if (!container) return;
+
+    const filteredTransactions = getFilteredTransactions(period, month, year);
 
     const paidLaterSaleIds = new Set();
     transactions.forEach(t => {
@@ -546,10 +527,13 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
 }
 
 
-function renderSalesByCustomerReport() {
-    const container = document.getElementById('tab-vendas-cliente');
+function renderSalesByCustomerReport(period = currentReportPeriod, month, year) {
+    const container = document.getElementById('sales-by-customer-container');
     if(!container) return;
-    const salesByCustomer = transactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
+
+    const filteredTransactions = getFilteredTransactions(period, month, year);
+
+    const salesByCustomer = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed).reduce((acc, sale) => {
         const customerId = sale.customerId || 'unknown';
         if (!acc[customerId]) {
             acc[customerId] = {
@@ -560,14 +544,26 @@ function renderSalesByCustomerReport() {
                 customerName: customers.find(c => c.id == customerId)?.name || 'Cliente Não Identificado'
             };
         }
-        acc[customerId].total += sale.amount; acc[customerId].count++;
-        if (sale.status === 'Não Pago') acc[customerId].unpaid += sale.amount; else acc[customerId].paid += sale.amount;
+        acc[customerId].total += sale.amount;
+        acc[customerId].count++;
+        if (sale.status === 'Não Pago') {
+            acc[customerId].unpaid += sale.amount;
+        } else {
+            acc[customerId].paid += sale.amount;
+        }
         return acc;
     }, {});
+
     let tableHtml = `<table class="w-full text-left mt-4"><thead><tr class="border-b"><th class="p-2">Cliente</th><th class="text-right">Total Comprado</th><th class="text-right">Total Pago</th><th class="text-right">Total Devido</th><th class="text-center">Nº de Vendas</th></tr></thead><tbody>`;
-    Object.entries(salesByCustomer).sort(([,a],[,b]) => b.total - a.total).forEach(([customerId, data]) => {
-        tableHtml += `<tr class="hover:bg-[var(--bg-secondary)] cursor-pointer customer-details-row" data-customer-id="${customerId}"><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
-    });
+    
+    if (Object.keys(salesByCustomer).length === 0) {
+        tableHtml += '<tr><td colspan="5" class="text-center p-4 text-gray-500">Nenhuma venda para clientes neste período.</td></tr>';
+    } else {
+        Object.entries(salesByCustomer).sort(([,a],[,b]) => b.total - a.total).forEach(([customerId, data]) => {
+            tableHtml += `<tr class="hover:bg-[var(--bg-secondary)] cursor-pointer customer-details-row" data-customer-id="${customerId}"><td class="p-2 font-semibold">${data.customerName}</td><td class="text-right">${formatCurrency(data.total)}</td><td class="text-right text-green-600">${formatCurrency(data.paid)}</td><td class="text-right text-red-600">${formatCurrency(data.unpaid)}</td><td class="text-center">${data.count}</td></tr>`;
+        });
+    }
+    
     container.innerHTML = tableHtml + '</tbody></table>';
 }
 
@@ -843,27 +839,27 @@ function setReportPeriod(period) {
     document.querySelectorAll('#report-period-buttons .period-button').forEach(btn => btn.classList.remove('active'));
     document.querySelector(`#report-period-buttons .period-button[data-period="${period}"]`).classList.add('active');
     
-    const activeTab = document.querySelector('.tab-button.active').dataset.tab;
-    const monthYearSelector = document.getElementById('month-year-selector');
+    const activeTabButton = document.querySelector('.tab-button.active');
+    if (!activeTabButton) return; 
+    const activeTab = activeTabButton.dataset.tab;
 
+    const monthYearSelector = document.getElementById('month-year-selector');
     if (monthYearSelector) {
         monthYearSelector.classList.toggle('hidden', period !== 'monthly');
     }
 
     let month, year;
     if (period === 'monthly') {
-        // We only populate if it's the first time
-        if (document.getElementById('report-month-select').options.length === 0) {
-            populateMonthYearSelectors();
-        }
         month = document.getElementById('report-month-select').value;
         year = document.getElementById('report-year-select').value;
     }
     
-    if (activeTab === 'recebimentos') {
-        renderRecebimentosReport(period, month, year);
-    } else if (activeTab === 'vendas') {
+    if (activeTab === 'vendas') {
         renderReports(period, month, year);
+    } else if (activeTab === 'recebimentos') {
+        renderRecebimentosReport(period, month, year);
+    } else if (activeTab === 'vendas-cliente') {
+        renderSalesByCustomerReport(period, month, year);
     }
 }
 
@@ -1089,15 +1085,13 @@ function openModal(modalId) {
         return;
     }
 
-    // First, make the modal visible
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    // THEN run setup functions that depend on the modal being visible
     if (modalId === 'modal-relatorios') {
-        populateMonthYearSelectors(); // Populate dropdowns first
-        switchTab('vendas');       // Set the initial tab
-        setReportPeriod('daily');  // Set the initial period, which also renders the report
+        populateMonthYearSelectors();
+        switchTab('vendas');
+        setReportPeriod('daily');
     } else if (modalId === 'modal-contas-receber') {
         renderUnpaidSales();
     } else if (modalId === 'modal-materiaprima') {
@@ -1385,8 +1379,7 @@ function populateMonthYearSelectors() {
     // Only populate if they are empty, to avoid resetting user selection
     if (monthSelect.options.length === 0) {
         const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-        const currentMonth = new Date().getMonth();
-        monthSelect.innerHTML = monthNames.map((m, i) => `<option value="${i}" ${i === currentMonth ? 'selected' : ''}>${m}</option>`).join('');
+        monthSelect.innerHTML = monthNames.map((m, i) => `<option value="${i}">${m}</option>`).join('');
     }
     if (yearSelect.options.length === 0) {
         const currentYear = new Date().getFullYear();
@@ -1394,6 +1387,9 @@ function populateMonthYearSelectors() {
             yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
         }
     }
+    const now = new Date();
+    monthSelect.value = now.getMonth();
+    yearSelect.value = now.getFullYear();
 }
 function renderTransactionList(container, transactionList) {
     if (!container) return;
@@ -1644,6 +1640,7 @@ function switchView(viewId) {
 }
 
 function renderDashboard() {
+    renderOverdueOrdersAlert();
     renderDashboardAlerts();
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -1731,6 +1728,38 @@ function displayCustomerSummary(customerId) {
 }
 
 // --- FUNÇÕES DA AGENDA E DASHBOARD ALERT---
+function renderOverdueOrdersAlert() {
+    const container = document.getElementById('overdue-orders-alert-container');
+    if (!container) return;
+
+    const todayString = getLocalDateAsString(new Date());
+    const overdueOrders = orders.filter(o => o.deliveryDate < todayString && o.status !== 'finalizado');
+
+    if (overdueOrders.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let ordersHtml = overdueOrders.map(order => {
+        const customer = customers.find(c => c.id === order.customerId);
+        const deliveryDate = new Date(order.deliveryDate + 'T00:00:00').toLocaleDateString('pt-BR');
+        return `<li class="border-b border-red-300 py-2">${customer ? customer.name : 'Cliente desconhecido'} - Vencido em: ${deliveryDate}</li>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md cursor-pointer sidebar-item" data-view="schedule-view">
+             <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle fa-lg mr-3 blinking-icon"></i>
+                <div>
+                    <p class="font-bold">URGENTE: ${overdueOrders.length} Pedido(s) em Atraso!</p>
+                     <ul class="list-disc list-inside mt-2 text-sm">${ordersHtml}</ul>
+                     <p class="text-xs mt-2 hover:underline">Clique aqui para ver na agenda.</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function renderDashboardAlerts() {
     const container = document.getElementById('dashboard-alerts-container');
     if (!container) return;
@@ -2157,16 +2186,7 @@ function addEventListeners() {
     safeAddListener('print-details-btn', 'click', window.print);
     
     const handleMonthYearChange = () => {
-        const period = 'monthly';
-        const month = document.getElementById('report-month-select').value;
-        const year = document.getElementById('report-year-select').value;
-        const activeTab = document.querySelector('.tab-button.active').dataset.tab;
-
-        if (activeTab === 'recebimentos') {
-            renderRecebimentosReport(period, month, year);
-        } else if (activeTab === 'vendas') {
-            renderReports(period, month, year);
-        }
+        setReportPeriod('monthly');
     };
     safeAddListener('report-month-select', 'change', handleMonthYearChange);
     safeAddListener('report-year-select', 'change', handleMonthYearChange);
@@ -2224,7 +2244,7 @@ function addEventListeners() {
     });
 
     document.body.addEventListener('click', e => {
-        const target = e.target.closest('button, tr');
+        const target = e.target.closest('button, tr, div.sidebar-item');
         if (!target) return;
 
         const classList = target.classList;

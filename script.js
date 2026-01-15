@@ -332,20 +332,42 @@ function renderReports(period = currentReportPeriod, month, year) {
         const salesSummary = document.getElementById('sales-summary');
         const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
 
+        // --- CORREÇÃO AQUI ---
+        // totalRevenue é a soma dos "t.amount", ou seja, o valor FINAL da venda (já com desconto descontado)
         const totalRevenue = salesTransactions.reduce((s, t) => s + t.amount, 0);
+        
+        // totalDiscounts é apenas para informação visual
         const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
-        const grossRevenue = totalRevenue + totalDiscounts;
+        
+        // Antes somávamos (totalRevenue + totalDiscounts). Agora usamos apenas totalRevenue.
+        const grossRevenue = totalRevenue; 
+        
         const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0);
         const profit = totalRevenue - totalCost;
 
         if(salesSummary) {
             salesSummary.className = "grid grid-cols-2 md:grid-cols-5 gap-4 text-center mb-4";
             salesSummary.innerHTML = `
-                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Faturamento Bruto</p><p class="text-lg font-bold">${formatCurrency(grossRevenue)}</p></div>
-                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Total Descontos</p><p class="text-lg font-bold text-red-500">${formatCurrency(totalDiscounts)}</p></div>
-                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p><p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p></div>
-                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p><p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p></div>
-                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg"><p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p><p class="text-lg font-bold text-[var(--secondary-600)]">${(grossRevenue > 0 ? (profit / grossRevenue) * 100 : 0).toFixed(2)}%</p></div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
+                    <p class="text-sm text-[var(--text-secondary)]">Faturamento Total</p>
+                    <p class="text-lg font-bold">${formatCurrency(grossRevenue)}</p>
+                </div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
+                    <p class="text-sm text-[var(--text-secondary)]">Total Descontos</p>
+                    <p class="text-lg font-bold text-red-500">${formatCurrency(totalDiscounts)}</p>
+                </div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
+                    <p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p>
+                    <p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p>
+                </div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
+                    <p class="text-sm text-[var(--text-secondary)]">Lucro Líquido</p>
+                    <p class="text-lg font-bold text-[var(--secondary-600)]">${formatCurrency(profit)}</p>
+                </div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
+                    <p class="text-sm text-[var(--text-secondary)]">Margem de Lucro</p>
+                    <p class="text-lg font-bold text-[var(--secondary-600)]">${(grossRevenue > 0 ? (profit / grossRevenue) * 100 : 0).toFixed(2)}%</p>
+                </div>
             `;
         }
 
@@ -354,6 +376,7 @@ function renderReports(period = currentReportPeriod, month, year) {
         }
 
         const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
+        
         if (period === 'annual') {
             const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
             const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0, discount: 0 }));
@@ -371,13 +394,19 @@ function renderReports(period = currentReportPeriod, month, year) {
             salesData.datasets[1].data = monthlyData.map(m => m.unpaid);
 
             if(annualSummaryTable) {
-                annualSummaryTable.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th class="text-right">Fat. Bruto</th><th class="text-right">Descontos</th><th class="text-right">Custo</th><th class="text-right">Lucro Líquido</th><th class="text-right">Margem %</th></tr></thead><tbody></tbody></table>`;
+                // Ajustei o cabeçalho para "Faturamento" em vez de "Fat. Bruto"
+                annualSummaryTable.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th class="text-right">Faturamento</th><th class="text-right">Descontos</th><th class="text-right">Custo</th><th class="text-right">Lucro Líquido</th><th class="text-right">Margem %</th></tr></thead><tbody></tbody></table>`;
                 const annualTbody = annualSummaryTable.querySelector('tbody');
                 monthlyData.forEach((monthData, index) => {
                     const totalPaidAndUnpaid = monthData.paid + monthData.unpaid;
-                    const grossMonthRevenue = totalPaidAndUnpaid + monthData.discount;
+                    
+                    // --- CORREÇÃO ANUAL AQUI ---
+                    // Antes somava monthData.discount. Agora usamos apenas o valor real vendido.
+                    const grossMonthRevenue = totalPaidAndUnpaid; 
+                    
                     const profit = totalPaidAndUnpaid - monthData.cost;
                     const profitPercentage = grossMonthRevenue > 0 ? (profit / grossMonthRevenue) * 100 : 0;
+                    
                     annualTbody.innerHTML += `<tr><td class="p-2 font-semibold">${monthNames[index]}</td><td class="text-right">${formatCurrency(grossMonthRevenue)}</td><td class="text-right text-red-600">${formatCurrency(monthData.discount)}</td><td class="text-right">${formatCurrency(monthData.cost)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(profit)}</td><td class="text-right ${profit >= 0 ? 'text-green-600' : 'text-red-600'}">${profitPercentage.toFixed(2)}%</td></tr>`;
                 });
             }

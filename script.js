@@ -38,7 +38,6 @@ function saveData() {
 }
 
 // --- CARREGAR DADOS DO SUPABASE ---
-// --- CARREGAR DADOS DO SUPABASE ---
 async function loadDataFromSupabase() {
     toggleLoading(true);
     try {
@@ -58,20 +57,30 @@ async function loadDataFromSupabase() {
         const { data: itensData } = await supabaseClient.from('itens_transacao').select('*');
 
         transactions = (transacoesData || []).map(t => {
-            const itensDestaTransacao = (itensData || []).filter(item => item.transacao_id === t.id);
+            // CORREÇÃO 1: Usando String() para garantir que os IDs BIGINT batam com sucesso e ache os itens!
+            const itensDestaTransacao = (itensData || []).filter(item => String(item.transacao_id) === String(t.id));
+            
             const itemsFormatados = itensDestaTransacao.map(item => {
-                const produtoOriginal = products.find(p => p.id === item.produto_id) || {};
-                return { id: item.produto_id, name: produtoOriginal.name || 'Produto Excluído', price: parseFloat(item.preco_unitario), quantity: item.quantidade, cost: produtoOriginal.cost || 0, discount: { type: 'fixed', value: parseFloat(item.desconto_item) || 0 } };
+                const produtoOriginal = products.find(p => String(p.id) === String(item.produto_id)) || {};
+                return { 
+                    id: item.produto_id, 
+                    name: produtoOriginal.name || 'Produto Excluído', 
+                    price: parseFloat(item.preco_unitario), 
+                    quantity: parseInt(item.quantidade), 
+                    cost: parseFloat(produtoOriginal.cost || 0), 
+                    discount: { type: 'fixed', value: parseFloat(item.desconto_item) || 0 } 
+                };
             });
             
-            // AGORA PUXAMOS A DESCRIÇÃO E O ESTORNO CORRETAMENTE
+            const quantidadeTotal = itemsFormatados.reduce((sum, i) => sum + i.quantity, 0);
+
             return { 
                 id: t.id, 
                 type: t.tipo, 
                 amount: parseFloat(t.valor_total), 
                 cost: parseFloat(t.custo_total || 0), 
                 discount: parseFloat(t.desconto_geral || 0), 
-                description: t.descricao || (t.tipo === 'venda' ? `Venda de ${itemsFormatados.reduce((sum, i) => sum + i.quantity, 0)} item(s)` : t.tipo), 
+                description: t.descricao || (t.tipo === 'venda' ? `Venda de ${quantidadeTotal} item(s)` : t.tipo), 
                 date: new Date(t.data_venda).getTime(), 
                 customerId: t.cliente_id, 
                 method: t.metodo_pagamento, 
@@ -81,6 +90,9 @@ async function loadDataFromSupabase() {
                 items: itemsFormatados 
             };
         });
+
+        // CORREÇÃO 2: Ordenando as transações por data! Isso faz a 'Atividade Recente' e os Gráficos ficarem perfeitos.
+        transactions.sort((a, b) => a.date - b.date);
 
         orders = JSON.parse(localStorage.getItem('orders')) || [];
         cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
@@ -2557,6 +2569,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

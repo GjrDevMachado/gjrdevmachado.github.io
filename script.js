@@ -173,15 +173,6 @@ function initializeAppUI() {
     startBackupTimer();
 }
 
-window.onload = function() {
-    try {
-        loadDataFromLocalStorage();
-    } catch (e) {
-        alert("Ocorreu um erro crítico ao iniciar a aplicação. Por favor, limpe o cache do seu navegador e tente novamente. Erro: " + e.message);
-        console.error("Erro fatal no window.onload:", e);
-    }
-};
-
 // --- FUNÇÕES DE LÓGICA PRINCIPAL (vendas, produtos, etc.) ---
 function addProduct(name, price, cost, categoryId, barcode) {
     if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) {
@@ -2447,6 +2438,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

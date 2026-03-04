@@ -37,6 +37,7 @@ function saveData() {
     }
 }
 
+
 // --- CARREGAR DADOS DO SUPABASE ---
 async function loadDataFromSupabase() {
     toggleLoading(true);
@@ -57,7 +58,7 @@ async function loadDataFromSupabase() {
         const { data: itensData } = await supabaseClient.from('itens_transacao').select('*');
 
         transactions = (transacoesData || []).map(t => {
-            // CORREÇÃO 1: Usando String() para garantir que os IDs BIGINT batam com sucesso e ache os itens!
+            // CORREÇÃO: Forçamos o formato String() para os IDs baterem perfeitamente!
             const itensDestaTransacao = (itensData || []).filter(item => String(item.transacao_id) === String(t.id));
             
             const itemsFormatados = itensDestaTransacao.map(item => {
@@ -91,7 +92,7 @@ async function loadDataFromSupabase() {
             };
         });
 
-        // CORREÇÃO 2: Ordenando as transações por data! Isso faz a 'Atividade Recente' e os Gráficos ficarem perfeitos.
+        // CORREÇÃO: Ordenamos as transações por data para a Atividade Recente ficar cronológica
         transactions.sort((a, b) => a.date - b.date);
 
         orders = JSON.parse(localStorage.getItem('orders')) || [];
@@ -106,7 +107,6 @@ async function loadDataFromSupabase() {
         toggleLoading(false);
     }
 }
-
 // INICIALIZA A APLICAÇÃO CORRETAMENTE UMA ÚNICA VEZ
 window.onload = function() {
     loadDataFromSupabase();
@@ -2632,6 +2632,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

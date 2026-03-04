@@ -38,10 +38,10 @@ function saveData() {
 }
 
 // --- CARREGAR DADOS DO SUPABASE ---
+// --- CARREGAR DADOS DO SUPABASE ---
 async function loadDataFromSupabase() {
     toggleLoading(true);
     try {
-        // Agora usamos 'supabaseClient' em vez de 'supabase'
         const { data: categoriasData } = await supabaseClient.from('categorias').select('*');
         categories = (categoriasData && categoriasData.length > 0) ? categoriasData.map(c => ({ id: c.id, name: c.nome })) : [{ id: 1, name: 'Sem Categoria' }];
 
@@ -63,7 +63,23 @@ async function loadDataFromSupabase() {
                 const produtoOriginal = products.find(p => p.id === item.produto_id) || {};
                 return { id: item.produto_id, name: produtoOriginal.name || 'Produto Excluído', price: parseFloat(item.preco_unitario), quantity: item.quantidade, cost: produtoOriginal.cost || 0, discount: { type: 'fixed', value: parseFloat(item.desconto_item) || 0 } };
             });
-            return { id: t.id, type: t.tipo, amount: parseFloat(t.valor_total), cost: parseFloat(t.custo_total || 0), discount: parseFloat(t.desconto_geral || 0), description: t.tipo === 'venda' ? `Venda de ${itemsFormatados.reduce((sum, i) => sum + i.quantity, 0)} item(s)` : (t.tipo === 'recebimento' ? `Recebimento da venda #${t.id}` : t.tipo), date: new Date(t.data_venda).getTime(), customerId: t.cliente_id, method: t.metodo_pagamento, installments: t.parcelas, status: t.status, reversed: false, items: itemsFormatados };
+            
+            // AGORA PUXAMOS A DESCRIÇÃO E O ESTORNO CORRETAMENTE
+            return { 
+                id: t.id, 
+                type: t.tipo, 
+                amount: parseFloat(t.valor_total), 
+                cost: parseFloat(t.custo_total || 0), 
+                discount: parseFloat(t.desconto_geral || 0), 
+                description: t.descricao || (t.tipo === 'venda' ? `Venda de ${itemsFormatados.reduce((sum, i) => sum + i.quantity, 0)} item(s)` : t.tipo), 
+                date: new Date(t.data_venda).getTime(), 
+                customerId: t.cliente_id, 
+                method: t.metodo_pagamento, 
+                installments: t.parcelas, 
+                status: t.status, 
+                reversed: t.estornada || false, 
+                items: itemsFormatados 
+            };
         });
 
         orders = JSON.parse(localStorage.getItem('orders')) || [];
@@ -78,12 +94,6 @@ async function loadDataFromSupabase() {
         toggleLoading(false);
     }
 }
-
-// INICIALIZA A APLICAÇÃO CORRETAMENTE UMA ÚNICA VEZ
-window.onload = function() {
-    loadDataFromSupabase();
-};
-
 function initializeAppUI() {
     switchView('dashboard-view');
     renderProducts();
@@ -1148,28 +1158,46 @@ function deleteCustomer(customerId) {
 function cancelSale(transactionId) {
     const sale = transactions.find(t => t.id === transactionId);
     if (!sale || sale.reversed) return;
-    openConfirmationModal('Estornar Venda', 'Tem a certeza de que deseja estornar esta venda?', () => {
-        if (sale.status !== 'Não Pago') cashBalance -= sale.amount;
-        sale.reversed = true;
-        transactions.push({ id: Date.now(), type: 'estorno', amount: -sale.amount, description: `Estorno da venda #${sale.id}`, date: Date.now() });
-        renderReports(currentReportPeriod);
-        showToast('Venda estornada com sucesso!'); saveData();
+    
+    openConfirmationModal('Estornar Venda', 'Tem a certeza de que deseja estornar esta venda?', async () => {
+        toggleLoading(true);
+        try {
+            await supabaseClient.from('transacoes').update({ estornada: true }).eq('id', transactionId);
+
+            await supabaseClient.from('transacoes').insert([{
+                id: Date.now(),
+                tipo: 'estorno',
+                valor_total: -sale.amount,
+                descricao: `Estorno da venda #${sale.id}`,
+                status: 'Pago',
+                data_venda: new Date().toISOString()
+            }]);
+
+            if (sale.status !== 'Não Pago') cashBalance -= sale.amount;
+            saveData();
+            showToast('Venda estornada com sucesso!'); 
+            await loadDataFromSupabase();
+        } catch (error) {
+            showToast("Erro ao estornar no banco.", "error");
+        } finally {
+            toggleLoading(false);
+        }
     });
 }
 function deleteTransaction(transactionId) {
-    openConfirmationModal('Excluir Venda Permanentemente?', 'Esta ação é irreversível e não pode ser desfeita. A venda será apagada do histórico. Deseja continuar?', () => {
-        const saleIndex = transactions.findIndex(t => t.id === transactionId);
-        if (saleIndex > -1) {
-            transactions.splice(saleIndex, 1);
+    openConfirmationModal('Excluir Venda Permanentemente?', 'Esta ação é irreversível e não pode ser desfeita. A venda será apagada do histórico. Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('transacoes').delete().eq('id', transactionId);
+            if (error) throw error;
+            
             showToast('Venda excluída com sucesso.', 'success');
-            renderReports(currentReportPeriod);
-            if (!document.getElementById('modal-cliente-detalhes').classList.contains('hidden')) {
-                const customerId = document.getElementById('modal-cliente-detalhes').dataset.customerId;
-                openCustomerDetailsModal(customerId);
-            }
-            saveData();
-        } else {
-            showToast('Venda não encontrada.', 'error');
+            closeModal('modal-cliente-detalhes');
+            await loadDataFromSupabase();
+        } catch (error) {
+            showToast("Erro ao excluir no banco.", "error");
+        } finally {
+            toggleLoading(false);
         }
     });
 }
@@ -1337,31 +1365,55 @@ function openReceivePaymentModal(transactionId) {
     document.getElementById('receive-payment-total').textContent = formatCurrency(sale.amount);
     openModal('modal-receber-pagamento');
 }
-function handleReceivedPayment(e) {
+async function handleReceivedPayment(e) {
     e.preventDefault();
     const form = document.getElementById('receive-payment-form');
-    const sale = transactions.find(t => t.id == form.elements.transactionId.value);
+    const saleId = parseInt(form.elements.transactionId.value);
+    const sale = transactions.find(t => t.id === saleId);
+    
     if (!sale) return;
 
-    sale.status = 'Pago';
-    sale.method = form.elements.paymentMethod.value;
-    sale.installments = sale.method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
+    toggleLoading(true);
+    try {
+        const novoMetodo = form.elements.paymentMethod.value;
+        const novasParcelas = novoMetodo === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
 
-    transactions.push({
-        id: Date.now(),
-        type: 'recebimento',
-        amount: sale.amount,
-        description: `Recebimento da venda #${sale.id}`,
-        date: Date.now(),
-        method: sale.method,
-        installments: sale.installments
-    });
+        // 1. Atualiza a venda original para 'Pago'
+        const { error: updateError } = await supabaseClient
+            .from('transacoes')
+            .update({ status: 'Pago', metodo_pagamento: novoMetodo, parcelas: novasParcelas })
+            .eq('id', saleId);
+        if (updateError) throw updateError;
 
-    cashBalance += sale.amount;
-    renderUnpaidSales();
-    closeModal('modal-receber-pagamento');
-    showToast('Pagamento recebido com sucesso!', 'success');
-    saveData();
+        // 2. Cria a transação do recebimento
+        const { error: insertError } = await supabaseClient
+            .from('transacoes')
+            .insert([{
+                id: Date.now(),
+                tipo: 'recebimento',
+                cliente_id: sale.customerId || 1,
+                valor_total: sale.amount,
+                metodo_pagamento: novoMetodo,
+                parcelas: novasParcelas,
+                status: 'Pago',
+                descricao: `Recebimento da venda #${sale.id}`, // Liga ao relatório!
+                data_venda: new Date().toISOString()
+            }]);
+        if (insertError) throw insertError;
+
+        cashBalance += sale.amount;
+        saveData();
+        
+        showToast('Pagamento recebido com sucesso!', 'success');
+        closeModal('modal-receber-pagamento');
+        await loadDataFromSupabase(); // Atualiza a tela
+
+    } catch (error) {
+        console.error("Erro ao receber pagamento:", error);
+        showToast("Erro ao processar pagamento no banco.", "error");
+    } finally {
+        toggleLoading(false);
+    }
 }
 function handleImportSales(e) {
     e.preventDefault();
@@ -1756,51 +1808,40 @@ function openEditSaleModal(transactionId) {
     openModal('modal-edit-venda');
 }
 
-function handleEditSale(e) {
+async function handleEditSale(e) {
     e.preventDefault();
     const form = document.getElementById('edit-sale-form');
     const transactionId = parseInt(form.elements.transactionId.value);
     const sale = transactions.find(t => t.id === transactionId);
 
-    if (!sale) {
-        showToast("Erro: Venda não encontrada.", "error");
+    if (!sale) return;
+
+    toggleLoading(true);
+    try {
+        const newStatus = form.elements.saleStatus.value;
+        const newMethod = form.elements.paymentMethod.value;
+        const newInstallments = parseInt(form.elements.paymentInstallments.value) || 1;
+
+        const { error } = await supabaseClient
+            .from('transacoes')
+            .update({ status: newStatus, metodo_pagamento: newMethod, parcelas: newInstallments })
+            .eq('id', transactionId);
+
+        if (error) throw error;
+
+        if (sale.status === 'Não Pago' && newStatus === 'Pago') { cashBalance += sale.amount; } 
+        else if (sale.status === 'Pago' && newStatus === 'Não Pago') { cashBalance -= sale.amount; }
+        saveData();
+
+        showToast("Venda atualizada com sucesso!", "success");
         closeModal('modal-edit-venda');
-        return;
+        await loadDataFromSupabase();
+    } catch (error) {
+        showToast("Erro ao editar venda no banco.", "error");
+    } finally {
+        toggleLoading(false);
     }
-
-    const oldStatus = sale.status;
-    const newStatus = form.elements.saleStatus.value;
-    const newMethod = form.elements.paymentMethod.value;
-    const newInstallments = parseInt(form.elements.paymentInstallments.value) || 1;
-
-    if (oldStatus === 'Não Pago' && newStatus === 'Pago') {
-        cashBalance += sale.amount;
-    } else if (oldStatus === 'Pago' && newStatus === 'Não Pago') {
-        cashBalance -= sale.amount;
-    }
-
-    sale.status = newStatus;
-    sale.method = newMethod;
-    sale.installments = newInstallments;
-
-    updateCashBalance();
-    showToast("Venda atualizada com sucesso!", "success");
-    closeModal('modal-edit-venda');
-
-    if (!document.getElementById('modal-relatorios').classList.contains('hidden')) {
-        renderReports(currentReportPeriod);
-    }
-    if (!document.getElementById('modal-cliente-detalhes').classList.contains('hidden')) {
-        const customerId = document.getElementById('modal-cliente-detalhes').dataset.customerId;
-        openCustomerDetailsModal(customerId);
-    }
-     if (!document.getElementById('modal-contas-receber').classList.contains('hidden')) {
-         renderUnpaidSales();
-    }
-
-    saveData();
 }
-
 function switchView(viewId) {
     document.getElementById('dashboard-view').classList.add('hidden');
     document.getElementById('pos-view').classList.add('hidden');
@@ -2510,6 +2551,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

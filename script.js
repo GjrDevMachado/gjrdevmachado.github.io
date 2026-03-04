@@ -315,14 +315,16 @@ function renderCustomers() {
     });
 }
 
-function getFilteredTransactions(period, month, year) {
+unction getFilteredTransactions(period, month, year) {
     const now = new Date();
     let startDate;
     let endDate = new Date();
 
     if (period === 'annual') {
-        startDate = new Date(now.getFullYear(), 0, 1);
-        endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        // AGORA ELE PEGA O ANO SELECIONADO NA TELA
+        const selectedYear = parseInt(year) || now.getFullYear();
+        startDate = new Date(selectedYear, 0, 1);
+        endDate = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
     } else if (period === 'monthly') {
         const selectedYear = parseInt(year) || now.getFullYear();
         const selectedMonth = parseInt(month) ?? now.getMonth();
@@ -348,7 +350,6 @@ function getFilteredTransactions(period, month, year) {
         return transactionDate >= startDate && transactionDate <= endDate;
     });
 }
-
 function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
     document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -925,15 +926,29 @@ function setReportPeriod(period) {
     const activeTab = activeTabButton.dataset.tab;
 
     const monthYearSelector = document.getElementById('month-year-selector');
-    if (monthYearSelector) {
-        monthYearSelector.classList.toggle('hidden', period !== 'monthly');
+    const monthSelect = document.getElementById('report-month-select');
+    const yearSelect = document.getElementById('report-year-select');
+
+    if (monthYearSelector && monthSelect && yearSelect) {
+        if (period === 'monthly') {
+            // Mostra Mês e Ano
+            monthYearSelector.classList.remove('hidden');
+            monthSelect.classList.remove('hidden');
+            yearSelect.classList.remove('hidden');
+        } else if (period === 'annual') {
+            // Mostra SÓ o Ano (esconde o Mês)
+            monthYearSelector.classList.remove('hidden');
+            monthSelect.classList.add('hidden'); 
+            yearSelect.classList.remove('hidden'); 
+        } else {
+            // Esconde tudo (Diário e Semanal)
+            monthYearSelector.classList.add('hidden');
+        }
     }
 
-    let month, year;
-    if (period === 'monthly') {
-        month = document.getElementById('report-month-select').value;
-        year = document.getElementById('report-year-select').value;
-    }
+    // Pega os valores atuais dos selects para passar adiante
+    let month = monthSelect ? monthSelect.value : new Date().getMonth();
+    let year = yearSelect ? yearSelect.value : new Date().getFullYear();
     
     if (activeTab === 'vendas') {
         renderReports(period, month, year);
@@ -943,7 +958,6 @@ function setReportPeriod(period) {
         renderSalesByCustomerReport(period, month, year);
     }
 }
-
 function updateTotals() {
     const subtotalEl = document.getElementById('subtotal');
     const discountsTotalEl = document.getElementById('discounts-total');
@@ -2477,8 +2491,9 @@ function addEventListeners() {
     safeAddListener('print-receipt-btn', 'click', window.print);
     safeAddListener('print-details-btn', 'click', window.print);
     
-    const handleMonthYearChange = () => {
-        setReportPeriod('monthly');
+   const handleMonthYearChange = () => {
+        // AGORA ELE RESPEITA SE ESTÁ NO MENSAL OU NO ANUAL
+        setReportPeriod(currentReportPeriod);
     };
     safeAddListener('report-month-select', 'change', handleMonthYearChange);
     safeAddListener('report-year-select', 'change', handleMonthYearChange);
@@ -2617,6 +2632,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

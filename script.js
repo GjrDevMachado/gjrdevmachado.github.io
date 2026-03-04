@@ -94,6 +94,12 @@ async function loadDataFromSupabase() {
         toggleLoading(false);
     }
 }
+
+// INICIALIZA A APLICAÇÃO CORRETAMENTE UMA ÚNICA VEZ
+window.onload = function() {
+    loadDataFromSupabase();
+};
+
 function initializeAppUI() {
     switchView('dashboard-view');
     renderProducts();
@@ -2551,6 +2557,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

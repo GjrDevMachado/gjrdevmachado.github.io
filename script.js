@@ -2,6 +2,11 @@
 // CONFIGURAÇÕES GLOBAIS
 // ===================================================================================
 
+// Inicializando o Supabase (Substitua com suas chaves do Passo 3)
+const supabaseUrl = 'https://SUA-URL-AQUI.supabase.co';
+const supabaseKey = 'SUA-CHAVE-ANON-AQUI';
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
 // --- DADOS EM MEMÓRIA ---
 let products = [];
 let customers = [];
@@ -2362,4 +2367,5 @@ function addEventListeners() {
         }
     });
 }
+
 

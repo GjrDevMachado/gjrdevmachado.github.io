@@ -3,7 +3,9 @@
 // ===================================================================================
 const supabaseUrl = 'https://rtshjmbfiivpyotnhynr.supabase.co';
 const supabaseKey = 'sb_publishable_kOanAOaHTzdck06LzPAn_A_xB5OjeCT';
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// MUDAMOS O NOME AQUI PARA NÃO DAR CONFLITO
+const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // --- DADOS EM MEMÓRIA ---
 let products = [];
@@ -39,20 +41,21 @@ function saveData() {
 async function loadDataFromSupabase() {
     toggleLoading(true);
     try {
-        const { data: categoriasData } = await supabase.from('categorias').select('*');
+        // Agora usamos 'supabaseClient' em vez de 'supabase'
+        const { data: categoriasData } = await supabaseClient.from('categorias').select('*');
         categories = (categoriasData && categoriasData.length > 0) ? categoriasData.map(c => ({ id: c.id, name: c.nome })) : [{ id: 1, name: 'Sem Categoria' }];
 
-        const { data: produtosData } = await supabase.from('produtos').select('*');
+        const { data: produtosData } = await supabaseClient.from('produtos').select('*');
         products = (produtosData || []).map(p => ({ id: p.id, name: p.nome, price: parseFloat(p.preco), cost: parseFloat(p.custo), categoryId: p.categoria_id, barcode: p.codigo_barras }));
 
-        const { data: clientesData } = await supabase.from('clientes').select('*');
+        const { data: clientesData } = await supabaseClient.from('clientes').select('*');
         customers = (clientesData && clientesData.length > 0) ? clientesData.map(c => ({ id: c.id, name: c.nome, contact: c.contato || '' })) : [{ id: 1, name: 'Cliente Balcão', contact: '' }];
 
-        const { data: insumosData } = await supabase.from('insumos').select('*');
+        const { data: insumosData } = await supabaseClient.from('insumos').select('*');
         rawMaterials = (insumosData || []).map(rm => ({ id: rm.id, name: rm.nome, supplier: rm.fornecedor || '', stock: parseFloat(rm.estoque), unit: rm.unidade, totalCost: parseFloat(rm.custo_total), receiptDate: rm.data_recebimento ? rm.data_recebimento.split('T')[0] : '' }));
 
-        const { data: transacoesData } = await supabase.from('transacoes').select('*');
-        const { data: itensData } = await supabase.from('itens_transacao').select('*');
+        const { data: transacoesData } = await supabaseClient.from('transacoes').select('*');
+        const { data: itensData } = await supabaseClient.from('itens_transacao').select('*');
 
         transactions = (transacoesData || []).map(t => {
             const itensDestaTransacao = (itensData || []).filter(item => item.transacao_id === t.id);
@@ -2363,6 +2366,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

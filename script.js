@@ -1153,24 +1153,85 @@ function handleCashFlow(type, amount, description) {
 }
 function deleteProduct() {
     const productId = parseInt(document.getElementById('edit-product-form').elements.productId.value);
-    openConfirmationModal('Excluir Produto', 'Tem a certeza de que deseja excluir este produto? Esta ação não pode ser desfeita.', () => {
-        products = products.filter(p => p.id !== productId);
-        renderProducts();
-        closeModal('modal-edit-produto'); showToast('Produto excluído com sucesso!'); saveData();
+    openConfirmationModal('Excluir Produto', 'Tem a certeza de que deseja excluir este produto? Esta ação não pode ser desfeita.', async () => {
+        toggleLoading(true);
+        try {
+            // Remove do Supabase
+            const { error } = await supabaseClient.from('produtos').delete().eq('id', productId);
+            if (error) throw error;
+            
+            closeModal('modal-edit-produto'); 
+            showToast('Produto excluído com sucesso na nuvem!', 'success'); 
+            await loadDataFromSupabase(); // Recarrega a lista
+        } catch (error) {
+            console.error("Erro ao excluir produto:", error);
+            showToast('Erro ao excluir produto no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
     });
 }
+
 function deleteRawMaterial(materialId) {
-    openConfirmationModal('Excluir Insumo', 'Tem a certeza de que deseja excluir este insumo?', () => {
-        rawMaterials = rawMaterials.filter(rm => rm.id !== materialId);
-        renderRawMaterials(); showToast('Insumo excluído com sucesso!'); saveData();
+    openConfirmationModal('Excluir Insumo', 'Tem a certeza de que deseja excluir este insumo?', async () => {
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('insumos').delete().eq('id', materialId);
+            if (error) throw error;
+            
+            showToast('Insumo excluído com sucesso na nuvem!', 'success'); 
+            await loadDataFromSupabase();
+        } catch (error) {
+            console.error("Erro ao excluir insumo:", error);
+            showToast('Erro ao excluir insumo no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
     });
 }
+
 function deleteCustomer(customerId) {
     if (customerId === 1) { showToast('Não é possível excluir o cliente padrão.', 'error'); return; }
     if (transactions.some(t => t.customerId == customerId)) { showToast('Cliente não pode ser excluído pois está associado a vendas.', 'error'); return; }
-    openConfirmationModal('Excluir Cliente', 'Tem a certeza de que deseja excluir este cliente?', () => {
-        customers = customers.filter(c => c.id !== customerId);
-        renderCustomers(); showToast('Cliente excluído com sucesso!'); saveData();
+    
+    openConfirmationModal('Excluir Cliente', 'Tem a certeza de que deseja excluir este cliente?', async () => {
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('clientes').delete().eq('id', customerId);
+            if (error) throw error;
+            
+            showToast('Cliente excluído com sucesso na nuvem!', 'success'); 
+            await loadDataFromSupabase();
+        } catch (error) {
+            console.error("Erro ao excluir cliente:", error);
+            showToast('Erro ao excluir cliente no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+}
+
+function deleteCategory(categoryId) {
+    if (categoryId === 1) { showToast('Não pode excluir a categoria padrão.', 'error'); return; }
+    
+    openConfirmationModal('Excluir Categoria?', 'Os produtos nesta categoria serão movidos para "Sem Categoria". Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            // 1. Move os produtos desta categoria para a categoria 1 (Sem categoria)
+            await supabaseClient.from('produtos').update({ categoria_id: 1 }).eq('categoria_id', categoryId);
+            
+            // 2. Apaga a categoria
+            const { error } = await supabaseClient.from('categorias').delete().eq('id', categoryId);
+            if (error) throw error;
+            
+            showToast('Categoria excluída com sucesso.', 'success');
+            await loadDataFromSupabase();
+        } catch (error) {
+            console.error("Erro ao excluir categoria:", error);
+            showToast('Erro ao excluir categoria no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
     });
 }
 function cancelSale(transactionId) {
@@ -1684,19 +1745,6 @@ function handleEditCategory(e) {
         showToast('Categoria atualizada!', 'success');
         saveData();
     }
-}
-
-function deleteCategory(categoryId) {
-    if (categoryId === 1) { showToast('Não pode excluir a categoria padrão.', 'error'); return; }
-    openConfirmationModal('Excluir Categoria?', 'Os produtos nesta categoria serão movidos para "Sem Categoria". Deseja continuar?', () => {
-        products.forEach(p => { if (p.categoryId === categoryId) p.categoryId = 1; });
-        categories = categories.filter(c => c.id !== categoryId);
-        renderCategoriesManagement();
-        renderCategoryFilters();
-        renderProducts();
-        showToast('Categoria excluída.', 'success');
-        saveData();
-    });
 }
 
 // --- FUNÇÕES DE BACKUP E RESTAURAÇÃO (Manual Local) ---
@@ -2569,6 +2617,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

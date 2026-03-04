@@ -47,34 +47,114 @@ function saveData() {
     }
 }
 
-function loadDataFromLocalStorage() {
+async function loadDataFromSupabase() {
     toggleLoading(true);
     try {
-        categories = JSON.parse(localStorage.getItem('categories')) || [{ id: 1, name: 'Sem Categoria' }];
-        products = JSON.parse(localStorage.getItem('products')) || [];
-        rawMaterials = JSON.parse(localStorage.getItem('rawMaterials')) || [];
-        customers = JSON.parse(localStorage.getItem('customers')) || [{ id: 1, name: 'Cliente Balcão', contact: '' }];
-        transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        // 1. Busca as Categorias
+        const { data: categoriasData, error: catError } = await supabase.from('categorias').select('*');
+        if (catError) throw catError;
+        
+        categories = (categoriasData && categoriasData.length > 0) 
+            ? categoriasData.map(c => ({ id: c.id, name: c.nome }))
+            : [{ id: 1, name: 'Sem Categoria' }];
+
+        // 2. Busca os Produtos
+        const { data: produtosData, error: prodError } = await supabase.from('produtos').select('*');
+        if (prodError) throw prodError;
+        
+        products = (produtosData || []).map(p => ({
+            id: p.id,
+            name: p.nome,
+            price: parseFloat(p.preco),
+            cost: parseFloat(p.custo),
+            categoryId: p.categoria_id,
+            barcode: p.codigo_barras
+        }));
+
+        // 3. Busca os Clientes
+        const { data: clientesData, error: cliError } = await supabase.from('clientes').select('*');
+        if (cliError) throw cliError;
+        
+        customers = (clientesData && clientesData.length > 0)
+            ? clientesData.map(c => ({ id: c.id, name: c.nome, contact: c.contato || '' }))
+            : [{ id: 1, name: 'Cliente Balcão', contact: '' }];
+
+        // 4. Busca os Insumos (Estoque)
+        const { data: insumosData, error: insError } = await supabase.from('insumos').select('*');
+        if (insError) throw insError;
+        
+        rawMaterials = (insumosData || []).map(rm => ({
+            id: rm.id,
+            name: rm.nome,
+            supplier: rm.fornecedor || '',
+            stock: parseFloat(rm.estoque),
+            unit: rm.unidade,
+            totalCost: parseFloat(rm.custo_total),
+            receiptDate: rm.data_recebimento ? rm.data_recebimento.split('T')[0] : ''
+        }));
+
+        // 5. Busca Transações e os Itens (Juntando as duas tabelas)
+        const { data: transacoesData, error: transError } = await supabase.from('transacoes').select('*');
+        if (transError) throw transError;
+
+        const { data: itensData, error: itensError } = await supabase.from('itens_transacao').select('*');
+        if (itensError) throw itensError;
+
+        // Remonta o array de transações exatamente no formato que seu HTML/JS espera
+        transactions = (transacoesData || []).map(t => {
+            // Filtra apenas os itens que pertencem a esta transação específica
+            const itensDestaTransacao = (itensData || []).filter(item => item.transacao_id === t.id);
+
+            // Formata os itens para o padrão do carrinho antigo
+            const itemsFormatados = itensDestaTransacao.map(item => {
+                const produtoOriginal = products.find(p => p.id === item.produto_id) || {};
+                return {
+                    id: item.produto_id,
+                    name: produtoOriginal.name || 'Produto Excluído',
+                    price: parseFloat(item.preco_unitario),
+                    quantity: item.quantidade,
+                    cost: produtoOriginal.cost || 0,
+                    discount: { type: 'fixed', value: parseFloat(item.desconto_item) || 0 }
+                };
+            });
+
+            return {
+                id: t.id,
+                type: t.tipo,
+                amount: parseFloat(t.valor_total),
+                cost: parseFloat(t.custo_total || 0),
+                discount: parseFloat(t.desconto_geral || 0),
+                description: t.tipo === 'venda' ? `Venda de ${itemsFormatados.reduce((sum, i) => sum + i.quantity, 0)} item(s)` : (t.tipo === 'recebimento' ? `Recebimento da venda #${t.id}` : t.tipo),
+                date: new Date(t.data_venda).getTime(), // Converte a data do banco para Timestamp (exigência do seu código atual)
+                customerId: t.cliente_id,
+                method: t.metodo_pagamento,
+                installments: t.parcelas,
+                status: t.status,
+                reversed: false, // Mantendo a lógica de estorno compatível com o seu frontend
+                items: itemsFormatados
+            };
+        });
+
+        // 6. Dados que AINDA estão no LocalStorage (Pedidos e Saldo do Caixa)
+        // Mantive no LocalStorage para não quebrar sua tela de Agenda enquanto não criamos as tabelas deles.
         orders = JSON.parse(localStorage.getItem('orders')) || [];
         cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
         const savedTheme = localStorage.getItem('theme') || 'light';
         applyTheme(savedTheme);
 
-        transactions.forEach(t => {
-            if (t.customerid !== undefined) {
-                t.customerId = t.customerid;
-                delete t.customerid;
-            }
-        });
-
     } catch (error) {
-        console.error("Erro ao carregar dados locais:", error);
-        showToast("Erro ao carregar dados. A utilizar valores padrão.", "error");
+        console.error("Erro Crítico ao carregar do Supabase:", error);
+        showToast("Erro ao conectar com o banco: " + error.message, "error");
     } finally {
         initializeAppUI();
         toggleLoading(false);
     }
 }
+
+// Inicializa a aplicação quando a página carregar
+window.onload = function() {
+    loadDataFromSupabase();
+};
 
 function initializeAppUI() {
     switchView('dashboard-view');
@@ -2367,6 +2447,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

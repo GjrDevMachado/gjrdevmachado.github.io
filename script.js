@@ -315,7 +315,7 @@ function renderCustomers() {
     });
 }
 
-unction getFilteredTransactions(period, month, year) {
+function getFilteredTransactions(period, month, year) {
     const now = new Date();
     let startDate;
     let endDate = new Date();
@@ -2632,6 +2632,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

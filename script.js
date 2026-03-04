@@ -977,6 +977,7 @@ function clearCart() {
     cart.generalDiscount = { type: 'fixed', value: 0 };
     renderCart();
 }
+
 async function processSale(paymentDetails) {
     if (cart.items.length === 0) return;
     
@@ -999,11 +1000,11 @@ async function processSale(paymentDetails) {
         const customerId = document.getElementById('customer-select').value || 1;
 
         const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).toISOString() : new Date().toISOString();
-        const transacaoId = Date.now(); // <-- ID gerado aqui!
+        const transacaoId = Date.now(); 
 
         // 1. Grava a Cabeçalho da Venda no Supabase
         const novaTransacao = {
-            id: transacaoId, // <-- ID passado para o banco
+            id: transacaoId, 
             tipo: 'venda',
             cliente_id: parseInt(customerId),
             valor_total: total,
@@ -1053,40 +1054,6 @@ async function processSale(paymentDetails) {
         displayCustomerSummary(null);
         clearCart();
         
-        await loadDataFromSupabase();
-
-    } catch (error) {
-        console.error("Erro ao processar venda:", error);
-        showToast("Erro ao registrar venda no banco.", "error");
-    } finally {
-        toggleLoading(false);
-    }
-}
-
-        const { error: itensError } = await supabaseClient.from('itens_transacao').insert(itensParaInserir);
-        if (itensError) throw itensError;
-
-        // Atualiza o saldo localmente do seu fechamento de caixa diário
-        if (paymentDetails.status === 'Pago' && !paymentDetails.isRetroactive) {
-            cashBalance += total;
-            saveData(); 
-        }
-
-        showToast('Venda registrada com sucesso na nuvem!', 'success');
-        
-        if (paymentDetails.status === 'Pago') {
-            const transacaoRecibo = {
-                id: transacaoId, amount: total, discount: totalDiscount, method: paymentDetails.method,
-                installments: paymentDetails.installments || 1, date: new Date(saleDate).getTime(), items: [...cart.items]
-            };
-            showReceipt(transacaoRecibo);
-        }
-
-        document.getElementById('customer-select').value = "";
-        displayCustomerSummary(null);
-        clearCart();
-        
-        // Puxa tudo atualizado
         await loadDataFromSupabase();
 
     } catch (error) {
@@ -2543,6 +2510,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

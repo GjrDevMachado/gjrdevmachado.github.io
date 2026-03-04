@@ -3,8 +3,8 @@
 // ===================================================================================
 
 // Inicializando o Supabase (Substitua com suas chaves do Passo 3)
-const supabaseUrl = 'https://SUA-URL-AQUI.supabase.co';
-const supabaseKey = 'SUA-CHAVE-ANON-AQUI';
+const supabaseUrl = 'https://rtshjmbfiivpyotnhynr.supabase.co';
+const supabaseKey = 'sb_publishable_kOanAOaHTzdck06LzPAn_A_xB5OjeCT';
 const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
 // --- DADOS EM MEMÓRIA ---
@@ -2367,5 +2367,6 @@ function addEventListeners() {
         }
     });
 }
+
 
 

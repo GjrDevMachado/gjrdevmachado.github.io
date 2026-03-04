@@ -115,6 +115,7 @@ async function addProduct(name, price, cost, categoryId, barcode) {
     toggleLoading(true);
     try {
         const novoProduto = {
+            id: Date.now(), // <-- Adicionado aqui!
             nome: name,
             preco: parseFloat(price),
             custo: parseFloat(cost),
@@ -127,8 +128,6 @@ async function addProduct(name, price, cost, categoryId, barcode) {
         if (error) throw error;
 
         showToast('Novo produto adicionado na nuvem!');
-        
-        // Recarrega os dados para a tela atualizar
         await loadDataFromSupabase(); 
         
     } catch (error) {
@@ -1000,9 +999,11 @@ async function processSale(paymentDetails) {
         const customerId = document.getElementById('customer-select').value || 1;
 
         const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).toISOString() : new Date().toISOString();
+        const transacaoId = Date.now(); // <-- ID gerado aqui!
 
         // 1. Grava a Cabeçalho da Venda no Supabase
         const novaTransacao = {
+            id: transacaoId, // <-- ID passado para o banco
             tipo: 'venda',
             cliente_id: parseInt(customerId),
             valor_total: total,
@@ -1014,13 +1015,8 @@ async function processSale(paymentDetails) {
             data_venda: saleDate
         };
 
-        const { data: transacaoData, error: transacaoError } = await supabaseClient
-            .from('transacoes')
-            .insert([novaTransacao])
-            .select();
-
+        const { error: transacaoError } = await supabaseClient.from('transacoes').insert([novaTransacao]);
         if (transacaoError) throw transacaoError;
-        const transacaoId = transacaoData[0].id;
 
         // 2. Grava os Itens da Venda
         const itensParaInserir = cart.items.map(item => {
@@ -1034,6 +1030,38 @@ async function processSale(paymentDetails) {
                 desconto_item: descontoItem
             };
         });
+
+        const { error: itensError } = await supabaseClient.from('itens_transacao').insert(itensParaInserir);
+        if (itensError) throw itensError;
+
+        if (paymentDetails.status === 'Pago' && !paymentDetails.isRetroactive) {
+            cashBalance += total;
+            saveData(); 
+        }
+
+        showToast('Venda registrada com sucesso na nuvem!', 'success');
+        
+        if (paymentDetails.status === 'Pago') {
+            const transacaoRecibo = {
+                id: transacaoId, amount: total, discount: totalDiscount, method: paymentDetails.method,
+                installments: paymentDetails.installments || 1, date: new Date(saleDate).getTime(), items: [...cart.items]
+            };
+            showReceipt(transacaoRecibo);
+        }
+
+        document.getElementById('customer-select').value = "";
+        displayCustomerSummary(null);
+        clearCart();
+        
+        await loadDataFromSupabase();
+
+    } catch (error) {
+        console.error("Erro ao processar venda:", error);
+        showToast("Erro ao registrar venda no banco.", "error");
+    } finally {
+        toggleLoading(false);
+    }
+}
 
         const { error: itensError } = await supabaseClient.from('itens_transacao').insert(itensParaInserir);
         if (itensError) throw itensError;
@@ -1102,7 +1130,11 @@ async function addCustomer(name, contact) {
     try {
         const { data, error } = await supabaseClient
             .from('clientes')
-            .insert([{ nome: name, contato: contact }])
+            .insert([{ 
+                id: Date.now(), // <-- Adicionado aqui!
+                nome: name, 
+                contato: contact 
+            }])
             .select();
 
         if (error) throw error;
@@ -2511,6 +2543,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

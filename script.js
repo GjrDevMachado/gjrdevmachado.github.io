@@ -102,7 +102,7 @@ function initializeAppUI() {
 }
 
 // --- FUNÇÕES DE LÓGICA PRINCIPAL (vendas, produtos, etc.) ---
-function addProduct(name, price, cost, categoryId, barcode) {
+async function addProduct(name, price, cost, categoryId, barcode) {
     if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) {
         showToast('Produto com este nome já está registado!', 'error');
         return;
@@ -111,19 +111,33 @@ function addProduct(name, price, cost, categoryId, barcode) {
         showToast('Este código de barras já está associado a outro produto!', 'error');
         return;
     }
-    products.push({
-        id: Date.now(),
-        name,
-        price: parseFloat(price),
-        cost: parseFloat(cost),
-        categoryId: parseInt(categoryId),
-        barcode: barcode.trim()
-    });
-    renderProducts();
-    showToast('Novo produto adicionado!');
-    saveData();
-}
 
+    toggleLoading(true);
+    try {
+        const novoProduto = {
+            nome: name,
+            preco: parseFloat(price),
+            custo: parseFloat(cost),
+            categoria_id: parseInt(categoryId) || 1,
+            codigo_barras: barcode ? barcode.trim() : null
+        };
+
+        // Envia para o Supabase
+        const { error } = await supabaseClient.from('produtos').insert([novoProduto]);
+        if (error) throw error;
+
+        showToast('Novo produto adicionado na nuvem!');
+        
+        // Recarrega os dados para a tela atualizar
+        await loadDataFromSupabase(); 
+        
+    } catch (error) {
+        console.error("Erro ao salvar produto:", error);
+        showToast('Erro ao salvar produto no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
 function addByBarcode(barcode) {
     if (!barcode) return;
     const product = products.find(p => p.barcode && p.barcode === barcode);
@@ -964,52 +978,95 @@ function clearCart() {
     cart.generalDiscount = { type: 'fixed', value: 0 };
     renderCart();
 }
-function processSale(paymentDetails) {
+async function processSale(paymentDetails) {
     if (cart.items.length === 0) return;
-    const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    let totalDiscount = cart.items.reduce((sum, item) => {
-        const itemTotal = item.price * item.quantity;
-        return sum + (item.discount.type === 'percentage' ? (itemTotal * item.discount.value / 100) : item.discount.value);
-    }, 0);
-    if (cart.generalDiscount.value > 0) {
-        totalDiscount += cart.generalDiscount.type === 'percentage' ? ((subtotal - totalDiscount) * cart.generalDiscount.value / 100) : cart.generalDiscount.value;
+    
+    toggleLoading(true);
+    try {
+        const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        let totalDiscount = cart.items.reduce((sum, item) => {
+            const itemTotal = item.price * item.quantity;
+            return sum + (item.discount.type === 'percentage' ? (itemTotal * item.discount.value / 100) : item.discount.value);
+        }, 0);
+        
+        let generalDiscountAmount = 0;
+        if (cart.generalDiscount.value > 0) {
+            generalDiscountAmount = cart.generalDiscount.type === 'percentage' ? ((subtotal - totalDiscount) * cart.generalDiscount.value / 100) : cart.generalDiscount.value;
+            totalDiscount += generalDiscountAmount;
+        }
+        
+        const total = subtotal - totalDiscount;
+        const totalCost = cart.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
+        const customerId = document.getElementById('customer-select').value || 1;
+
+        const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).toISOString() : new Date().toISOString();
+
+        // 1. Grava a Cabeçalho da Venda no Supabase
+        const novaTransacao = {
+            tipo: 'venda',
+            cliente_id: parseInt(customerId),
+            valor_total: total,
+            custo_total: totalCost,
+            desconto_geral: generalDiscountAmount,
+            metodo_pagamento: paymentDetails.method,
+            parcelas: paymentDetails.installments || 1,
+            status: paymentDetails.status,
+            data_venda: saleDate
+        };
+
+        const { data: transacaoData, error: transacaoError } = await supabaseClient
+            .from('transacoes')
+            .insert([novaTransacao])
+            .select();
+
+        if (transacaoError) throw transacaoError;
+        const transacaoId = transacaoData[0].id;
+
+        // 2. Grava os Itens da Venda
+        const itensParaInserir = cart.items.map(item => {
+            const itemTotal = item.price * item.quantity;
+            const descontoItem = item.discount.value > 0 ? (item.discount.type === 'percentage' ? (itemTotal * item.discount.value / 100) : item.discount.value) : 0;
+            return {
+                transacao_id: transacaoId,
+                produto_id: item.id,
+                quantidade: item.quantity,
+                preco_unitario: item.price,
+                desconto_item: descontoItem
+            };
+        });
+
+        const { error: itensError } = await supabaseClient.from('itens_transacao').insert(itensParaInserir);
+        if (itensError) throw itensError;
+
+        // Atualiza o saldo localmente do seu fechamento de caixa diário
+        if (paymentDetails.status === 'Pago' && !paymentDetails.isRetroactive) {
+            cashBalance += total;
+            saveData(); 
+        }
+
+        showToast('Venda registrada com sucesso na nuvem!', 'success');
+        
+        if (paymentDetails.status === 'Pago') {
+            const transacaoRecibo = {
+                id: transacaoId, amount: total, discount: totalDiscount, method: paymentDetails.method,
+                installments: paymentDetails.installments || 1, date: new Date(saleDate).getTime(), items: [...cart.items]
+            };
+            showReceipt(transacaoRecibo);
+        }
+
+        document.getElementById('customer-select').value = "";
+        displayCustomerSummary(null);
+        clearCart();
+        
+        // Puxa tudo atualizado
+        await loadDataFromSupabase();
+
+    } catch (error) {
+        console.error("Erro ao processar venda:", error);
+        showToast("Erro ao registrar venda no banco.", "error");
+    } finally {
+        toggleLoading(false);
     }
-    const total = subtotal - totalDiscount;
-    const totalCost = cart.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-    const customerId = document.getElementById('customer-select').value;
-
-    const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).getTime() : Date.now();
-
-    if (paymentDetails.status === 'Pago' && !paymentDetails.isRetroactive) {
-        cashBalance += total;
-    }
-
-    const { date, ...otherPaymentDetails } = paymentDetails;
-    const transaction = {
-        id: Date.now(),
-        type: 'venda',
-        amount: total,
-        cost: totalCost,
-        description: `Venda de ${cart.items.reduce((s, i) => s + i.quantity, 0)} item(s)`,
-        date: saleDate,
-        items: [...cart.items],
-        customerId: customerId ? parseInt(customerId) : null,
-        ...otherPaymentDetails,
-        reversed: false,
-        discount: totalDiscount
-    };
-
-    transactions.push(transaction);
-    transactions.sort((a,b) => new Date(a.date) - new Date(b.date));
-
-    if (paymentDetails.status === 'Pago') {
-        showReceipt(transaction);
-    }
-    document.getElementById('customer-select').value = "";
-    displayCustomerSummary(null);
-    clearCart();
-    showToast('Venda registada com sucesso!', 'success');
-    saveData();
 }
 
 function processPaidSale(e) {
@@ -1035,17 +1092,31 @@ function addRawMaterial(name, stock, unit, totalCost, supplier, receiptDate) {
     rawMaterials.push({ id: Date.now(), name, stock: parseFloat(stock), unit, totalCost: parseFloat(totalCost), supplier, receiptDate });
     renderRawMaterials(); showToast('Insumo adicionado!'); saveData();
 }
-function addCustomer(name, contact) {
+async function addCustomer(name, contact) {
     if (customers.some(c => c.name.toLowerCase() === name.toLowerCase())) { 
         showToast('Cliente com este nome já existe.', 'error'); 
         return null;
     }
-    const newCustomer = { id: Date.now(), name, contact };
-    customers.push(newCustomer);
-    renderCustomers(); 
-    showToast('Novo cliente adicionado!'); 
-    saveData();
-    return newCustomer;
+    
+    toggleLoading(true);
+    try {
+        const { data, error } = await supabaseClient
+            .from('clientes')
+            .insert([{ nome: name, contato: contact }])
+            .select();
+
+        if (error) throw error;
+
+        showToast('Novo cliente adicionado na nuvem!'); 
+        await loadDataFromSupabase();
+        return data[0];
+    } catch (error) {
+        console.error("Erro ao salvar cliente:", error);
+        showToast('Erro ao salvar cliente no banco.', 'error');
+        return null;
+    } finally {
+        toggleLoading(false);
+    }
 }
 function handleCashFlow(type, amount, description) {
     if (type === 'saida' && amount > cashBalance) { showToast('Saldo insuficiente para esta saída!', 'error'); return; }
@@ -2440,6 +2511,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

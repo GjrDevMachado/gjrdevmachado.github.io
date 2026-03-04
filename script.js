@@ -1569,24 +1569,98 @@ function exportAllData() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url); showToast("Backup exportado com sucesso!", "success");
 }
-function importAllData(event) {
-    const file = event.target.files[0]; if (!file) { showToast("Nenhum ficheiro selecionado.", "error"); return; }
+// --- FUNÇÃO PARA MIGRAR O BACKUP JSON PARA O SUPABASE ---
+async function importAllData(event) {
+    const file = event.target.files[0]; 
+    if (!file) return;
+    
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const importedData = JSON.parse(e.target.result);
-            if (importedData.products && importedData.transactions && importedData.customers) {
-                openConfirmationModal('Restaurar Backup?', 'Isto substituirá TODOS os dados atuais. Esta ação é irreversível. Deseja continuar?', () => {
-                    products = importedData.products || []; customers = importedData.customers || []; transactions = importedData.transactions || [];
-                    orders = importedData.orders || [];
-                    cashBalance = importedData.cashBalance || 0; rawMaterials = importedData.rawMaterials || []; categories = importedData.categories || [{ id: 1, name: 'Sem Categoria' }];
-                    if (importedData.theme) applyTheme(importedData.theme);
-                    saveData(); initializeAppUI();
-                    showToast("Backup restaurado com sucesso!", "success"); closeModal('modal-settings');
-                });
-            } else { showToast("O ficheiro selecionado não parece ser um backup válido.", "error"); }
-        } catch (error) { showToast("Erro ao ler o ficheiro de backup.", "error"); }
-        finally { event.target.value = ''; }
+            
+            openConfirmationModal('Migrar para a Nuvem?', 'Isto pegará todos os dados do seu backup e enviará para o banco de dados online. Deseja continuar?', async () => {
+                toggleLoading(true);
+                
+                try {
+                    // 1. Envia Categorias (Garante que a categoria padrão 1 exista)
+                    let cats = (importedData.categories || []).map(c => ({ id: c.id, nome: c.name }));
+                    if (!cats.some(c => c.id === 1)) cats.push({ id: 1, nome: 'Sem Categoria' });
+                    await supabaseClient.from('categorias').upsert(cats);
+
+                    // 2. Envia Clientes (Garante que o Cliente Balcão 1 exista)
+                    let clis = (importedData.customers || []).map(c => ({ id: c.id, nome: c.name, contato: c.contact || '' }));
+                    if (!clis.some(c => c.id === 1)) clis.push({ id: 1, nome: 'Cliente Balcão', contato: '' });
+                    await supabaseClient.from('clientes').upsert(clis);
+
+                    // 3. Envia Produtos
+                    if (importedData.products && importedData.products.length > 0) {
+                        const prods = importedData.products.map(p => ({
+                            id: p.id, nome: p.name, preco: p.price, custo: p.cost || 0,
+                            categoria_id: p.categoryId || 1, codigo_barras: p.barcode || null
+                        }));
+                        await supabaseClient.from('produtos').upsert(prods);
+                    }
+
+                    // 4. Envia Insumos
+                    if (importedData.rawMaterials && importedData.rawMaterials.length > 0) {
+                        const ins = importedData.rawMaterials.map(r => ({
+                            id: r.id, nome: r.name, fornecedor: r.supplier || '', estoque: r.stock,
+                            unidade: r.unit, custo_total: r.totalCost, data_recebimento: r.receiptDate || null
+                        }));
+                        await supabaseClient.from('insumos').upsert(ins);
+                    }
+
+                    // 5. Envia Transações (Vendas) e Itens
+                    if (importedData.transactions && importedData.transactions.length > 0) {
+                        const transacoes = [];
+                        const itens = [];
+                        
+                        importedData.transactions.forEach(t => {
+                            transacoes.push({
+                                id: t.id, tipo: t.type,
+                                cliente_id: t.customerId || 1,
+                                valor_total: t.amount, custo_total: t.cost || 0, desconto_geral: t.discount || 0,
+                                metodo_pagamento: t.method || null, parcelas: t.installments || 1, status: t.status || 'Pago',
+                                data_venda: new Date(t.date).toISOString()
+                            });
+                            
+                            if (t.items && t.items.length > 0) {
+                                t.items.forEach(item => {
+                                    itens.push({
+                                        transacao_id: t.id, produto_id: item.id, quantidade: item.quantity, preco_unitario: item.price,
+                                        desconto_item: item.discount ? (item.discount.type === 'fixed' ? item.discount.value : (item.price * item.quantity * item.discount.value / 100)) : 0
+                                    });
+                                });
+                            }
+                        });
+                        
+                        await supabaseClient.from('transacoes').upsert(transacoes);
+                        if (itens.length > 0) await supabaseClient.from('itens_transacao').upsert(itens);
+                    }
+
+                    // A Agenda de pedidos continua local por enquanto
+                    if (importedData.orders) localStorage.setItem('orders', JSON.stringify(importedData.orders));
+                    if (importedData.cashBalance) localStorage.setItem('cashBalance', JSON.stringify(importedData.cashBalance));
+
+                    showToast("Backup migrado para a nuvem com sucesso!", "success");
+                    closeModal('modal-settings');
+                    
+                    // Recarrega a página para puxar os dados frescos da nuvem
+                    setTimeout(() => window.location.reload(), 2000);
+
+                } catch (dbError) {
+                    console.error("Erro na migração:", dbError);
+                    showToast("Erro ao enviar dados: " + dbError.message, "error");
+                } finally {
+                    toggleLoading(false);
+                }
+            });
+        } catch (error) { 
+            showToast("Erro ao ler o ficheiro de backup.", "error"); 
+        } finally { 
+            event.target.value = ''; 
+        }
     };
     reader.readAsText(file);
 }
@@ -2366,6 +2440,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

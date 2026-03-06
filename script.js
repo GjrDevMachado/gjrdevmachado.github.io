@@ -107,10 +107,59 @@ async function loadDataFromSupabase() {
         toggleLoading(false);
     }
 }
-// INICIALIZA A APLICAÇÃO CORRETAMENTE UMA ÚNICA VEZ
-window.onload = function() {
-    loadDataFromSupabase();
+// --- LÓGICA DE LOGIN E SESSÃO ---
+window.onload = async function() {
+    toggleLoading(true);
+    // Verifica se já existe uma sessão salva (se o usuário já logou antes)
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    
+    if (session) {
+        showApp(); // Se tem sessão, entra direto
+    } else {
+        showLogin(); // Se não tem, mostra a tela de login
+    }
 };
+
+function showApp() {
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-layout').style.display = 'block';
+    loadDataFromSupabase(); // Puxa os dados apenas depois de logado
+}
+
+function showLogin() {
+    document.getElementById('login-view').style.display = 'flex';
+    document.getElementById('app-layout').style.display = 'none';
+    toggleLoading(false);
+}
+
+async function logout() {
+    toggleLoading(true);
+    await supabaseClient.auth.signOut();
+    window.location.reload(); // Recarrega a página para voltar à tela de login
+}
+
+// Processa o clique no botão "Entrar"
+document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    toggleLoading(true);
+    
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    
+    // Tenta fazer o login no Supabase
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password,
+    });
+
+    if (error) {
+        showToast("E-mail ou senha incorretos!", "error");
+        toggleLoading(false);
+    } else {
+        showToast("Login efetuado com sucesso!", "success");
+        showApp(); // Destranca a tela
+    }
+});
 
 function initializeAppUI() {
     switchView('dashboard-view');
@@ -2632,6 +2681,7 @@ function addEventListeners() {
         }
     });
 }
+
 
 
 

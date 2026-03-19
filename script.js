@@ -370,7 +370,6 @@ function getFilteredTransactions(period, month, year) {
     let endDate = new Date();
 
     if (period === 'annual') {
-        // AGORA ELE PEGA O ANO SELECIONADO NA TELA
         const selectedYear = parseInt(year) || now.getFullYear();
         startDate = new Date(selectedYear, 0, 1);
         endDate = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
@@ -386,6 +385,17 @@ function getFilteredTransactions(period, month, year) {
                 startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); 
                 break;
             case 'weekly': 
+                // De Luns a Domingo da semana actual
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const dayOfWeek = startDate.getDay();
+                const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0 é domingo, 1 é luns
+                startDate.setDate(startDate.getDate() - daysToMonday);
+                startDate.setHours(0, 0, 0, 0);
+                
+                endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + 6);
+                endDate.setHours(23, 59, 59, 999);
+                break;
             default: 
                 startDate = new Date(); 
                 startDate.setDate(startDate.getDate() - 7);
@@ -427,16 +437,9 @@ function renderReports(period = currentReportPeriod, month, year) {
         const salesSummary = document.getElementById('sales-summary');
         const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
 
-        // --- CORREÇÃO AQUI ---
-        // totalRevenue é a soma dos "t.amount", ou seja, o valor FINAL da venda (já com desconto descontado)
         const totalRevenue = salesTransactions.reduce((s, t) => s + t.amount, 0);
-        
-        // totalDiscounts é apenas para informação visual
         const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
-        
-        // Antes somávamos (totalRevenue + totalDiscounts). Agora usamos apenas totalRevenue.
         const grossRevenue = totalRevenue; 
-        
         const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0);
         const profit = totalRevenue - totalCost;
 
@@ -489,16 +492,11 @@ function renderReports(period = currentReportPeriod, month, year) {
             salesData.datasets[1].data = monthlyData.map(m => m.unpaid);
 
             if(annualSummaryTable) {
-                // Ajustei o cabeçalho para "Faturamento" em vez de "Fat. Bruto"
                 annualSummaryTable.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-[var(--border-color)]"><th class="p-2">Mês</th><th class="text-right">Faturamento</th><th class="text-right">Descontos</th><th class="text-right">Custo</th><th class="text-right">Lucro Líquido</th><th class="text-right">Margem %</th></tr></thead><tbody></tbody></table>`;
                 const annualTbody = annualSummaryTable.querySelector('tbody');
                 monthlyData.forEach((monthData, index) => {
                     const totalPaidAndUnpaid = monthData.paid + monthData.unpaid;
-                    
-                    // --- CORREÇÃO ANUAL AQUI ---
-                    // Antes somava monthData.discount. Agora usamos apenas o valor real vendido.
                     const grossMonthRevenue = totalPaidAndUnpaid; 
-                    
                     const profit = totalPaidAndUnpaid - monthData.cost;
                     const profitPercentage = grossMonthRevenue > 0 ? (profit / grossMonthRevenue) * 100 : 0;
                     
@@ -507,20 +505,34 @@ function renderReports(period = currentReportPeriod, month, year) {
             }
         } else {
             const salesByDate = {};
-            const startDateForLoop = getFilteredTransactions(period, month, year)[0] ? new Date(getFilteredTransactions(period, month, year)[0].date) : new Date();
-            if (period === 'weekly') startDateForLoop.setDate(new Date().getDate() - 7);
-            if (period === 'daily') startDateForLoop.setDate(new Date().getDate());
+            let startDateForLoop = new Date();
+            let endDateForLoop = new Date();
             
-            let loopDate = new Date(startDateForLoop);
-            loopDate.setHours(0,0,0,0);
-            
-            let endDate = new Date();
-            if (period === 'monthly') {
-                endDate = new Date(startDateForLoop.getFullYear(), startDateForLoop.getMonth() + 1, 0);
+            if (period === 'weekly') {
+                startDateForLoop = new Date();
+                const dayOfWeek = startDateForLoop.getDay();
+                const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                startDateForLoop.setDate(startDateForLoop.getDate() - daysToMonday);
+                startDateForLoop.setHours(0,0,0,0);
+                
+                endDateForLoop = new Date(startDateForLoop);
+                endDateForLoop.setDate(endDateForLoop.getDate() + 6);
+                endDateForLoop.setHours(23,59,59,999);
+            } else if (period === 'daily') {
+                startDateForLoop.setHours(0,0,0,0);
+                endDateForLoop.setHours(23,59,59,999);
+            } else if (period === 'monthly') {
+                const selectedYear = parseInt(year) || new Date().getFullYear();
+                const selectedMonth = parseInt(month) ?? new Date().getMonth();
+                startDateForLoop = new Date(selectedYear, selectedMonth, 1);
+                endDateForLoop = new Date(selectedYear, selectedMonth + 1, 0);
+                endDateForLoop.setHours(23,59,59,999);
             }
 
+            let loopDate = new Date(startDateForLoop);
+            loopDate.setHours(0,0,0,0);
 
-            while(loopDate <= endDate) {
+            while(loopDate <= endDateForLoop) {
                    salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 };
                    loopDate.setDate(loopDate.getDate() + 1);
             }
@@ -540,7 +552,13 @@ function renderReports(period = currentReportPeriod, month, year) {
                 salesData.datasets[1].data.push(dailyTotals.unpaid);
             } else {
                 for(const [day, totals] of Object.entries(salesByDate)) {
-                    salesData.labels.push(new Date(day + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}));
+                    // Para o gráfico semanal, amosamos o nome do día da semana (Seg, Ter...)
+                    let dateLabel = new Date(day + 'T00:00:00').toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'});
+                    if (period === 'weekly') {
+                        const dayName = new Date(day + 'T00:00:00').toLocaleDateString('pt-BR', {weekday: 'short'});
+                        dateLabel = dayName + ' (' + dateLabel + ')';
+                    }
+                    salesData.labels.push(dateLabel);
                     salesData.datasets[0].data.push(totals.paid);
                     salesData.datasets[1].data.push(totals.unpaid);
                 }
@@ -556,7 +574,7 @@ function renderReports(period = currentReportPeriod, month, year) {
 
     } catch (error) {
         console.error("Erro ao renderizar relatórios:", error);
-        showToast("Ocorreu um erro ao gerar o relatório.", "error");
+        showToast("Ocorreu un erro ao Gerar o informe.", "error");
     }
 }
 

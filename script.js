@@ -1812,19 +1812,30 @@ function openEditCategoryModal(categoryId) {
     openModal('modal-edit-categoria');
 }
 
-function handleEditCategory(e) {
+async function handleEditCategory(e) {
     e.preventDefault();
     const form = e.target;
     const categoryId = parseInt(form.elements.categoryId.value);
     const newName = form.elements.categoryName.value;
-    const category = categories.find(c => c.id === categoryId);
-    if (category) {
-        category.name = newName;
-        renderCategoriesManagement();
-        renderCategoryFilters();
+
+    toggleLoading(true);
+    try {
+        // Envia o UPDATE para o Supabase
+        const { error } = await supabaseClient
+            .from('categorias')
+            .update({ nome: newName })
+            .eq('id', categoryId);
+        
+        if (error) throw error;
+        
+        showToast('Categoria atualizada na nuvem!', 'success');
         closeModal('modal-edit-categoria');
-        showToast('Categoria atualizada!', 'success');
-        saveData();
+        await loadDataFromSupabase(); // Recarrega os dados
+    } catch (error) {
+        console.error("Erro ao editar categoria:", error);
+        showToast("Erro ao atualizar categoria.", "error");
+    } finally {
+        toggleLoading(false);
     }
 }
 
@@ -2463,33 +2474,107 @@ function addEventListeners() {
         closeModal('modal-produto');
     });
 
-    safeAddListener('edit-product-form', 'submit', function(e) {
+    // 1. EDIÇÃO DE PRODUTO
+    safeAddListener('edit-product-form', 'submit', async function(e) {
         e.preventDefault();
-        const p = products.find(p => p.id == this.elements.productId.value);
-        if (p) {
-            const newBarcode = this.elements.productBarcode.value.trim();
-            if (newBarcode && products.some(prod => prod.barcode === newBarcode && prod.id != p.id)) {
-                showToast('Este código de barras já está associado a outro produto!', 'error');
-                return;
-            }
-            Object.assign(p, { name: this.elements.productName.value, price: parseFloat(this.elements.productPrice.value), cost: parseFloat(this.elements.productCost.value), categoryId: parseInt(this.elements.editProductCategory.value), barcode: newBarcode });
-            renderProducts();
-            const editProductListModal = document.getElementById('modal-edit-product-list');
-            if (editProductListModal && !editProductListModal.classList.contains('hidden')) {
-                renderProductEditList();
-            }
+        const productId = parseInt(this.elements.productId.value);
+        const newName = this.elements.productName.value;
+        const newPrice = parseFloat(this.elements.productPrice.value);
+        const newCost = parseFloat(this.elements.productCost.value);
+        const newCategoryId = parseInt(this.elements.editProductCategory.value);
+        const newBarcode = this.elements.productBarcode.value.trim() || null;
+
+        if (newBarcode && products.some(prod => prod.barcode === newBarcode && prod.id !== productId)) {
+            showToast('Este código de barras já está associado a outro produto!', 'error');
+            return;
+        }
+
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('produtos')
+                .update({
+                    nome: newName,
+                    preco: newPrice,
+                    custo: newCost,
+                    categoria_id: newCategoryId,
+                    codigo_barras: newBarcode
+                })
+                .eq('id', productId);
+            
+            if (error) throw error;
+            
+            showToast('Produto atualizado na nuvem!', 'success');
             closeModal('modal-edit-produto');
-            showToast('Produto atualizado!');
-            saveData();
+            await loadDataFromSupabase();
+        } catch (error) {
+            console.error("Erro ao editar produto:", error);
+            showToast("Erro ao atualizar produto no banco.", "error");
+        } finally {
+            toggleLoading(false);
         }
     });
 
     safeAddListener('add-category-form', 'submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
     safeAddListener('edit-category-form', 'submit', handleEditCategory);
     safeAddListener('add-raw-material-form', 'submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
-    safeAddListener('edit-raw-material-form', 'submit', function(e) { e.preventDefault(); const item = rawMaterials.find(rm => rm.id == this.elements.rawMaterialId.value); if(item) { Object.assign(item, { name: this.elements.rawMaterialName.value, supplier: this.elements.rawMaterialSupplier.value, stock: parseFloat(this.elements.rawMaterialStock.value), unit: this.elements.rawMaterialUnit.value, totalCost: parseFloat(this.elements.rawMaterialTotalCost.value), receiptDate: this.elements.rawMaterialReceiptDate.value }); renderRawMaterials(); closeModal('modal-edit-materiaprima'); showToast('Item de estoque atualizado!'); saveData(); } });
+    // 2. EDIÇÃO DE INSUMO (ESTOQUE)
+    safeAddListener('edit-raw-material-form', 'submit', async function(e) {
+        e.preventDefault();
+        const materialId = parseInt(this.elements.rawMaterialId.value);
+        
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('insumos')
+                .update({
+                    nome: this.elements.rawMaterialName.value,
+                    fornecedor: this.elements.rawMaterialSupplier.value,
+                    estoque: parseFloat(this.elements.rawMaterialStock.value),
+                    unidade: this.elements.rawMaterialUnit.value,
+                    custo_total: parseFloat(this.elements.rawMaterialTotalCost.value),
+                    data_recebimento: this.elements.rawMaterialReceiptDate.value || null
+                })
+                .eq('id', materialId);
+            
+            if (error) throw error;
+            
+            showToast('Item de estoque atualizado!', 'success');
+            closeModal('modal-edit-materiaprima');
+            await loadDataFromSupabase();
+        } catch (error) {
+            console.error("Erro ao editar insumo:", error);
+            showToast("Erro ao atualizar insumo no banco.", "error");
+        } finally {
+            toggleLoading(false);
+        }
+    });
+    
     safeAddListener('add-customer-form', 'submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
-    safeAddListener('edit-customer-form', 'submit', function(e) { e.preventDefault(); const c = customers.find(c => c.id == this.elements.customerId.value); if(c) { Object.assign(c, { name: this.elements.customerName.value, contact: this.elements.customerContact.value }); renderCustomers(); closeModal('modal-edit-cliente'); showToast('Cliente atualizado!'); saveData(); } });
+    // 3. EDIÇÃO DE CLIENTE
+    safeAddListener('edit-customer-form', 'submit', async function(e) {
+        e.preventDefault();
+        const customerId = parseInt(this.elements.customerId.value);
+        
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('clientes')
+                .update({ 
+                    nome: this.elements.customerName.value, 
+                    contato: this.elements.customerContact.value 
+                })
+                .eq('id', customerId);
+            
+            if (error) throw error;
+            
+            showToast('Cliente atualizado na nuvem!', 'success');
+            closeModal('modal-edit-cliente');
+            await loadDataFromSupabase();
+        } catch (error) {
+            console.error("Erro ao editar cliente:", error);
+            showToast("Erro ao atualizar cliente no banco.", "error");
+        } finally {
+            toggleLoading(false);
+        }
+    });
     safeAddListener('payment-form', 'submit', processPaidSale);
     safeAddListener('receive-payment-form', 'submit', handleReceivedPayment);
     safeAddListener('edit-sale-form', 'submit', handleEditSale);

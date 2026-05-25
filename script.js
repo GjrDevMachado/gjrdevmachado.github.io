@@ -560,6 +560,36 @@ function renderReports(period = currentReportPeriod, month, year) {
             `;
         }
 
+        const paymentMethodSummary = document.getElementById('payment-method-summary');
+        if (paymentMethodSummary) {
+            const totals = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0 };
+            salesTransactions.forEach(t => {
+                const methods = parsePaymentMethods(t.method);
+                if (methods.length > 1) {
+                    methods.forEach(m => {
+                        if (totals.hasOwnProperty(m.method)) totals[m.method] += m.amount;
+                    });
+                } else if (methods.length === 1 && totals.hasOwnProperty(methods[0].method)) {
+                    totals[methods[0].method] += t.amount;
+                }
+            });
+            const totalGeral = Object.values(totals).reduce((a, b) => a + b, 0);
+            paymentMethodSummary.innerHTML = `
+                <div class="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <p class="text-sm text-green-700 dark:text-green-300 font-medium">Dinheiro</p>
+                    <p class="text-lg font-bold text-green-600">${formatCurrency(totals['Dinheiro'])}</p>
+                </div>
+                <div class="p-2 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg border border-cyan-200 dark:border-cyan-800">
+                    <p class="text-sm text-cyan-700 dark:text-cyan-300 font-medium">Pix</p>
+                    <p class="text-lg font-bold text-cyan-600">${formatCurrency(totals['Pix'])}</p>
+                </div>
+                <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p class="text-sm text-blue-700 dark:text-blue-300 font-medium">Cartão de Crédito</p>
+                    <p class="text-lg font-bold text-blue-600">${formatCurrency(totals['Cartão de Crédito'])}</p>
+                </div>
+            `;
+        }
+
         if (period !== 'annual') {
             renderTransactionList(transactionsList, filteredTransactions);
         }
@@ -1312,7 +1342,8 @@ function processPaidSale(e) {
     const sum = methods.reduce((s, m) => s + m.amount, 0);
     if (Math.abs(sum - total) > 0.01) { showToast('A soma dos valores não confere com o total da venda.', 'error'); return; }
 
-    const netReceived = methods.some(m => m.method === 'Cartão de Crédito') ? total : null;
+    const totalFee = methods.reduce((s, m) => s + (m.method === 'Cartão de Crédito' ? (m.fee || 0) : 0), 0);
+    const netReceived = totalFee > 0 ? total - totalFee : (methods.some(m => m.method === 'Cartão de Crédito') ? total : null);
 
     processSale({ 
         methods: methods,
@@ -1629,26 +1660,38 @@ function addPaymentMethodRow(method, amount) {
     const total = parseFloat(document.getElementById('payment-total').textContent.replace(/[^0-9,]/g, '').replace(',', '.')) || 0;
     const idx = container.children.length;
     const row = document.createElement('div');
-    row.className = 'payment-method-row flex gap-2 items-start';
+    row.className = 'payment-method-row flex flex-col gap-1 p-2 border border-[var(--border-color)] rounded-lg';
     row.innerHTML = `
-        <select class="pm-method flex-1 border rounded p-2 bg-[var(--bg-secondary)] text-sm">
-            <option value="Dinheiro">Dinheiro</option>
-            <option value="Pix">Pix</option>
-            <option value="Cartão de Crédito">Cartão de Crédito</option>
-        </select>
-        <input type="text" inputmode="decimal" class="pm-amount w-24 border rounded p-2 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2)}">
-        <div class="pm-extras flex items-center gap-1">
-            <input type="number" class="pm-installments w-14 border rounded p-2 bg-[var(--bg-secondary)] text-sm hidden" value="1" min="1" placeholder="Parcelas">
+        <div class="flex gap-2 items-start">
+            <select class="pm-method flex-1 border rounded p-2 bg-[var(--bg-secondary)] text-sm">
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Pix">Pix</option>
+                <option value="Cartão de Crédito">Cartão de Crédito</option>
+            </select>
+            <input type="text" inputmode="decimal" class="pm-amount w-24 border rounded p-2 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2)}">
+            <button type="button" class="pm-remove text-red-500 hover:text-red-700 p-2" title="Remover"><i class="fas fa-times"></i></button>
         </div>
-        <button type="button" class="pm-remove text-red-500 hover:text-red-700 p-2" title="Remover"><i class="fas fa-times"></i></button>
+        <div class="pm-extras hidden flex items-center gap-4 ml-1 text-sm">
+            <label class="flex items-center gap-1">
+                <span class="text-[var(--text-secondary)]">Parcelas:</span>
+                <input type="number" class="pm-installments w-14 border rounded p-1 bg-[var(--bg-secondary)] text-sm" value="1" min="1">
+            </label>
+            <label class="flex items-center gap-1">
+                <span class="text-[var(--text-secondary)]">Taxa R$:</span>
+                <input type="text" inputmode="decimal" class="pm-fee w-20 border rounded p-1 bg-[var(--bg-secondary)] text-sm text-right" value="0,00">
+            </label>
+        </div>
     `;
     const select = row.querySelector('.pm-method');
     select.value = method || 'Dinheiro';
+    const extras = row.querySelector('.pm-extras');
     const installmentsInput = row.querySelector('.pm-installments');
+    const feeInput = row.querySelector('.pm-fee');
     const toggleExtras = () => {
         const isCredit = select.value === 'Cartão de Crédito';
-        installmentsInput.classList.toggle('hidden', !isCredit);
+        extras.classList.toggle('hidden', !isCredit);
         if (isCredit && !installmentsInput.value) installmentsInput.value = '1';
+        if (!isCredit) feeInput.value = '0,00';
     };
     select.addEventListener('change', toggleExtras);
     toggleExtras();
@@ -1690,8 +1733,9 @@ function collectPaymentMethods() {
         const method = row.querySelector('.pm-method').value;
         const amount = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
         const installments = method === 'Cartão de Crédito' ? parseInt(row.querySelector('.pm-installments').value) || 1 : 1;
+        const fee = method === 'Cartão de Crédito' ? parseFloat(row.querySelector('.pm-fee').value.replace(',', '.')) || 0 : 0;
         if (amount > 0) {
-            methods.push({ method, amount, installments });
+            methods.push({ method, amount, installments, fee });
             totalCalculated += amount;
         }
     });
@@ -1925,9 +1969,27 @@ function openSaleDetailsModal(transactionId) {
                 <span>Descontos:</span>
                 <span>-${formatCurrency(discountValue)}</span>
             </div>
-                <div class="flex justify-between text-sm">
-                    <span>Forma de Pagamento:</span>
-                    <span>${formatPaymentMethods(sale.method, sale.installments)}</span>
+                <div class="border-t pt-2 mt-2 space-y-1 text-sm">
+                    <p class="font-semibold mb-1">Pagamento:</p>
+                    ${(() => {
+                        const methods = parsePaymentMethods(sale.method);
+                        if (methods.length > 1) {
+                            return methods.map(m => `
+                                <div class="flex justify-between">
+                                    <span>${m.method === 'Cartão de Crédito' ? 'Cartão de Crédito' + (m.installments > 1 ? ` (${m.installments}x)` : '') : m.method}:</span>
+                                    <span>${formatCurrency(m.amount)}</span>
+                                </div>
+                            `).join('');
+                        }
+                        const methodName = methods.length === 1 ? methods[0].method : (sale.method || 'N/A');
+                        const inst = methods.length === 1 ? methods[0].installments : sale.installments;
+                        return `
+                            <div class="flex justify-between">
+                                <span>${methodName === 'Cartão de Crédito' ? 'Cartão de Crédito' + (inst > 1 ? ` (${inst}x)` : '') : methodName}:</span>
+                                <span class="font-semibold">${formatCurrency(sale.amount)}</span>
+                            </div>
+                        `;
+                    })()}
                 </div>
                 <div class="flex justify-between font-bold text-lg border-t pt-2 mt-2">
                     <span>TOTAL PAGO:</span>

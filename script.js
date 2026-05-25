@@ -3800,35 +3800,42 @@ async function saveBudget() {
     };
 
     const bId = budget.id;
-    const { error } = await supabaseClient.from('orcamentos').upsert([{
-        id: bId, data: budget.date, cliente_nome: budget.clienteName,
-        cliente_id: budget.clienteId ? parseInt(budget.clienteId) : null,
-        produto: budget.produto, quantidade: budget.quantidade,
-        custo_total: budget.custoTotal, preco_sugerido: budget.precoSugerido,
-        preco_final: budget.precoFinal, lucro: budget.lucro, margem: budget.margem,
-        taxa_plataforma: budget.taxa, taxa_fixa: budget.taxaFixa || 0,
-        tempo_gasto: budget.tempoGasto, valor_hora: budget.valorHora,
-        materiais_json: JSON.stringify(budget.materials || []),
-        maquinas_json: JSON.stringify(budget.machines || []),
-        custos_fixos_json: JSON.stringify({
-            aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
-            horas_dia: budget.horasDia, dias_mes: budget.diasMes,
-            custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
-            horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
-        }),
-        modo_calculo: budget.modoCalculo || 'grafica',
-        peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
-        tempo_impressao: budget.tempoImpressao || 0,
-        falhas: budget.falhas || 10, acabamento: budget.acabamento || 10,
-        fixacao: budget.fixacao || 0.10, roi_meses: budget.roiMeses || 12,
-        maquinas_ativas: budget.maquinasAtivas || 1,
-        custo_materiais: budget.custoMateriais, custo_maquinas: budget.custoMaquinas,
-        custo_mo: budget.custoMO, custo_fixo: budget.custoFixo || 0,
-        created_at: budget.createdAt || new Date().toISOString()
-    }]);
-    if (error) {
-        console.error('Erro ao salvar orçamento no Supabase:', error);
-        showToast('Erro ao salvar no banco de dados!', 'error');
+    let sbError;
+    try {
+        const { error } = await supabaseClient.from('orcamentos').upsert([{
+            id: bId, data: budget.date, cliente_nome: budget.clienteName,
+            cliente_id: budget.clienteId ? parseInt(budget.clienteId) : null,
+            produto: budget.produto, quantidade: budget.quantidade,
+            custo_total: budget.custoTotal, preco_sugerido: budget.precoSugerido,
+            preco_final: budget.precoFinal, lucro: budget.lucro, margem: budget.margem,
+            taxa_plataforma: budget.taxa, taxa_fixa: budget.taxaFixa || 0,
+            tempo_gasto: budget.tempoGasto, valor_hora: budget.valorHora,
+            materiais_json: JSON.stringify(budget.materials || []),
+            maquinas_json: JSON.stringify(budget.machines || []),
+            custos_fixos_json: JSON.stringify({
+                aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
+                horas_dia: budget.horasDia, dias_mes: budget.diasMes,
+                custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
+                horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
+            }),
+            modo_calculo: budget.modoCalculo || 'grafica',
+            peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
+            tempo_impressao: budget.tempoImpressao || 0,
+            falhas: budget.falhas || 10, acabamento: budget.acabamento || 10,
+            fixacao: budget.fixacao || 0.10, roi_meses: budget.roiMeses || 12,
+            maquinas_ativas: budget.maquinasAtivas || 1,
+            custo_materiais: budget.custoMateriais, custo_maquinas: budget.custoMaquinas,
+            custo_mo: budget.custoMO, custo_fixo: budget.custoFixo || 0,
+            created_at: budget.createdAt || new Date().toISOString()
+        }]);
+        sbError = error;
+    } catch (e) {
+        sbError = e;
+    }
+    if (sbError) {
+        console.error('Erro ao salvar orçamento no Supabase:', sbError);
+        console.error('Detalhes completos:', JSON.stringify(sbError, null, 2));
+        showToast('Erro ao salvar no banco: ' + (sbError.message || sbError.details || sbError.code || 'erro desconhecido'), 'error');
         return;
     }
 
@@ -3929,10 +3936,16 @@ function loadBudget(id) {
 
 function deleteBudget(id) {
     openConfirmationModal('Excluir Orçamento', 'Tem certeza que deseja excluir este orçamento?', async () => {
-        const { error } = await supabaseClient.from('orcamentos').delete().eq('id', id);
-        if (error) {
-            console.error('Erro ao excluir orçamento no Supabase:', error);
-            showToast('Erro ao excluir no banco de dados!', 'error');
+        let sbError;
+        try {
+            const { error } = await supabaseClient.from('orcamentos').delete().eq('id', id);
+            sbError = error;
+        } catch (e) {
+            sbError = e;
+        }
+        if (sbError) {
+            console.error('Erro ao excluir orçamento no Supabase:', sbError);
+            showToast('Erro ao excluir no banco de dados: ' + (sbError.message || sbError), 'error');
             return;
         }
         savedBudgets = savedBudgets.filter(b => b.id !== id);

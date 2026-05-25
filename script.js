@@ -1885,9 +1885,18 @@ function openSaleDetailsModal(transactionId) {
             <tbody>
     `;
     sale.items.forEach(item => {
+        const prod = products.find(p => p.name.toLowerCase() === item.name.toLowerCase());
+        const bd = prod ? prod.budgetData : null;
+        let budgetInfo = '';
+        if (bd && bd.materiais && bd.materiais.length > 0) {
+            budgetInfo += `<div class="mt-1 pt-1 border-t border-dashed text-xs text-[var(--text-secondary)]">`;
+            budgetInfo += bd.materiais.map(m => `<div class="ml-1">- ${m.name}: ${formatCurrency(m.unitCost)}/un</div>`).join('');
+            budgetInfo += `<div class="mt-1"><span>Custo Un.: ${formatCurrency(prod.cost)} | Venda Un.: ${formatCurrency(prod.price)}</span></div>`;
+            budgetInfo += `</div>`;
+        }
         itemsHtml += `
             <tr>
-                <td class="p-1">${item.name}</td>
+                <td class="p-1">${item.name}${budgetInfo}</td>
                 <td class="p-2 text-center">${item.quantity}</td>
                 <td class="p-2 text-right">${formatCurrency(item.price)}</td>
                 <td class="p-2 text-right">${formatCurrency(item.price * item.quantity)}</td>
@@ -2742,7 +2751,18 @@ function addEventListeners() {
                             custoMaquinas: b.custoMaquinas,
                             custoMO: b.custoMO,
                             custoFixo: b.custoFixo,
-                            quantidade: b.quantidade
+                            quantidade: b.quantidade,
+                            modoCalculo: b.modoCalculo,
+                            peso: b.peso,
+                            tempoImpressao: b.tempoImpressao,
+                            falhas: b.falhas,
+                            acabamento: b.acabamento,
+                            fixacao: b.fixacao,
+                            roiMeses: b.roiMeses,
+                            maquinasAtivas: b.maquinasAtivas,
+                            filamentoId: b.filamentoId,
+                            precoFinal: b.precoFinal,
+                            lucro: b.lucro
                         };
                         localStorage.setItem('produtoBudgetData_' + novo.id, JSON.stringify(novo.budgetData));
                     }
@@ -3769,6 +3789,13 @@ async function saveBudget() {
     const precoFinal = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
     const lucro = precoFinal - custoTotal;
 
+    const tempoImpressaoFinal = getTempoImpressaoMin();
+    let tempoGastoFinal = tempoGasto;
+    let valorHoraFinal = valorHora;
+    if (modo === 'impressao3d') {
+        tempoGastoFinal = tempoImpressaoFinal;
+        valorHoraFinal = 0;
+    }
     const budget = {
         id: Date.now(),
         date: data,
@@ -3776,12 +3803,12 @@ async function saveBudget() {
         clienteName,
         produto,
         quantidade: qtd,
-        tempoGasto, valorHora, margem, taxa, taxaFixa,
+        tempoGasto: tempoGastoFinal, valorHora: valorHoraFinal, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
         modoCalculo: document.getElementById('orc-modo-calculo').value,
         peso: parseFloat(document.getElementById('orc-peso').value) || 0,
         filamentoId: parseInt(document.getElementById('orc-filamento').value) || 0,
-        tempoImpressao: getTempoImpressaoMin(),
+        tempoImpressao: tempoImpressaoFinal,
         falhas: parseFloat(document.getElementById('orc-falhas').value) || 0,
         acabamento: parseFloat(document.getElementById('orc-acabamento').value) || 0,
         fixacao: parseFloat(document.getElementById('orc-fixacao').value) || 0,
@@ -4092,6 +4119,15 @@ function viewOrcamentoDetails(id) {
             html += `<tr><td class="p-1">${m.name}</td><td class="p-1 text-center">${m.quantity}</td><td class="p-1 text-right">${formatCurrency(m.unitCost)}</td><td class="p-1 text-right">${formatCurrency(m.quantity * m.unitCost)}</td></tr>`;
         });
         html += '</tbody></table>';
+        if (b.materials.some(m => m.quantity === b.quantidade)) {
+            html += `<div class="mt-2 text-xs text-[var(--text-secondary)]"><strong>Custo Unitário da Peça:</strong></div>`;
+            html += `<div class="text-xs text-[var(--text-secondary)]">`;
+            b.materials.filter(m => m.quantity === b.quantidade).forEach(m => {
+                const unit = m.quantity === 1 ? `${formatCurrency(m.unitCost)}/un` : `${formatCurrency(m.unitCost)}/un (${m.quantity}x ${formatCurrency(m.unitCost)})`;
+                html += `<div class="ml-2">- ${m.name}: ${formatCurrency(m.unitCost)}/un</div>`;
+            });
+            html += `</div>`;
+        }
     }
     if (b.machines && b.machines.length > 0) {
         html += `<h4 class="font-bold mt-3 mb-1">Máquinas:</h4><table class="w-full text-xs"><thead><tr class="border-b"><th class="p-1">Máquina</th><th class="p-1 text-center">Tempo</th><th class="p-1 text-right">Custo</th></tr></thead><tbody>`;
@@ -4100,16 +4136,35 @@ function viewOrcamentoDetails(id) {
         });
         html += '</tbody></table>';
     }
+    if (b.modoCalculo === 'impressao3d' || b.modoCalculo === 'misto') {
+        const hrs = Math.floor((b.tempoImpressao || 0) / 60);
+        const mins = Math.round((b.tempoImpressao || 0) % 60);
+        html += `<div class="border-t pt-3 mt-3 space-y-1 bg-blue-50 dark:bg-blue-900/20 p-2 rounded">`;
+        if (b.modoCalculo === 'misto') {
+            html += `<h4 class="font-semibold text-xs mb-1">IMPRESSÃO 3D</h4>`;
+        }
+        html += `
+            <div class="flex justify-between"><span>Peso:</span><span>${b.peso || 0}g</span></div>
+            <div class="flex justify-between"><span>Tempo Impressão:</span><span>${hrs}h${mins}min</span></div>
+        </div>`;
+    }
     html += `
         <div class="border-t pt-3 mt-3 space-y-1">
             <div class="flex justify-between"><span>Custo Materiais:</span><span>${formatCurrency(b.custoMateriais)}</span></div>
-            <div class="flex justify-between"><span>Custo Máquinas:</span><span>${formatCurrency(b.custoMaquinas)}</span></div>
-            <div class="flex justify-between"><span>Mão de Obra:</span><span>${formatCurrency(b.custoMO)}</span></div>
+            <div class="flex justify-between"><span>Custo Máquinas:</span><span>${formatCurrency(b.custoMaquinas)}</span></div>`;
+    if (b.modoCalculo === 'grafica' || b.modoCalculo === 'misto') {
+        html += `<div class="flex justify-between"><span>Mão de Obra:</span><span>${formatCurrency(b.custoMO)}</span></div>`;
+    }
+    html += `
             <div class="flex justify-between"><span>Custo Fixo:</span><span>${formatCurrency(b.custoFixo)}</span></div>
             <div class="flex justify-between font-bold"><span>Custo Total:</span><span class="text-red-600">${formatCurrency(b.custoTotal)}</span></div>
             <div class="flex justify-between"><span>Taxa Plataforma:</span><span>${formatCurrency((b.precoFinal * (b.taxa||0) / 100) + (b.taxaFixa||0))}</span></div>
             <div class="flex justify-between font-bold text-lg text-green-600 border-t pt-2 mt-2"><span>PREÇO FINAL:</span><span>${formatCurrency(b.precoFinal)}</span></div>
             <div class="flex justify-between text-green-600"><span>Lucro:</span><span>${formatCurrency(b.lucro)}</span></div>
+            <div class="flex justify-between border-t pt-2 mt-2"><span>Custo Unitário:</span><span>${formatCurrency(b.custoTotal / b.quantidade)}</span></div>
+            <div class="flex justify-between"><span>Lucro Unitário:</span><span class="text-green-600">${formatCurrency(b.lucro / b.quantidade)}</span></div>
+            <div class="flex justify-between"><span>Margem Unitária:</span><span>${b.precoFinal > 0 ? ((b.lucro / b.precoFinal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Markup:</span><span>${b.custoTotal > 0 ? ((b.lucro / b.custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
             <div class="flex justify-between"><span>Venda Unidade:</span><span>${formatCurrency(b.precoFinal/b.quantidade)}</span></div>
         </div>`;
     content.innerHTML = html;
@@ -4150,6 +4205,15 @@ function showProductBudgetDetails(p) {
             html += `<tr><td class="p-1">${m.name}</td><td class="p-1 text-center">${m.quantity}</td><td class="p-1 text-right">${formatCurrency(m.unitCost)}</td><td class="p-1 text-right">${formatCurrency(m.quantity * m.unitCost)}</td></tr>`;
         });
         html += '</tbody></table>';
+        const qtdPeca = d.quantidade || 1;
+        if (d.materiais.some(m => m.quantity === qtdPeca)) {
+            html += `<div class="mt-2 text-xs text-[var(--text-secondary)]"><strong>Custo Unitário da Peça:</strong></div>`;
+            html += `<div class="text-xs text-[var(--text-secondary)]">`;
+            d.materiais.filter(m => m.quantity === qtdPeca).forEach(m => {
+                html += `<div class="ml-2">- ${m.name}: ${formatCurrency(m.unitCost)}/un</div>`;
+            });
+            html += `</div>`;
+        }
     }
     if (d.maquinas && d.maquinas.length > 0) {
         html += `<h4 class="font-bold mt-3 mb-1">Máquinas:</h4><table class="w-full text-xs"><thead><tr class="border-b"><th class="p-1">Máquina</th><th class="p-1 text-center">Tempo</th><th class="p-1 text-right">Custo</th></tr></thead><tbody>`;
@@ -4159,17 +4223,44 @@ function showProductBudgetDetails(p) {
         html += '</tbody></table>';
     }
     const custoMO = (d.tempoGasto / 60) * d.valorHora;
+    const qtd = d.quantidade || 1;
+    const custoTotal = (d.custoMateriais || 0) + (d.custoMaquinas || 0) + (custoMO || 0) + (d.custoFixo || 0);
+    const precoFinal = d.precoFinal || p.price * qtd;
+    const lucroTotal = d.lucro || (precoFinal - custoTotal);
+    const modo = d.modoCalculo || (d.tempoImpressao ? 'impressao3d' : 'grafica');
+    if (modo === 'impressao3d' || modo === 'misto') {
+        const hrs = Math.floor((d.tempoImpressao || 0) / 60);
+        const mins = Math.round((d.tempoImpressao || 0) % 60);
+        html += `<div class="border-t pt-3 mt-3 space-y-1 text-sm bg-blue-50 dark:bg-blue-900/20 p-2 rounded">`;
+        if (modo === 'misto') html += `<h4 class="font-semibold text-xs mb-1">IMPRESSÃO 3D</h4>`;
+        html += `
+            <div class="flex justify-between"><span>Peso:</span><span>${d.peso || 0}g</span></div>
+            <div class="flex justify-between"><span>Tempo Impressão:</span><span>${hrs}h${mins}min</span></div>
+        </div>`;
+    }
     html += `
         <div class="border-t pt-3 mt-3 space-y-1 text-sm">
-            <div class="flex justify-between"><span>Quantidade:</span><span>${d.quantidade || 1}</span></div>
+            <div class="flex justify-between"><span>Quantidade:</span><span>${qtd}</span></div>`;
+    if (modo === 'grafica' || modo === 'misto') {
+        if (modo === 'misto') html += `<h4 class="font-semibold text-xs text-[var(--text-secondary)] mt-2 mb-1">GRÁFICA</h4>`;
+        html += `
             <div class="flex justify-between"><span>Tempo Gasto:</span><span>${d.tempoGasto || 0} min</span></div>
             <div class="flex justify-between"><span>Valor Hora MO:</span><span>${formatCurrency(d.valorHora || 0)}</span></div>
+            <div class="flex justify-between"><span>Custo Mão de Obra:</span><span>${formatCurrency(custoMO)}</span></div>`;
+    }
+    html += `
             <div class="flex justify-between"><span>Custo Materiais:</span><span>${formatCurrency(d.custoMateriais)}</span></div>
             <div class="flex justify-between"><span>Custo Máquinas:</span><span>${formatCurrency(d.custoMaquinas)}</span></div>
-            <div class="flex justify-between"><span>Custo Mão de Obra:</span><span>${formatCurrency(custoMO)}</span></div>
             <div class="flex justify-between"><span>Custo Fixo:</span><span>${formatCurrency(d.custoFixo || 0)}</span></div>
+            <div class="flex justify-between font-bold"><span>Custo Total:</span><span class="text-red-600">${formatCurrency(custoTotal)}</span></div>
             <div class="flex justify-between"><span>Margem:</span><span>${d.margem || 0}%</span></div>
             <div class="flex justify-between"><span>Taxa Plataforma:</span><span>${d.taxa || 0}% + ${formatCurrency(d.taxaFixa || 0)}</span></div>
+            <div class="flex justify-between font-bold text-green-600 border-t pt-2 mt-2"><span>PREÇO FINAL:</span><span>${formatCurrency(precoFinal)}</span></div>
+            <div class="flex justify-between text-green-600"><span>Lucro:</span><span>${formatCurrency(lucroTotal)}</span></div>
+            <div class="flex justify-between border-t pt-2 mt-2"><span>Custo Unitário:</span><span>${formatCurrency(custoTotal / qtd)}</span></div>
+            <div class="flex justify-between"><span>Lucro Unitário:</span><span class="text-green-600">${formatCurrency(lucroTotal / qtd)}</span></div>
+            <div class="flex justify-between"><span>Margem Unitária:</span><span>${precoFinal > 0 ? ((lucroTotal / precoFinal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Markup:</span><span>${custoTotal > 0 ? ((lucroTotal / custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
         </div>`;
     const content = document.getElementById('orcamento-detalhes-content');
     content.innerHTML = html;

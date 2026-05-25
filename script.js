@@ -3420,10 +3420,11 @@ function calculateBudget() {
         }
 
         const custoFixoHora3d = horasMes3dCalc > 0 ? (custoFixo3D + precoLuz3D) / horasMes3dCalc : 0;
-        custoMateriais = custoFilamento;
+        const custoMateriaisInsumos = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
+        custoMateriais = custoFilamento + custoMateriaisInsumos;
         custoMO = 0;
         custoFixo = custoFixoHora3d * (tempoImpressao / 60);
-        return custoFilamento + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
+        return custoMateriais + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
     }
 
     if (modo === 'impressao3d') {

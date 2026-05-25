@@ -3377,7 +3377,7 @@ function calculateBudget() {
 
     const custoMaquinas = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
 
-    let custoMateriais, custoMO, custoTotal, precoSugerido, custoFixo;
+    let custoMateriais, custoMO, custoTotal, precoSugerido, custoFixo, precoFinal;
 
     function calcGrafica() {
         custoMateriais = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
@@ -3420,18 +3420,11 @@ function calculateBudget() {
         }
 
         const custoFixoHora3d = horasMes3dCalc > 0 ? (custoFixo3D + precoLuz3D) / horasMes3dCalc : 0;
-<<<<<<< HEAD
         const custoMateriaisInsumos = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
         custoMateriais = custoFilamento + custoMateriaisInsumos;
         custoMO = 0;
         custoFixo = custoFixoHora3d * (tempoImpressao / 60);
         return custoMateriais + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
-=======
-        custoMateriais = custoFilamento;
-        custoMO = 0;
-        custoFixo = custoFixoHora3d * (tempoImpressao / 60);
-        return custoFilamento + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
->>>>>>> 7c509789d261e4837ac02b964e7092894bd74d01
     }
 
     if (modo === 'impressao3d') {
@@ -3679,14 +3672,97 @@ function saveBudget() {
     const horasDia = parseFloat(document.getElementById('orc-horas-dia').value) || 1;
     const diasMes = parseFloat(document.getElementById('orc-dias-mes').value) || 1;
 
-    const custoMateriais = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
-    const custoMaquinas = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
-    const custoMO = (tempoGasto / 60) * valorHora;
     const totalFixos = aluguel + internet + mei + outros;
     const custoFixoHora = totalFixos / (horasDia * diasMes);
-    const custoFixo = custoFixoHora * (tempoGasto / 60);
-    const custoTotal = custoMateriais + custoMaquinas + custoMO;
-    const precoSugerido = taxa >= 100 ? 0 : ((custoMateriais + custoMaquinas) * (1 + margem / 100) + custoMO + taxaFixa) / (1 - taxa / 100);
+    const modo = document.getElementById('orc-modo-calculo').value;
+    let custoMateriais, custoMaquinas, custoMO, custoFixo, custoTotal, precoSugerido;
+    if (modo === 'impressao3d') {
+        const custoMaquinasLoc = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
+        const peso = parseFloat(document.getElementById('orc-peso').value) || 0;
+        const filamentoSelect = document.getElementById('orc-filamento');
+        const selectedFilamento = filamentCatalog.find(f => f.id === parseInt(filamentoSelect.value));
+        const custoFilamento = (peso / 1000) * (selectedFilamento ? selectedFilamento.priceKg : 0);
+        const tempoImpressao = getTempoImpressaoMin();
+        const taxaFalhas = parseFloat(document.getElementById('orc-falhas').value) || 0;
+        const taxaAcabamento = parseFloat(document.getElementById('orc-acabamento').value) || 0;
+        const custoFixacao = parseFloat(document.getElementById('orc-fixacao').value) || 0;
+        const roiMeses = parseFloat(document.getElementById('orc-roi-meses').value) || 1;
+        const maquinasAtivas = parseFloat(document.getElementById('orc-maquinas-ativas').value) || 1;
+        const custoFixo3D = parseFloat(document.getElementById('orc-custo-fixo-3d').value) || 0;
+        const precoLuz3D = parseFloat(document.getElementById('orc-preco-luz').value) || 0;
+        const horasDia3d = parseFloat(document.getElementById('orc-horas-dia-3d').value) || 8;
+        const diasMes3d = parseFloat(document.getElementById('orc-dias-mes-3d').value) || 22;
+        const horasMes3dCalc = horasDia3d * diasMes3d;
+        const custoFalhas = custoFilamento * (taxaFalhas / 100);
+        const custoAcabamento = custoFilamento * (taxaAcabamento / 100);
+        const custoFixacaoTotal = custoFixacao;
+        let custoROI = 0;
+        if (roiMeses > 0 && maquinasAtivas > 0) {
+            currentBudgetMachines.forEach(m => {
+                const machineObj = m.machineIndex !== undefined ? machines[m.machineIndex] : machines.find(mac => mac.name === m.name);
+                if (machineObj && machineObj.machineValue) {
+                    const roiPorHora = machineObj.machineValue / (roiMeses * horasMes3dCalc / maquinasAtivas);
+                    custoROI += roiPorHora * (m.timeMinutes / 60);
+                }
+            });
+        }
+        const custoFixoHora3d = horasMes3dCalc > 0 ? (custoFixo3D + precoLuz3D) / horasMes3dCalc : 0;
+        const custoMateriaisInsumos = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
+        custoMateriais = custoFilamento + custoMateriaisInsumos;
+        custoMaquinas = custoMaquinasLoc;
+        custoMO = 0;
+        custoFixo = custoFixoHora3d * (tempoImpressao / 60);
+        custoTotal = custoMateriais + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
+        precoSugerido = taxa >= 100 ? 0 : (custoTotal * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
+    } else if (modo === 'misto') {
+        const custoMateriaisGrafica = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
+        const custoMOGrafica = (tempoGasto / 60) * valorHora;
+        const peso = parseFloat(document.getElementById('orc-peso').value) || 0;
+        const filamentoSelect = document.getElementById('orc-filamento');
+        const selectedFilamento = filamentCatalog.find(f => f.id === parseInt(filamentoSelect.value));
+        const custoFilamento = (peso / 1000) * (selectedFilamento ? selectedFilamento.priceKg : 0);
+        const tempoImpressao = getTempoImpressaoMin();
+        const taxaFalhas = parseFloat(document.getElementById('orc-falhas').value) || 0;
+        const taxaAcabamento = parseFloat(document.getElementById('orc-acabamento').value) || 0;
+        const custoFixacao = parseFloat(document.getElementById('orc-fixacao').value) || 0;
+        const roiMeses = parseFloat(document.getElementById('orc-roi-meses').value) || 1;
+        const maquinasAtivas = parseFloat(document.getElementById('orc-maquinas-ativas').value) || 1;
+        const custoFixo3D = parseFloat(document.getElementById('orc-custo-fixo-3d').value) || 0;
+        const precoLuz3D = parseFloat(document.getElementById('orc-preco-luz').value) || 0;
+        const horasDia3d = parseFloat(document.getElementById('orc-horas-dia-3d').value) || 8;
+        const diasMes3d = parseFloat(document.getElementById('orc-dias-mes-3d').value) || 22;
+        const horasMes3dCalc = horasDia3d * diasMes3d;
+        const custoFalhas = custoFilamento * (taxaFalhas / 100);
+        const custoAcabamento = custoFilamento * (taxaAcabamento / 100);
+        const custoFixacaoTotal = custoFixacao;
+        let custoROI = 0;
+        if (roiMeses > 0 && maquinasAtivas > 0) {
+            currentBudgetMachines.forEach(m => {
+                const machineObj = m.machineIndex !== undefined ? machines[m.machineIndex] : machines.find(mac => mac.name === m.name);
+                if (machineObj && machineObj.machineValue) {
+                    const roiPorHora = machineObj.machineValue / (roiMeses * horasMes3dCalc / maquinasAtivas);
+                    custoROI += roiPorHora * (m.timeMinutes / 60);
+                }
+            });
+        }
+        const custoFixoHora3d = horasMes3dCalc > 0 ? (custoFixo3D + precoLuz3D) / horasMes3dCalc : 0;
+        const custoFixoGrafica = custoFixoHora * (tempoGasto / 60);
+        const custoFixoImpressao = custoFixoHora3d * (tempoImpressao / 60);
+        const custoMaquinasLoc = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
+        custoMateriais = custoFilamento + custoMateriaisGrafica;
+        custoMaquinas = custoMaquinasLoc;
+        custoMO = custoMOGrafica;
+        custoFixo = custoFixoGrafica + custoFixoImpressao;
+        custoTotal = custoMateriaisGrafica + custoMOGrafica + custoFilamento + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
+        precoSugerido = taxa >= 100 ? 0 : (custoTotal * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
+    } else {
+        custoMateriais = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
+        custoMaquinas = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
+        custoMO = (tempoGasto / 60) * valorHora;
+        custoFixo = custoFixoHora * (tempoGasto / 60);
+        custoTotal = custoMateriais + custoMaquinas + custoMO;
+        precoSugerido = taxa >= 100 ? 0 : ((custoMateriais + custoMaquinas) * (1 + margem / 100) + custoMO + taxaFixa) / (1 - taxa / 100);
+    }
     const precoFinalInput = document.getElementById('orc-result-preco-final');
     const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
     const precoFinal = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;

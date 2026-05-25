@@ -50,7 +50,7 @@ async function loadOrcamentoDataFromSupabase() {
             savedBudgets = orcamentosData.map(b => ({
                 id: b.id, date: b.data, clienteName: b.cliente_nome,
                 clienteId: b.cliente_id ? String(b.cliente_id) : '',
-                produto: b.produto, quantidade: parseFloat(b.quantidade),
+                produto: b.produto, quantidade: parseFloat(b.quantidade), unidade: b.unidade || 'un',
                 custoTotal: parseFloat(b.custo_total), precoSugerido: parseFloat(b.preco_sugerido),
                 precoFinal: parseFloat(b.preco_final), lucro: parseFloat(b.lucro),
                 margem: parseFloat(b.margem), taxa: parseFloat(b.taxa_plataforma),
@@ -89,6 +89,7 @@ async function loadOrcamentoDataFromSupabase() {
                 b.precoLuz = parseFloat(f.preco_luz) || 0;
                 b.horasDia3d = parseFloat(f.horas_dia_3d) || 8;
                 b.diasMes3d = parseFloat(f.dias_mes_3d) || 22;
+                if (f.unidade) b.unidade = f.unidade;
             });
         }
     } catch (error) {
@@ -2820,7 +2821,7 @@ function loadOrcamentoData() {
 }
 
 const ORC_CONFIG_KEYS = [
-    'orc-quantidade', 'orc-tempo-gasto', 'orc-margem', 'orc-valor-hora',
+    'orc-quantidade', 'orc-unidade', 'orc-tempo-gasto', 'orc-margem', 'orc-valor-hora',
     'orc-taxa-plataforma', 'orc-taxa-fixa',
     'orc-aluguel', 'orc-internet', 'orc-mei', 'orc-outros',
     'orc-horas-dia', 'orc-dias-mes',
@@ -2958,6 +2959,7 @@ async function syncBudgetsToSupabase() {
                 cliente_id: b.clienteId ? parseInt(b.clienteId) : null,
                 produto: b.produto,
                 quantidade: b.quantidade,
+                unidade: b.unidade,
                 custo_total: b.custoTotal,
                 preco_sugerido: b.precoSugerido,
                 preco_final: b.precoFinal,
@@ -2973,7 +2975,8 @@ async function syncBudgetsToSupabase() {
                     aluguel: b.aluguel, internet: b.internet, mei: b.mei, outros: b.outros,
                     horas_dia: b.horasDia, dias_mes: b.diasMes,
                     custo_fixo_3d: b.custoFixo3D || 0, preco_luz: b.precoLuz || 0,
-                    horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22
+                    horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22,
+                    unidade: b.unidade || 'un'
                 }),
                 created_at: b.createdAt
             }]);
@@ -3652,7 +3655,7 @@ document.getElementById('orcamento-select-confirm').addEventListener('click', fu
     closeModal('modal-orcamento-select');
 });
 
-function saveBudget() {
+async function saveBudget() {
     const clienteSelect = document.getElementById('orc-cliente');
     const clienteName = clienteSelect.value ? clienteSelect.options[clienteSelect.selectedIndex]?.text : 'Sem cliente';
     const produto = document.getElementById('orc-produto').value.trim();
@@ -3775,6 +3778,7 @@ function saveBudget() {
         clienteName,
         produto,
         quantidade: qtd,
+        unidade: document.getElementById('orc-unidade').value.trim() || 'un',
         tempoGasto, valorHora, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
         modoCalculo: document.getElementById('orc-modo-calculo').value,
@@ -3814,37 +3818,39 @@ function saveBudget() {
     saveOrcamentoData();
 
     const bId = budget.id;
-    (async () => {
-        const { error } = await supabaseClient.from('orcamentos').upsert([{
-            id: bId, data: budget.date, cliente_nome: budget.clienteName,
-            cliente_id: budget.clienteId ? parseInt(budget.clienteId) : null,
-            produto: budget.produto, quantidade: budget.quantidade,
-            custo_total: budget.custoTotal, preco_sugerido: budget.precoSugerido,
-            preco_final: budget.precoFinal, lucro: budget.lucro, margem: budget.margem,
-            taxa_plataforma: budget.taxa, taxa_fixa: budget.taxaFixa || 0,
-            tempo_gasto: budget.tempoGasto, valor_hora: budget.valorHora,
-            materiais_json: JSON.stringify(budget.materials || []),
-            maquinas_json: JSON.stringify(budget.machines || []),
-            custos_fixos_json: JSON.stringify({
-                aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
-                horas_dia: budget.horasDia, dias_mes: budget.diasMes,
-                custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
-                horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
-            }),
-            modo_calculo: budget.modoCalculo || 'grafica',
-            peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
-            tempo_impressao: budget.tempoImpressao || 0,
-            falhas: budget.falhas || 10, acabamento: budget.acabamento || 10,
-            fixacao: budget.fixacao || 0.10, roi_meses: budget.roiMeses || 12,
-            maquinas_ativas: budget.maquinasAtivas || 1,
-            custo_materiais: budget.custoMateriais, custo_maquinas: budget.custoMaquinas,
-            custo_mo: budget.custoMO, custo_fixo: budget.custoFixo || 0,
-            created_at: budget.createdAt || new Date().toISOString()
-        }]);
-        if (error) console.error('Erro ao salvar orçamento no Supabase:', error);
-    })();
-
-    showToast('Orçamento salvo com sucesso!');
+    const { error } = await supabaseClient.from('orcamentos').upsert([{
+        id: bId, data: budget.date, cliente_nome: budget.clienteName,
+        cliente_id: budget.clienteId ? parseInt(budget.clienteId) : null,
+        produto: budget.produto, quantidade: budget.quantidade,
+        custo_total: budget.custoTotal, preco_sugerido: budget.precoSugerido,
+        preco_final: budget.precoFinal, lucro: budget.lucro, margem: budget.margem,
+        taxa_plataforma: budget.taxa, taxa_fixa: budget.taxaFixa || 0,
+        tempo_gasto: budget.tempoGasto, valor_hora: budget.valorHora,
+        materiais_json: JSON.stringify(budget.materials || []),
+        maquinas_json: JSON.stringify(budget.machines || []),
+        custos_fixos_json: JSON.stringify({
+            aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
+            horas_dia: budget.horasDia, dias_mes: budget.diasMes,
+            custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
+            horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22,
+            unidade: budget.unidade || 'un'
+        }),
+        modo_calculo: budget.modoCalculo || 'grafica',
+        peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
+        tempo_impressao: budget.tempoImpressao || 0,
+        falhas: budget.falhas || 10, acabamento: budget.acabamento || 10,
+        fixacao: budget.fixacao || 0.10, roi_meses: budget.roiMeses || 12,
+        maquinas_ativas: budget.maquinasAtivas || 1,
+        custo_materiais: budget.custoMateriais, custo_maquinas: budget.custoMaquinas,
+        custo_mo: budget.custoMO, custo_fixo: budget.custoFixo || 0,
+        created_at: budget.createdAt || new Date().toISOString()
+    }]);
+    if (error) {
+        console.error('Erro ao salvar orçamento no Supabase:', error);
+        showToast('Erro ao salvar no banco de dados!', 'error');
+    } else {
+        showToast('Orçamento salvo com sucesso!');
+    }
     resetBudgetForm();
 }
 
@@ -3881,6 +3887,7 @@ function loadBudget(id) {
     if (clienteSelect) clienteSelect.value = budget.clienteId || '';
     document.getElementById('orc-produto').value = budget.produto;
     document.getElementById('orc-quantidade').value = budget.quantidade;
+    document.getElementById('orc-unidade').value = budget.unidade || 'un';
     document.getElementById('orc-tempo-gasto').value = budget.tempoGasto;
     document.getElementById('orc-valor-hora').value = budget.valorHora;
     document.getElementById('orc-margem').value = budget.margem;
@@ -3925,11 +3932,14 @@ function loadBudget(id) {
 }
 
 function deleteBudget(id) {
-    openConfirmationModal('Excluir Orçamento', 'Tem certeza que deseja excluir este orçamento?', () => {
+    openConfirmationModal('Excluir Orçamento', 'Tem certeza que deseja excluir este orçamento?', async () => {
         savedBudgets = savedBudgets.filter(b => b.id !== id);
         saveOrcamentoData();
-        supabaseClient.from('orcamentos').delete().eq('id', id)
-            .then(({ error }) => { if (error) console.error('Erro ao excluir orçamento no Supabase:', error); });
+        const { error } = await supabaseClient.from('orcamentos').delete().eq('id', id);
+        if (error) {
+            console.error('Erro ao excluir orçamento no Supabase:', error);
+            showToast('Erro ao excluir no banco de dados!', 'error');
+        }
         renderHistoricoOrcamentos();
     });
 }
@@ -4012,7 +4022,7 @@ function renderHistoricoOrcamentos() {
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
-            <td class="p-2 font-medium whitespace-nowrap">${b.produto}</td>
+            <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.unidade ? ' (' + b.unidade + ')' : ''}</td>
             <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
             <td class="p-2 text-right ${lucroClass} font-semibold">${formatCurrency(b.lucro)}</td>
@@ -4063,7 +4073,7 @@ function viewOrcamentoDetails(id) {
                 <p><strong>Data:</strong> ${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                 <p><strong>Cliente:</strong> ${b.clienteName}</p>
                 <p><strong>Produto:</strong> ${b.produto}</p>
-                <p><strong>Quantidade:</strong> ${b.quantidade}</p>
+                <p><strong>Quantidade:</strong> ${b.quantidade} ${b.unidade || 'un'}</p>
             </div>
         </div>`;
     if (b.materials && b.materials.length > 0) {

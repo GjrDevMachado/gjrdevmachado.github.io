@@ -85,6 +85,10 @@ async function loadOrcamentoDataFromSupabase() {
                 b.outros = parseFloat(f.outros) || 0;
                 b.horasDia = parseFloat(f.horas_dia) || 1;
                 b.diasMes = parseFloat(f.dias_mes) || 1;
+                b.custoFixo3D = parseFloat(f.custo_fixo_3d) || 0;
+                b.precoLuz = parseFloat(f.preco_luz) || 0;
+                b.horasDia3d = parseFloat(f.horas_dia_3d) || 8;
+                b.diasMes3d = parseFloat(f.dias_mes_3d) || 22;
             });
         }
     } catch (error) {
@@ -193,6 +197,7 @@ async function loadDataFromSupabase() {
         console.error("Erro ao conectar com o Supabase:", error);
     } finally {
         initializeAppUI();
+        loadOrcamentoAdvancedConfig();
         toggleLoading(false);
     }
 }
@@ -212,6 +217,7 @@ window.onload = async function() {
 function showApp() {
     document.getElementById('login-view').style.display = 'none';
     document.getElementById('app-layout').style.display = 'block';
+    loadOrcamentoAdvancedConfig();
     loadDataFromSupabase();
 }
 
@@ -2813,6 +2819,40 @@ function loadOrcamentoData() {
     } catch (e) { console.error(e); }
 }
 
+const ORC_CONFIG_KEYS = [
+    'orc-quantidade', 'orc-tempo-gasto', 'orc-margem', 'orc-valor-hora',
+    'orc-taxa-plataforma', 'orc-taxa-fixa',
+    'orc-aluguel', 'orc-internet', 'orc-mei', 'orc-outros',
+    'orc-horas-dia', 'orc-dias-mes',
+    'orc-falhas', 'orc-acabamento', 'orc-fixacao',
+    'orc-roi-meses', 'orc-maquinas-ativas',
+    'orc-custo-fixo-3d', 'orc-preco-luz', 'orc-horas-dia-3d', 'orc-dias-mes-3d'
+];
+
+function saveOrcamentoAdvancedConfig() {
+    const config = {};
+    ORC_CONFIG_KEYS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) config[id] = el.value;
+    });
+    try {
+        localStorage.setItem('orcamentoAdvancedConfig', JSON.stringify(config));
+    } catch (e) { console.error(e); }
+}
+
+function loadOrcamentoAdvancedConfig() {
+    try {
+        const saved = localStorage.getItem('orcamentoAdvancedConfig');
+        if (saved) {
+            const config = JSON.parse(saved);
+            ORC_CONFIG_KEYS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && config[id] !== undefined) el.value = config[id];
+            });
+        }
+    } catch (e) { console.error(e); }
+}
+
 function saveOrcamentoFilaments() {
     try {
         localStorage.setItem('orcamentoFilaments', JSON.stringify(filamentCatalog));
@@ -2931,7 +2971,9 @@ async function syncBudgetsToSupabase() {
                 maquinas_json: JSON.stringify(b.machines || []),
                 custos_fixos_json: JSON.stringify({
                     aluguel: b.aluguel, internet: b.internet, mei: b.mei, outros: b.outros,
-                    horas_dia: b.horasDia, dias_mes: b.diasMes
+                    horas_dia: b.horasDia, dias_mes: b.diasMes,
+                    custo_fixo_3d: b.custoFixo3D || 0, preco_luz: b.precoLuz || 0,
+                    horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22
                 }),
                 created_at: b.createdAt
             }]);
@@ -3355,6 +3397,10 @@ function calculateBudget() {
         const custoFixacao = parseFloat(document.getElementById('orc-fixacao').value) || 0;
         const roiMeses = parseFloat(document.getElementById('orc-roi-meses').value) || 1;
         const maquinasAtivas = parseFloat(document.getElementById('orc-maquinas-ativas').value) || 1;
+        const custoFixo3D = parseFloat(document.getElementById('orc-custo-fixo-3d').value) || 0;
+        const precoLuz3D = parseFloat(document.getElementById('orc-preco-luz').value) || 0;
+        const horasDia3d = parseFloat(document.getElementById('orc-horas-dia-3d').value) || 8;
+        const diasMes3d = parseFloat(document.getElementById('orc-dias-mes-3d').value) || 22;
 
         const custoFilamento = (peso / 1000) * precoFilamento;
         const custoFalhas = custoFilamento * (taxaFalhas / 100);
@@ -3362,20 +3408,21 @@ function calculateBudget() {
         const custoFixacaoTotal = custoFixacao;
 
         let custoROI = 0;
-        const horasMes = horasDia * diasMes;
+        const horasMes3dCalc = horasDia3d * diasMes3d;
         if (roiMeses > 0 && maquinasAtivas > 0) {
             currentBudgetMachines.forEach(m => {
                 const machineObj = m.machineIndex !== undefined ? machines[m.machineIndex] : machines.find(mac => mac.name === m.name);
                 if (machineObj && machineObj.machineValue) {
-                    const roiPorHora = machineObj.machineValue / (roiMeses * horasMes / maquinasAtivas);
+                    const roiPorHora = machineObj.machineValue / (roiMeses * horasMes3dCalc / maquinasAtivas);
                     custoROI += roiPorHora * (m.timeMinutes / 60);
                 }
             });
         }
 
+        const custoFixoHora3d = horasMes3dCalc > 0 ? (custoFixo3D + precoLuz3D) / horasMes3dCalc : 0;
         custoMateriais = custoFilamento;
         custoMO = 0;
-        custoFixo = custoFixoHora * (tempoImpressao / 60);
+        custoFixo = custoFixoHora3d * (tempoImpressao / 60);
         return custoFilamento + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
     }
 
@@ -3405,20 +3452,28 @@ function calculateBudget() {
         const custoFixacaoTotal = custoFixacao;
 
         let custoROI = 0;
-        const horasMes = horasDia * diasMes;
+        const horasDia3dMisto = parseFloat(document.getElementById('orc-horas-dia-3d').value) || 8;
+        const diasMes3dMisto = parseFloat(document.getElementById('orc-dias-mes-3d').value) || 22;
+        const horasMes3dCalc = horasDia3dMisto * diasMes3dMisto;
         if (roiMeses > 0 && maquinasAtivas > 0) {
             currentBudgetMachines.forEach(m => {
                 const machineObj = m.machineIndex !== undefined ? machines[m.machineIndex] : machines.find(mac => mac.name === m.name);
                 if (machineObj && machineObj.machineValue) {
-                    const roiPorHora = machineObj.machineValue / (roiMeses * horasMes / maquinasAtivas);
+                    const roiPorHora = machineObj.machineValue / (roiMeses * horasMes3dCalc / maquinasAtivas);
                     custoROI += roiPorHora * (m.timeMinutes / 60);
                 }
             });
         }
 
+        const custoFixo3D = parseFloat(document.getElementById('orc-custo-fixo-3d').value) || 0;
+        const precoLuz3D = parseFloat(document.getElementById('orc-preco-luz').value) || 0;
+        const custoFixoHora3d = horasMes3dCalc > 0 ? (custoFixo3D + precoLuz3D) / horasMes3dCalc : 0;
+        const custoFixoGrafica = custoFixoHora * (tempoGasto / 60);
+        const custoFixoImpressao = custoFixoHora3d * (tempoImpressao / 60);
+
         custoMateriais = custoFilamento + custoMateriaisGrafica;
         custoMO = custoMOGrafica;
-        custoFixo = custoFixoHora * ((tempoImpressao + tempoGasto) / 2 / 60);
+        custoFixo = custoFixoGrafica + custoFixoImpressao;
         const totalMisto = custoMateriaisGrafica + custoMOGrafica + custoFilamento + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
         custoTotal = totalMisto;
         precoSugerido = taxa >= 100 ? 0 : (totalMisto * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
@@ -3647,6 +3702,10 @@ function saveBudget() {
         fixacao: parseFloat(document.getElementById('orc-fixacao').value) || 0,
         roiMeses: parseFloat(document.getElementById('orc-roi-meses').value) || 12,
         maquinasAtivas: parseFloat(document.getElementById('orc-maquinas-ativas').value) || 1,
+        custoFixo3D: parseFloat(document.getElementById('orc-custo-fixo-3d').value) || 0,
+        precoLuz: parseFloat(document.getElementById('orc-preco-luz').value) || 0,
+        horasDia3d: parseFloat(document.getElementById('orc-horas-dia-3d').value) || 8,
+        diasMes3d: parseFloat(document.getElementById('orc-dias-mes-3d').value) || 22,
         materials: JSON.parse(JSON.stringify(currentBudgetMaterials)),
         machines: JSON.parse(JSON.stringify(currentBudgetMachines)),
         custoMateriais, custoMaquinas, custoMO, custoFixo, custoTotal,
@@ -3684,7 +3743,9 @@ function saveBudget() {
             maquinas_json: JSON.stringify(budget.machines || []),
             custos_fixos_json: JSON.stringify({
                 aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
-                horas_dia: budget.horasDia, dias_mes: budget.diasMes
+                horas_dia: budget.horasDia, dias_mes: budget.diasMes,
+                custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
+                horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
             }),
             modo_calculo: budget.modoCalculo || 'grafica',
             peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
@@ -3705,21 +3766,13 @@ function saveBudget() {
 
 function resetBudgetForm() {
     document.getElementById('orc-produto').value = '';
-    document.getElementById('orc-quantidade').value = '1';
-    document.getElementById('orc-tempo-gasto').value = '20';
     document.getElementById('orc-cliente').value = '';
     const dataInput = document.getElementById('orc-data');
     if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
-    document.getElementById('orc-taxa-fixa').value = '0';
     document.getElementById('orc-peso').value = '100';
     document.getElementById('orc-filamento').value = '';
     document.getElementById('orc-tempo-impressao-h').value = '0';
     document.getElementById('orc-tempo-impressao-min').value = '30';
-    document.getElementById('orc-falhas').value = '10';
-    document.getElementById('orc-acabamento').value = '10';
-    document.getElementById('orc-fixacao').value = '0.10';
-    document.getElementById('orc-roi-meses').value = '12';
-    document.getElementById('orc-maquinas-ativas').value = '1';
     document.getElementById('orc-modo-calculo').value = 'grafica';
     currentBudgetMaterials = [];
     currentBudgetMachines = [];
@@ -3730,6 +3783,7 @@ function resetBudgetForm() {
     orcPrecoFinalChanged = false;
     editingBudgetId = null;
     document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
+    loadOrcamentoAdvancedConfig();
     toggleOrcamentoMode();
     calculateBudget();
     showToast('Novo orçamento iniciado!');
@@ -3766,6 +3820,10 @@ function loadBudget(id) {
     document.getElementById('orc-fixacao').value = budget.fixacao || 0.10;
     document.getElementById('orc-roi-meses').value = budget.roiMeses || 12;
     document.getElementById('orc-maquinas-ativas').value = budget.maquinasAtivas || 1;
+    if (budget.custoFixo3D !== undefined) document.getElementById('orc-custo-fixo-3d').value = budget.custoFixo3D;
+    if (budget.precoLuz !== undefined) document.getElementById('orc-preco-luz').value = budget.precoLuz;
+    if (budget.horasDia3d !== undefined) document.getElementById('orc-horas-dia-3d').value = budget.horasDia3d;
+    if (budget.diasMes3d !== undefined) document.getElementById('orc-dias-mes-3d').value = budget.diasMes3d;
     currentBudgetMaterials = budget.materials ? JSON.parse(JSON.stringify(budget.materials)) : [];
     currentBudgetMachines = budget.machines ? JSON.parse(JSON.stringify(budget.machines)) : [];
     renderOrcamentoMaterials();
@@ -4051,6 +4109,14 @@ function addOrcamentoEventListeners() {
 
     ['orc-aluguel', 'orc-internet', 'orc-mei', 'orc-outros', 'orc-horas-dia', 'orc-dias-mes'].forEach(id => {
         o(id, 'input', calculateBudget);
+    });
+
+    ['orc-custo-fixo-3d', 'orc-preco-luz', 'orc-horas-dia-3d', 'orc-dias-mes-3d'].forEach(id => {
+        o(id, 'input', calculateBudget);
+    });
+
+    ORC_CONFIG_KEYS.forEach(id => {
+        o(id, 'input', saveOrcamentoAdvancedConfig);
     });
 
     o('add-material-btn', 'click', () => {

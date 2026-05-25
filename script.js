@@ -1342,8 +1342,8 @@ function processPaidSale(e) {
     const sum = methods.reduce((s, m) => s + m.amount, 0);
     if (Math.abs(sum - total) > 0.01) { showToast('A soma dos valores não confere com o total da venda.', 'error'); return; }
 
-    const totalFee = methods.reduce((s, m) => s + (m.method === 'Cartão de Crédito' ? (m.fee || 0) : 0), 0);
-    const netReceived = totalFee > 0 ? total - totalFee : (methods.some(m => m.method === 'Cartão de Crédito') ? total : null);
+    const totalReceived = methods.reduce((s, m) => s + (m.received || m.amount), 0);
+    const netReceived = totalReceived < total ? totalReceived : (methods.some(m => m.method === 'Cartão de Crédito') ? total : null);
 
     processSale({ 
         methods: methods,
@@ -1677,8 +1677,8 @@ function addPaymentMethodRow(method, amount) {
                 <input type="number" class="pm-installments w-14 border rounded p-1 bg-[var(--bg-secondary)] text-sm" value="1" min="1">
             </label>
             <label class="flex items-center gap-1">
-                <span class="text-[var(--text-secondary)]">Taxa R$:</span>
-                <input type="text" inputmode="decimal" class="pm-fee w-20 border rounded p-1 bg-[var(--bg-secondary)] text-sm text-right" value="0,00">
+                <span class="text-[var(--text-secondary)]">Recebido R$:</span>
+                <input type="text" inputmode="decimal" class="pm-received w-20 border rounded p-1 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2).replace('.', ',')}">
             </label>
         </div>
     `;
@@ -1686,16 +1686,34 @@ function addPaymentMethodRow(method, amount) {
     select.value = method || 'Dinheiro';
     const extras = row.querySelector('.pm-extras');
     const installmentsInput = row.querySelector('.pm-installments');
-    const feeInput = row.querySelector('.pm-fee');
+    const receivedInput = row.querySelector('.pm-received');
     const toggleExtras = () => {
         const isCredit = select.value === 'Cartão de Crédito';
         extras.classList.toggle('hidden', !isCredit);
         if (isCredit && !installmentsInput.value) installmentsInput.value = '1';
-        if (!isCredit) feeInput.value = '0,00';
+        if (!isCredit) receivedInput.value = '0,00';
     };
-    select.addEventListener('change', toggleExtras);
+    const updateReceivedDefault = () => {
+        const amt = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
+        if (select.value === 'Cartão de Crédito' && !receivedInput.dataset.userEdited) {
+            receivedInput.value = amt.toFixed(2).replace('.', ',');
+        }
+    };
+    row.querySelector('.pm-amount').addEventListener('input', () => {
+        updatePaymentMethodsTotal();
+        updateReceivedDefault();
+    });
+    receivedInput.addEventListener('input', () => {
+        receivedInput.dataset.userEdited = 'true';
+    });
+    select.addEventListener('change', () => {
+        toggleExtras();
+        if (select.value === 'Cartão de Crédito') {
+            receivedInput.dataset.userEdited = '';
+            updateReceivedDefault();
+        }
+    });
     toggleExtras();
-    row.querySelector('.pm-amount').addEventListener('input', updatePaymentMethodsTotal);
     row.querySelector('.pm-installments').addEventListener('input', updatePaymentMethodsTotal);
     row.querySelector('.pm-remove').addEventListener('click', function() {
         row.remove();
@@ -1733,9 +1751,10 @@ function collectPaymentMethods() {
         const method = row.querySelector('.pm-method').value;
         const amount = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
         const installments = method === 'Cartão de Crédito' ? parseInt(row.querySelector('.pm-installments').value) || 1 : 1;
-        const fee = method === 'Cartão de Crédito' ? parseFloat(row.querySelector('.pm-fee').value.replace(',', '.')) || 0 : 0;
         if (amount > 0) {
-            methods.push({ method, amount, installments, fee });
+            const received = method === 'Cartão de Crédito' ? parseFloat(row.querySelector('.pm-received').value.replace(',', '.')) || amount : amount;
+            const fee = method === 'Cartão de Crédito' ? Math.max(0, amount - received) : 0;
+            methods.push({ method, amount, installments, received, fee });
             totalCalculated += amount;
         }
     });
@@ -1973,22 +1992,21 @@ function openSaleDetailsModal(transactionId) {
                     <p class="font-semibold mb-1">Pagamento:</p>
                     ${(() => {
                         const methods = parsePaymentMethods(sale.method);
-                        if (methods.length > 1) {
-                            return methods.map(m => `
-                                <div class="flex justify-between">
-                                    <span>${m.method === 'Cartão de Crédito' ? 'Cartão de Crédito' + (m.installments > 1 ? ` (${m.installments}x)` : '') : m.method}:</span>
-                                    <span>${formatCurrency(m.amount)}</span>
-                                </div>
-                            `).join('');
+                        let html = '';
+                        methods.forEach(m => {
+                            const label = m.method === 'Cartão de Crédito' ? 'Cartão de Crédito' + (m.installments > 1 ? ` (${m.installments}x)` : '') : m.method;
+                            const value = methods.length > 1 ? m.amount : sale.amount;
+                            html += `<div class="flex justify-between"><span>${label}:</span><span>${formatCurrency(value)}</span></div>`;
+                            if (m.method === 'Cartão de Crédito' && m.received !== undefined && m.received !== null && m.received < value) {
+                                html += `<div class="flex justify-between text-xs text-[var(--text-secondary)] pl-4"><span>Taxa máquina:</span><span class="text-red-500">-${formatCurrency(value - m.received)}</span></div>`;
+                                html += `<div class="flex justify-between text-xs text-green-600 pl-4"><span>Líquido recebido:</span><span>${formatCurrency(m.received)}</span></div>`;
+                            }
+                        });
+                        if (methods.length === 0) {
+                            const methodName = sale.method || 'N/A';
+                            html += `<div class="flex justify-between"><span>${methodName}:</span><span class="font-semibold">${formatCurrency(sale.amount)}</span></div>`;
                         }
-                        const methodName = methods.length === 1 ? methods[0].method : (sale.method || 'N/A');
-                        const inst = methods.length === 1 ? methods[0].installments : sale.installments;
-                        return `
-                            <div class="flex justify-between">
-                                <span>${methodName === 'Cartão de Crédito' ? 'Cartão de Crédito' + (inst > 1 ? ` (${inst}x)` : '') : methodName}:</span>
-                                <span class="font-semibold">${formatCurrency(sale.amount)}</span>
-                            </div>
-                        `;
+                        return html;
                     })()}
                 </div>
                 <div class="flex justify-between font-bold text-lg border-t pt-2 mt-2">

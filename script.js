@@ -50,7 +50,7 @@ async function loadOrcamentoDataFromSupabase() {
             savedBudgets = orcamentosData.map(b => ({
                 id: b.id, date: b.data, clienteName: b.cliente_nome,
                 clienteId: b.cliente_id ? String(b.cliente_id) : '',
-                produto: b.produto, quantidade: parseFloat(b.quantidade), unidade: b.unidade || 'un',
+                produto: b.produto, quantidade: parseFloat(b.quantidade),
                 custoTotal: parseFloat(b.custo_total), precoSugerido: parseFloat(b.preco_sugerido),
                 precoFinal: parseFloat(b.preco_final), lucro: parseFloat(b.lucro),
                 margem: parseFloat(b.margem), taxa: parseFloat(b.taxa_plataforma),
@@ -89,7 +89,6 @@ async function loadOrcamentoDataFromSupabase() {
                 b.precoLuz = parseFloat(f.preco_luz) || 0;
                 b.horasDia3d = parseFloat(f.horas_dia_3d) || 8;
                 b.diasMes3d = parseFloat(f.dias_mes_3d) || 22;
-                if (f.unidade) b.unidade = f.unidade;
             });
         }
     } catch (error) {
@@ -2727,7 +2726,8 @@ function addEventListeners() {
                         showToast('Produto "' + b.produto + '" já existe no catálogo!', 'error');
                         return;
                     }
-                    await addProduct(b.produto, b.precoFinal, b.custoTotal, 1, '');
+                    const qtd = b.quantidade || 1;
+                    await addProduct(b.produto, b.precoFinal / qtd, b.custoTotal / qtd, 1, '');
                     const novo = products.find(p => p.name.toLowerCase() === b.produto.toLowerCase());
                     if (novo) {
                         novo.budgetData = {
@@ -2821,7 +2821,7 @@ function loadOrcamentoData() {
 }
 
 const ORC_CONFIG_KEYS = [
-    'orc-quantidade', 'orc-unidade', 'orc-tempo-gasto', 'orc-margem', 'orc-valor-hora',
+    'orc-quantidade', 'orc-tempo-gasto', 'orc-margem', 'orc-valor-hora',
     'orc-taxa-plataforma', 'orc-taxa-fixa',
     'orc-aluguel', 'orc-internet', 'orc-mei', 'orc-outros',
     'orc-horas-dia', 'orc-dias-mes',
@@ -2959,7 +2959,6 @@ async function syncBudgetsToSupabase() {
                 cliente_id: b.clienteId ? parseInt(b.clienteId) : null,
                 produto: b.produto,
                 quantidade: b.quantidade,
-                unidade: b.unidade,
                 custo_total: b.custoTotal,
                 preco_sugerido: b.precoSugerido,
                 preco_final: b.precoFinal,
@@ -2975,8 +2974,7 @@ async function syncBudgetsToSupabase() {
                     aluguel: b.aluguel, internet: b.internet, mei: b.mei, outros: b.outros,
                     horas_dia: b.horasDia, dias_mes: b.diasMes,
                     custo_fixo_3d: b.custoFixo3D || 0, preco_luz: b.precoLuz || 0,
-                    horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22,
-                    unidade: b.unidade || 'un'
+                    horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22
                 }),
                 created_at: b.createdAt
             }]);
@@ -3778,7 +3776,6 @@ async function saveBudget() {
         clienteName,
         produto,
         quantidade: qtd,
-        unidade: document.getElementById('orc-unidade').value.trim() || 'un',
         tempoGasto, valorHora, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
         modoCalculo: document.getElementById('orc-modo-calculo').value,
@@ -3832,8 +3829,7 @@ async function saveBudget() {
             aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
             horas_dia: budget.horasDia, dias_mes: budget.diasMes,
             custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
-            horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22,
-            unidade: budget.unidade || 'un'
+                horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
         }),
         modo_calculo: budget.modoCalculo || 'grafica',
         peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
@@ -3887,7 +3883,6 @@ function loadBudget(id) {
     if (clienteSelect) clienteSelect.value = budget.clienteId || '';
     document.getElementById('orc-produto').value = budget.produto;
     document.getElementById('orc-quantidade').value = budget.quantidade;
-    document.getElementById('orc-unidade').value = budget.unidade || 'un';
     document.getElementById('orc-tempo-gasto').value = budget.tempoGasto;
     document.getElementById('orc-valor-hora').value = budget.valorHora;
     document.getElementById('orc-margem').value = budget.margem;
@@ -4022,7 +4017,7 @@ function renderHistoricoOrcamentos() {
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
-            <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.unidade ? ' (' + b.unidade + ')' : ''}</td>
+            <td class="p-2 font-medium whitespace-nowrap">${b.produto}</td>
             <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
             <td class="p-2 text-right ${lucroClass} font-semibold">${formatCurrency(b.lucro)}</td>
@@ -4073,7 +4068,7 @@ function viewOrcamentoDetails(id) {
                 <p><strong>Data:</strong> ${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                 <p><strong>Cliente:</strong> ${b.clienteName}</p>
                 <p><strong>Produto:</strong> ${b.produto}</p>
-                <p><strong>Quantidade:</strong> ${b.quantidade} ${b.unidade || 'un'}</p>
+                <p><strong>Quantidade:</strong> ${b.quantidade}</p>
             </div>
         </div>`;
     if (b.materials && b.materials.length > 0) {

@@ -338,6 +338,22 @@
                                         <label class="block text-sm font-medium mb-1">Máquinas Ativas</label>
                                         <input type="number" id="orc-maquinas-ativas" value="1" min="1" step="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
                                     </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Custo Fixo 3D (R$/mês)</label>
+                                        <input type="number" id="orc-custo-fixo-3d" value="500" min="0" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Preço Luz (R$/kWh)</label>
+                                        <input type="number" id="orc-preco-luz" value="0.90" min="0" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Horas/Dia 3D</label>
+                                        <input type="number" id="orc-horas-dia-3d" value="8" min="1" step="0.5" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Dias/Mês 3D</label>
+                                        <input type="number" id="orc-dias-mes-3d" value="22" min="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
                                     </div>
                                 </details>
                             </div>
@@ -430,10 +446,11 @@
                                     </div>
                                     <div class="flex justify-between font-bold border-t pt-2 mt-2"><span>Custo Total</span><span id="orc-result-custo-total" class="text-red-600">R$ 0,00</span></div>
                                     <div class="flex justify-between font-bold text-lg text-blue-600 border-t pt-2 mt-2"><span>Preço Sugerido</span><span id="orc-result-preco-sugerido">R$ 0,00</span></div>
-                                    <div class="flex justify-between items-center font-bold text-xl text-green-600 border-t pt-2 mt-2"><span>Preço Final (R$)</span><input type="number" id="orc-result-preco-final" step="0.01" class="w-28 border rounded p-1 text-right font-bold text-green-700 bg-[var(--bg-secondary)]"></div>
+                                    <div class="flex justify-between items-center font-bold text-xl text-green-600 border-t pt-2 mt-2"><span>Preço Final (R$)</span><input type="text" inputmode="decimal" id="orc-result-preco-final" class="w-28 border rounded p-1 text-right font-bold text-green-700 bg-[var(--bg-secondary)]"></div>
                                     <div class="flex justify-between"><span>Lucro</span><span id="orc-result-lucro" class="font-semibold">R$ 0,00</span></div>
                                     <div class="flex justify-between"><span>Custo Unidade</span><span id="orc-result-custo-unidade" class="font-semibold">R$ 0,00</span></div>
                                     <div class="flex justify-between"><span>Venda Unidade</span><span id="orc-result-venda-unidade" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between"><span>Lucro Unidade</span><span id="orc-result-lucro-unidade" class="font-semibold text-green-600">R$ 0,00</span></div>
                                     <div class="flex justify-between"><span>Markup %</span><span id="orc-result-markup" class="font-semibold">0.00%</span></div>
                                     <div class="flex justify-between"><span>Margem Lucro %</span><span id="orc-result-margem" class="font-semibold">0.00%</span></div>
                                 </div>
@@ -839,30 +856,13 @@
             <p class="text-center text-4xl font-bold my-4" id="payment-total">R$ 0,00</p>
             <form id="payment-form" class="space-y-4">
                 <div>
-                    <label for="payment-method">Forma de Pagamento</label>
-                    <select id="payment-method" name="paymentMethod" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
-                        <option>Dinheiro</option>
-                        <option>Pix</option>
-                        <option>Cartão de Crédito</option>
-                    </select>
+                    <label class="block text-sm font-medium mb-1">Formas de Pagamento</label>
+                    <div id="payment-methods-container" class="space-y-2"></div>
+                    <button type="button" id="add-payment-method-btn" class="mt-2 text-sm text-blue-600 hover:text-blue-800"><i class="fas fa-plus-circle"></i> Adicionar forma de pagamento</button>
                 </div>
-                <div id="installments-group" class="hidden">
-                    <label for="payment-installments">Parcelas</label>
-                    <input type="number" id="payment-installments" name="paymentInstallments" value="1" min="1" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
-                </div>
-                
-                <div id="machine-fee-group" class="hidden">
-                    <label for="payment-net-received">Valor Líquido Recebido (R$)</label>
-                    <input type="number" id="payment-net-received" name="netReceived" step="0.01" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]" placeholder="Deixe em branco se for o valor total">
-                    <p class="text-xs text-gray-500 mt-1">A diferença para o total será descontada do lucro.</p>
-                </div>
-                <div id="amount-paid-group">
-                     <label for="payment-amount-paid">Valor Recebido (R$)</label>
-                     <input type="number" id="payment-amount-paid" name="paymentAmount" step="0.01" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
-                </div>
-                <div class="text-lg font-semibold flex justify-between">
-                    <span>Troco:</span>
-                    <span id="payment-change">R$ 0,00</span>
+                <div class="text-sm text-gray-500 flex justify-between">
+                    <span>Total a pagar:</span>
+                    <span id="payment-methods-total" class="font-semibold">R$ 0,00</span>
                 </div>
                  <div class="flex items-center justify-between border-t pt-4">
                     <label for="retroactive-sale-toggle">É uma venda antiga?</label>

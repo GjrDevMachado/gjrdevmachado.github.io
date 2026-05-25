@@ -3799,21 +3799,6 @@ async function saveBudget() {
         createdAt: new Date().toISOString()
     };
 
-    const isEditing = !!editingBudgetId;
-    if (editingBudgetId) {
-        const idx = savedBudgets.findIndex(b => b.id === editingBudgetId);
-        if (idx !== -1) {
-            budget.id = editingBudgetId;
-            budget.createdAt = savedBudgets[idx].createdAt;
-            savedBudgets[idx] = budget;
-        }
-        editingBudgetId = null;
-        document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
-    } else {
-        savedBudgets.push(budget);
-    }
-    saveOrcamentoData();
-
     const bId = budget.id;
     const { error } = await supabaseClient.from('orcamentos').upsert([{
         id: bId, data: budget.date, cliente_nome: budget.clienteName,
@@ -3829,7 +3814,7 @@ async function saveBudget() {
             aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
             horas_dia: budget.horasDia, dias_mes: budget.diasMes,
             custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
-                horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
+            horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
         }),
         modo_calculo: budget.modoCalculo || 'grafica',
         peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
@@ -3844,9 +3829,25 @@ async function saveBudget() {
     if (error) {
         console.error('Erro ao salvar orçamento no Supabase:', error);
         showToast('Erro ao salvar no banco de dados!', 'error');
-    } else {
-        showToast('Orçamento salvo com sucesso!');
+        return;
     }
+
+    const isEditing = !!editingBudgetId;
+    if (editingBudgetId) {
+        const idx = savedBudgets.findIndex(b => b.id === editingBudgetId);
+        if (idx !== -1) {
+            budget.id = editingBudgetId;
+            budget.createdAt = savedBudgets[idx].createdAt;
+            savedBudgets[idx] = budget;
+        }
+        editingBudgetId = null;
+        document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
+    } else {
+        savedBudgets.push(budget);
+    }
+    saveOrcamentoData();
+
+    showToast('Orçamento salvo com sucesso!');
     resetBudgetForm();
 }
 
@@ -3928,13 +3929,14 @@ function loadBudget(id) {
 
 function deleteBudget(id) {
     openConfirmationModal('Excluir Orçamento', 'Tem certeza que deseja excluir este orçamento?', async () => {
-        savedBudgets = savedBudgets.filter(b => b.id !== id);
-        saveOrcamentoData();
         const { error } = await supabaseClient.from('orcamentos').delete().eq('id', id);
         if (error) {
             console.error('Erro ao excluir orçamento no Supabase:', error);
             showToast('Erro ao excluir no banco de dados!', 'error');
+            return;
         }
+        savedBudgets = savedBudgets.filter(b => b.id !== id);
+        saveOrcamentoData();
         renderHistoricoOrcamentos();
     });
 }

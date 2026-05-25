@@ -691,7 +691,14 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
     const totalsByMethod = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'total': 0 };
     
     recebimentos.forEach(t => {
-        if (totalsByMethod.hasOwnProperty(t.method)) {
+        const methods = parsePaymentMethods(t.method);
+        if (methods.length > 1) {
+            methods.forEach(m => {
+                if (totalsByMethod.hasOwnProperty(m.method)) {
+                    totalsByMethod[m.method] += m.amount;
+                }
+            });
+        } else if (totalsByMethod.hasOwnProperty(t.method)) {
             totalsByMethod[t.method] += t.amount;
         }
         totalsByMethod.total += t.amount;
@@ -733,15 +740,16 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         tableHtml += '<tr><td colspan="4" class="text-center p-4 text-gray-500">Nenhum recebimento no período.</td></tr>';
     } else {
         recebimentos.sort((a, b) => b.date - a.date).forEach(t => {
+            const methodDisplay = formatPaymentMethods(t.method, t.installments);
             let badgeClass = '';
-            let methodText = t.method || 'N/A';
-            switch (t.method) {
+            let methodText = methodDisplay;
+            const methods = parsePaymentMethods(t.method);
+            const firstMethod = methods.length > 0 ? methods[0].method : (t.method || '');
+            switch (firstMethod) {
                 case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
                 case 'Pix': badgeClass = 'badge-pix'; break;
-                case 'Cartão de Crédito': 
-                    badgeClass = 'badge-credito'; 
-                    methodText = `CRÉDITO ${t.installments > 1 ? `(${t.installments}x)` : ''}`;
-                    break;
+                case 'Cartão de Crédito': badgeClass = 'badge-credito'; break;
+                default: badgeClass = ''; break;
             }
 
             tableHtml += `
@@ -809,11 +817,21 @@ function renderCashClosingReport() {
     todaysTransactions.filter(t => t.type === 'venda' && t.status !== 'Não Pago' && !t.reversed).forEach(sale => {
         summary.totalSales += sale.amount;
         summary.totalCost += sale.cost || 0;
-        if (sale.method) summary.byMethod[sale.method] += sale.amount;
+        const methods = parsePaymentMethods(sale.method);
+        if (methods.length > 1) {
+            methods.forEach(m => { if (summary.byMethod.hasOwnProperty(m.method)) summary.byMethod[m.method] += m.amount; });
+        } else if (sale.method && summary.byMethod.hasOwnProperty(sale.method)) {
+            summary.byMethod[sale.method] += sale.amount;
+        }
     });
     todaysTransactions.filter(t => t.type === 'recebimento').forEach(receipt => {
         summary.totalSales += receipt.amount;
-        if (receipt.method) summary.byMethod[receipt.method] += receipt.amount;
+        const methods = parsePaymentMethods(receipt.method);
+        if (methods.length > 1) {
+            methods.forEach(m => { if (summary.byMethod.hasOwnProperty(m.method)) summary.byMethod[m.method] += m.amount; });
+        } else if (receipt.method && summary.byMethod.hasOwnProperty(receipt.method)) {
+            summary.byMethod[receipt.method] += receipt.amount;
+        }
     });
     cashClosingSummary.innerHTML = `<div class="flex justify-between border-b pb-2 border-[var(--border-color)]"><span class="font-semibold">Total de Vendas Pagas do Dia:</span><span class="font-bold text-[var(--primary-600)]">${formatCurrency(summary.totalSales)}</span></div><div class="flex justify-between"><span class="text-sm">Lucro Líquido (de vendas pagas hoje):</span><span class="text-sm font-semibold text-[var(--secondary-600)]">${formatCurrency(summary.totalSales - summary.totalCost)}</span></div><div class="pt-4 mt-4 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-2">Recebimentos por Forma de Pagamento:</h4><div class="flex justify-between text-sm"><span>Dinheiro:</span><span>${formatCurrency(summary.byMethod['Dinheiro'])}</span></div><div class="flex justify-between text-sm"><span>Pix:</span><span>${formatCurrency(summary.byMethod['Pix'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Crédito:</span><span>${formatCurrency(summary.byMethod['Cartão de Crédito'])}</span></div></div>`;
 }
@@ -1193,17 +1211,14 @@ async function processSale(paymentDetails) {
         
         const total = subtotal - totalDiscount;
         
-        // --- NOVO CÁLCULO DE CUSTO COM O VALOR RECEBIDO DA MÁQUINA ---
         let totalCost = cart.items.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-        
+
         if (paymentDetails.netReceived !== null && paymentDetails.netReceived !== undefined && !isNaN(paymentDetails.netReceived)) {
-            // Se o valor líquido recebido for menor que o total, a diferença é a taxa
             if (paymentDetails.netReceived < total && paymentDetails.netReceived >= 0) {
                 const taxaEmReais = total - paymentDetails.netReceived;
                 totalCost += taxaEmReais;
             }
         }
-        // ---------------------------------------------------
 
         const customerId = document.getElementById('customer-select').value || 1;
 
@@ -1215,6 +1230,9 @@ async function processSale(paymentDetails) {
             quantity: item.quantity, cost: item.cost, discount: item.discount
         }));
 
+        const methodsStr = JSON.stringify(paymentDetails.methods || [{ method: 'Dinheiro', amount: total, installments: 1 }]);
+        const maxInstallments = (paymentDetails.methods || []).reduce((max, m) => Math.max(max, m.installments || 1), 1);
+
         const novaTransacao = {
             id: transacaoId, 
             tipo: 'venda',
@@ -1223,8 +1241,8 @@ async function processSale(paymentDetails) {
             custo_total: totalCost,
             desconto_geral: generalDiscountAmount,
             descricao: JSON.stringify(itensParaDescricao),
-            metodo_pagamento: paymentDetails.method,
-            parcelas: paymentDetails.installments || 1,
+            metodo_pagamento: methodsStr,
+            parcelas: maxInstallments,
             status: paymentDetails.status,
             data_venda: saleDate
         };
@@ -1256,8 +1274,8 @@ async function processSale(paymentDetails) {
         
         if (paymentDetails.status === 'Pago') {
             const transacaoRecibo = {
-                id: transacaoId, amount: total, discount: totalDiscount, method: paymentDetails.method,
-                installments: paymentDetails.installments || 1, date: new Date(saleDate).getTime(), items: [...cart.items]
+                id: transacaoId, amount: total, discount: totalDiscount, method: methodsStr,
+                installments: maxInstallments, date: new Date(saleDate).getTime(), items: [...cart.items]
             };
             showReceipt(transacaoRecibo);
         }
@@ -1279,17 +1297,19 @@ async function processSale(paymentDetails) {
 function processPaidSale(e) {
     e.preventDefault();
     const form = document.getElementById('payment-form');
-    const method = form.elements.paymentMethod.value;
+    const methods = collectPaymentMethods();
     const isRetroactive = form.elements.retroactiveSale.checked;
     const retroactiveDate = form.elements.retroactiveDate.value;
-    
-    // Pega o valor líquido recebido (só se for crédito e se foi preenchido)
-    const netReceivedVal = form.elements.netReceived.value;
-    const netReceived = method === 'Cartão de Crédito' && netReceivedVal !== '' ? parseFloat(netReceivedVal) : null;
+    const total = parseFloat(document.getElementById('payment-total').textContent.replace(/[^0-9,]/g, '').replace(',', '.')) || 0;
+
+    if (methods.length === 0) { showToast('Adicione pelo menos uma forma de pagamento.', 'error'); return; }
+    const sum = methods.reduce((s, m) => s + m.amount, 0);
+    if (Math.abs(sum - total) > 0.01) { showToast('A soma dos valores não confere com o total da venda.', 'error'); return; }
+
+    const netReceived = methods.some(m => m.method === 'Cartão de Crédito') ? total : null;
 
     processSale({ 
-        method: method, 
-        installments: method === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1, 
+        methods: methods,
         status: 'Pago', 
         isRetroactive, 
         date: retroactiveDate,
@@ -1304,7 +1324,7 @@ function processSaleAsUnpaid() {
     if (!customerId || parseInt(customerId) === 1) { showToast('Selecione um cliente válido (não "Cliente Balcão") para guardar como não pago.', 'error'); return; }
     const isRetroactive = form.elements.retroactiveSale.checked;
     const retroactiveDate = form.elements.retroactiveDate.value;
-    processSale({ method: 'A Prazo', installments: 1, status: 'Não Pago', isRetroactive, date: retroactiveDate });
+    processSale({ methods: [{ method: 'A Prazo', amount: 0, installments: 1 }], status: 'Não Pago', isRetroactive, date: retroactiveDate });
     closeModal('modal-payment');
 }
 
@@ -1567,6 +1587,111 @@ function openEditCustomerModal(customerId) {
 
 function openConfirmationModal(title, message, onConfirm) { document.getElementById('confirm-title').textContent = title; document.getElementById('confirm-message').textContent = message; confirmCallback = onConfirm; openModal('modal-confirm'); }
 
+function parsePaymentMethods(method) {
+    if (!method) return [];
+    if (typeof method === 'string') {
+        try { const parsed = JSON.parse(method); if (Array.isArray(parsed)) return parsed; } catch(e) {}
+        const installmentsMatch = method.match(/^CRÉDITO\s*\((\d+)x\)$/);
+        if (installmentsMatch) return [{ method: 'Cartão de Crédito', amount: 0, installments: parseInt(installmentsMatch[1]) }];
+        return [{ method: method, amount: 0 }];
+    }
+    if (Array.isArray(method)) return method;
+    return [];
+}
+
+function formatPaymentMethods(method, installments) {
+    const methods = parsePaymentMethods(method);
+    if (methods.length === 0) return method || 'N/A';
+    if (methods.length === 1) {
+        const m = methods[0];
+        const inst = m.installments || installments || 1;
+        if (m.method === 'Cartão de Crédito') return `CRÉDITO${inst > 1 ? ` (${inst}x)` : ''}`;
+        return m.method;
+    }
+    return methods.map(m => {
+        if (m.method === 'Cartão de Crédito') {
+            const inst = m.installments || 1;
+            return `CRÉDITO${inst > 1 ? ` (${inst}x)` : ''}`;
+        }
+        return m.method;
+    }).join(' + ');
+}
+
+function addPaymentMethodRow(method, amount) {
+    const container = document.getElementById('payment-methods-container');
+    if (!container) return;
+    const total = parseFloat(document.getElementById('payment-total').textContent.replace(/[^0-9,]/g, '').replace(',', '.')) || 0;
+    const idx = container.children.length;
+    const row = document.createElement('div');
+    row.className = 'payment-method-row flex gap-2 items-start';
+    row.innerHTML = `
+        <select class="pm-method flex-1 border rounded p-2 bg-[var(--bg-secondary)] text-sm">
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Pix">Pix</option>
+            <option value="Cartão de Crédito">Cartão de Crédito</option>
+        </select>
+        <input type="text" inputmode="decimal" class="pm-amount w-24 border rounded p-2 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2)}">
+        <div class="pm-extras flex items-center gap-1">
+            <input type="number" class="pm-installments w-14 border rounded p-2 bg-[var(--bg-secondary)] text-sm hidden" value="1" min="1" placeholder="Parcelas">
+        </div>
+        <button type="button" class="pm-remove text-red-500 hover:text-red-700 p-2" title="Remover"><i class="fas fa-times"></i></button>
+    `;
+    const select = row.querySelector('.pm-method');
+    select.value = method || 'Dinheiro';
+    const installmentsInput = row.querySelector('.pm-installments');
+    const toggleExtras = () => {
+        const isCredit = select.value === 'Cartão de Crédito';
+        installmentsInput.classList.toggle('hidden', !isCredit);
+        if (isCredit && !installmentsInput.value) installmentsInput.value = '1';
+    };
+    select.addEventListener('change', toggleExtras);
+    toggleExtras();
+    row.querySelector('.pm-amount').addEventListener('input', updatePaymentMethodsTotal);
+    row.querySelector('.pm-installments').addEventListener('input', updatePaymentMethodsTotal);
+    row.querySelector('.pm-remove').addEventListener('click', function() {
+        row.remove();
+        updatePaymentMethodsTotal();
+        if (container.children.length === 0) addPaymentMethodRow('Dinheiro', total);
+    });
+    container.appendChild(row);
+    updatePaymentMethodsTotal();
+}
+
+function updatePaymentMethodsTotal() {
+    const total = parseFloat(document.getElementById('payment-total').textContent.replace(/[^0-9,]/g, '').replace(',', '.')) || 0;
+    const rows = document.querySelectorAll('.payment-method-row');
+    const sum = Array.from(rows).reduce((s, row) => {
+        const val = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
+        return s + val;
+    }, 0);
+    const el = document.getElementById('payment-methods-total');
+    if (el) {
+        if (Math.abs(sum - total) > 0.01) {
+            el.textContent = formatCurrency(sum) + ' (difere do total)';
+            el.style.color = 'red';
+        } else {
+            el.textContent = formatCurrency(sum);
+            el.style.color = '';
+        }
+    }
+}
+
+function collectPaymentMethods() {
+    const rows = document.querySelectorAll('.payment-method-row');
+    const methods = [];
+    let totalCalculated = 0;
+    rows.forEach(row => {
+        const method = row.querySelector('.pm-method').value;
+        const amount = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
+        const installments = method === 'Cartão de Crédito' ? parseInt(row.querySelector('.pm-installments').value) || 1 : 1;
+        if (amount > 0) {
+            methods.push({ method, amount, installments });
+            totalCalculated += amount;
+        }
+    });
+    return methods;
+}
+
 function openPaymentModal() {
     const customerId = document.getElementById('customer-select').value;
     if (!customerId) { showToast('Por favor, selecione um cliente para continuar.', 'error'); return; }
@@ -1580,34 +1705,13 @@ function openPaymentModal() {
     }
     const total = subtotal - totalDiscount;
     document.getElementById('payment-total').textContent = formatCurrency(total);
-    document.getElementById('payment-amount-paid').value = total.toFixed(2);
-    document.getElementById('payment-method').value = 'Dinheiro';
-    document.getElementById('installments-group').classList.add('hidden');
-    document.getElementById('amount-paid-group').classList.remove('hidden');
     document.getElementById('retroactive-sale-toggle').checked = false;
     document.getElementById('retroactive-date-group').classList.add('hidden');
     document.getElementById('payment-retroactive-date').value = '';
-    
-    document.getElementById('machine-fee-group').classList.add('hidden');
-    const netReceivedInput = document.getElementById('payment-net-received');
-    if (netReceivedInput) netReceivedInput.value = '';
-    
-    updateChange(); 
+    const container = document.getElementById('payment-methods-container');
+    if (container) container.innerHTML = '';
+    addPaymentMethodRow('Dinheiro', total);
     openModal('modal-payment');
-}
-
-function updateChange() {
-    const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    let totalDiscount = cart.items.reduce((sum, item) => {
-        const itemTotal = item.price * item.quantity;
-        return sum + (item.discount.type === 'percentage' ? (itemTotal * item.discount.value / 100) : item.discount.value);
-    }, 0);
-    if (cart.generalDiscount.value > 0) {
-        totalDiscount += cart.generalDiscount.type === 'percentage' ? ((subtotal - totalDiscount) * cart.generalDiscount.value / 100) : cart.generalDiscount.value;
-    }
-    const total = subtotal - totalDiscount;
-    const paid = parseFloat(document.getElementById('payment-amount-paid').value) || 0;
-    document.getElementById('payment-change').textContent = formatCurrency(paid - total > 0 ? paid - total : 0);
 }
 
 function showToast(message, type = 'success') {
@@ -1634,7 +1738,7 @@ function showReceipt(transaction) {
     
     receiptDetails.innerHTML += `<div class="mt-2 pt-2 border-t flex justify-between"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>`;
     receiptDetails.innerHTML += `<div class="flex justify-between text-red-500"><span>Descontos</span><span>-${formatCurrency(transaction.discount)}</span></div>`;
-    receiptDetails.innerHTML += `<div class="font-semibold mt-2 pt-2 border-t border-[var(--border-color)]"><span>Forma de Pagamento:</span><span> ${transaction.method}${transaction.installments > 1 ? ` (${transaction.installments}x)` : ''}</span></div>`;
+    receiptDetails.innerHTML += `<div class="font-semibold mt-2 pt-2 border-t border-[var(--border-color)]"><span>Forma de Pagamento:</span><span> ${formatPaymentMethods(transaction.method, transaction.installments)}</span></div>`;
     document.getElementById('receipt-total').textContent = `TOTAL: ${formatCurrency(transaction.amount)}`;
     document.getElementById('receipt-date').textContent = new Date(transaction.date).toLocaleString('pt-BR');
     openModal('receipt-modal');
@@ -1679,10 +1783,11 @@ async function handleReceivedPayment(e) {
     try {
         const novoMetodo = form.elements.paymentMethod.value;
         const novasParcelas = novoMetodo === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
+        const methodsStr = JSON.stringify([{ method: novoMetodo, amount: sale.amount, installments: novasParcelas }]);
 
         const { error: updateError } = await supabaseClient
             .from('transacoes')
-            .update({ status: 'Pago', metodo_pagamento: novoMetodo, parcelas: novasParcelas })
+            .update({ status: 'Pago', metodo_pagamento: methodsStr, parcelas: novasParcelas })
             .eq('id', saleId);
         if (updateError) throw updateError;
 
@@ -1693,7 +1798,7 @@ async function handleReceivedPayment(e) {
                 tipo: 'recebimento',
                 cliente_id: sale.customerId || 1,
                 valor_total: sale.amount,
-                metodo_pagamento: novoMetodo,
+                metodo_pagamento: methodsStr,
                 parcelas: novasParcelas,
                 status: 'Pago',
                 descricao: `Recebimento da venda #${sale.id}`,
@@ -1805,11 +1910,15 @@ function openSaleDetailsModal(transactionId) {
                 <span>Descontos:</span>
                 <span>-${formatCurrency(discountValue)}</span>
             </div>
-            <div class="flex justify-between font-bold text-lg border-t pt-2 mt-2">
-                <span>TOTAL PAGO:</span>
-                <span>${formatCurrency(sale.amount)}</span>
-            </div>
-            <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm">
+                <div class="flex justify-between text-sm">
+                    <span>Forma de Pagamento:</span>
+                    <span>${formatPaymentMethods(sale.method, sale.installments)}</span>
+                </div>
+                <div class="flex justify-between font-bold text-lg border-t pt-2 mt-2">
+                    <span>TOTAL PAGO:</span>
+                    <span>${formatCurrency(sale.amount)}</span>
+                </div>
+                <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm">
                 <div class="flex justify-between">
                     <span>Custo Total:</span>
                     <span class="text-red-600">-${formatCurrency(sale.cost)}</span>
@@ -1888,13 +1997,16 @@ function renderTransactionList(container, transactionList) {
             } else {
                 color = 'text-[var(--secondary-600)]';
                 if (t.method) {
-                    let badgeClass = '', methodText = t.method;
-                    switch (t.method) {
+                    const methodDisplay = formatPaymentMethods(t.method, t.installments);
+                    let badgeClass = '';
+                    const methods = parsePaymentMethods(t.method);
+                    const firstMethod = methods.length > 0 ? methods[0].method : (t.method || '');
+                    switch (firstMethod) {
                         case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
                         case 'Pix': badgeClass = 'badge-pix'; break;
-                        case 'Cartão de Crédito': badgeClass = 'badge-credito'; methodText = `CRÉDITO ${t.installments > 1 ? `(${t.installments}x)` : ''}`; break;
+                        case 'Cartão de Crédito': badgeClass = 'badge-credito'; break;
                     }
-                    paymentInfo = `<span class="payment-badge ${badgeClass}">${methodText}</span>`;
+                    paymentInfo = `<span class="payment-badge ${badgeClass}">${methodDisplay}</span>`;
                 }
             }
         }
@@ -2097,7 +2209,14 @@ function openEditSaleModal(transactionId) {
     form.elements.transactionId.value = sale.id;
     document.getElementById('edit-sale-total').textContent = formatCurrency(sale.amount);
     form.elements.saleStatus.value = sale.status;
-    form.elements.paymentMethod.value = sale.method || 'A Prazo';
+    const methodDisplay = formatPaymentMethods(sale.method, sale.installments);
+    const parsed = parsePaymentMethods(sale.method);
+    const firstMethod = parsed.length > 0 ? parsed[0].method : (sale.method || 'A Prazo');
+    if (['A Prazo', 'Dinheiro', 'Pix', 'Cartão de Crédito'].includes(firstMethod)) {
+        form.elements.paymentMethod.value = firstMethod;
+    } else {
+        form.elements.paymentMethod.value = 'A Prazo';
+    }
     form.elements.paymentInstallments.value = sale.installments || 1;
 
     const installmentsGroup = document.getElementById('edit-installments-group');
@@ -2119,10 +2238,11 @@ async function handleEditSale(e) {
         const newStatus = form.elements.saleStatus.value;
         const newMethod = form.elements.paymentMethod.value;
         const newInstallments = parseInt(form.elements.paymentInstallments.value) || 1;
+        const methodsStr = JSON.stringify([{ method: newMethod, amount: sale.amount, installments: newInstallments }]);
 
         const { error } = await supabaseClient
             .from('transacoes')
-            .update({ status: newStatus, metodo_pagamento: newMethod, parcelas: newInstallments })
+            .update({ status: newStatus, metodo_pagamento: methodsStr, parcelas: newInstallments })
             .eq('id', transactionId);
 
         if (error) throw error;
@@ -2464,16 +2584,13 @@ function addEventListeners() {
         startBackupTimer(); 
     });
 
-    safeAddListener('payment-method', 'change', function() { 
-        const isCredit = this.value === 'Cartão de Crédito';
-        document.getElementById('installments-group').classList.toggle('hidden', !isCredit); 
-        document.getElementById('machine-fee-group').classList.toggle('hidden', !isCredit); 
-        document.getElementById('amount-paid-group').classList.toggle('hidden', isCredit); 
+    safeAddListener('add-payment-method-btn', 'click', function() {
+        const total = parseFloat(document.getElementById('payment-total').textContent.replace(/[^0-9,]/g, '').replace(',', '.')) || 0;
+        addPaymentMethodRow('Pix', 0);
     });
     
     safeAddListener('receive-payment-method', 'change', function() { document.getElementById('receive-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
     safeAddListener('edit-sale-method', 'change', function() { document.getElementById('edit-installments-group').classList.toggle('hidden', this.value !== 'Cartão de Crédito'); });
-    safeAddListener('payment-amount-paid', 'input', updateChange);
     safeAddListener('process-unpaid-sale-btn', 'click', processSaleAsUnpaid);
     safeAddListener('apply-general-discount-btn', 'click', () => openDiscountModal());
     safeAddListener('retroactive-sale-toggle', 'change', function() { document.getElementById('retroactive-date-group').classList.toggle('hidden', !this.checked); });
@@ -2681,6 +2798,7 @@ let currentBudgetMachines = [];
 let editingBudgetId = null;
 let orcamentoSelectType = '';
 let orcamentoSelectData = null;
+let orcPrecoFinalChanged = false;
 
 function loadOrcamentoData() {
     try {
@@ -3311,16 +3429,19 @@ function calculateBudget() {
     }
 
     const precoFinalInput = document.getElementById('orc-result-preco-final');
-    let precoFinal = precoSugerido;
-    if (precoFinalInput && precoFinalInput.value && !isNaN(parseFloat(precoFinalInput.value))) {
-        precoFinal = parseFloat(precoFinalInput.value);
+    const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
+    if (orcPrecoFinalChanged && precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal))) {
+        precoFinal = parseFloat(rawVal);
+    } else {
+        precoFinal = 0;
+        if (precoFinalInput) precoFinalInput.value = '0';
     }
-    precoFinalInput.value = precoFinal.toFixed(2);
     const lucro = precoFinal - custoTotal;
     const custoUnidade = custoTotal / qtd;
     const vendaUnidade = precoFinal / qtd;
-    const markupPercent = custoUnidade > 0 ? (vendaUnidade / custoUnidade) * 100 : 0;
-    const margemLucro = custoUnidade > 0 ? ((vendaUnidade - custoUnidade) / custoUnidade) * 100 : 0;
+    const lucroUnidade = vendaUnidade - custoUnidade;
+    const markupPercent = custoUnidade > 0 ? ((vendaUnidade - custoUnidade) / custoUnidade) * 100 : 0;
+    const margemLucro = vendaUnidade > 0 ? ((vendaUnidade - custoUnidade) / vendaUnidade) * 100 : 0;
 
     document.getElementById('orc-result-materiais').textContent = formatCurrency(custoMateriais);
     document.getElementById('orc-result-maquinas').textContent = formatCurrency(custoMaquinas);
@@ -3328,10 +3449,10 @@ function calculateBudget() {
     document.getElementById('orc-result-fixo').textContent = formatCurrency(custoFixo);
     document.getElementById('orc-result-custo-total').textContent = formatCurrency(custoTotal);
     document.getElementById('orc-result-preco-sugerido').textContent = formatCurrency(precoSugerido);
-    document.getElementById('orc-result-preco-final').textContent = formatCurrency(precoFinal);
     document.getElementById('orc-result-lucro').textContent = formatCurrency(lucro);
     document.getElementById('orc-result-custo-unidade').textContent = formatCurrency(custoUnidade);
     document.getElementById('orc-result-venda-unidade').textContent = formatCurrency(vendaUnidade);
+    document.getElementById('orc-result-lucro-unidade').textContent = formatCurrency(lucroUnidade);
     document.getElementById('orc-result-markup').textContent = markupPercent.toFixed(2) + '%';
     document.getElementById('orc-result-margem').textContent = margemLucro.toFixed(2) + '%';
 }
@@ -3504,7 +3625,8 @@ function saveBudget() {
     const custoTotal = custoMateriais + custoMaquinas + custoMO;
     const precoSugerido = taxa >= 100 ? 0 : ((custoMateriais + custoMaquinas) * (1 + margem / 100) + custoMO + taxaFixa) / (1 - taxa / 100);
     const precoFinalInput = document.getElementById('orc-result-preco-final');
-    const precoFinal = precoFinalInput && precoFinalInput.value ? parseFloat(precoFinalInput.value) || precoSugerido : precoSugerido;
+    const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
+    const precoFinal = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
     const lucro = precoFinal - custoTotal;
 
     const budget = {
@@ -3605,6 +3727,7 @@ function resetBudgetForm() {
     renderOrcamentoMachines();
     const precoFinalInput = document.getElementById('orc-result-preco-final');
     if (precoFinalInput) precoFinalInput.value = '';
+    orcPrecoFinalChanged = false;
     editingBudgetId = null;
     document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
     toggleOrcamentoMode();
@@ -3647,10 +3770,14 @@ function loadBudget(id) {
     currentBudgetMachines = budget.machines ? JSON.parse(JSON.stringify(budget.machines)) : [];
     renderOrcamentoMaterials();
     renderOrcamentoMachines();
-    const precoFinalInput = document.getElementById('orc-result-preco-final');
-    if (precoFinalInput) precoFinalInput.value = budget.precoFinal.toFixed(2);
     toggleOrcamentoMode();
     calculateBudget();
+    const precoFinalInput = document.getElementById('orc-result-preco-final');
+    if (precoFinalInput) {
+        precoFinalInput.value = budget.precoFinal > 0 ? budget.precoFinal.toFixed(2) : '0';
+        orcPrecoFinalChanged = budget.precoFinal > 0;
+    }
+    if (orcPrecoFinalChanged) calculateBudget();
     closeModal('modal-historico-orcamentos');
     showToast('Orçamento carregado!');
 }
@@ -3735,8 +3862,8 @@ function renderHistoricoOrcamentos() {
         const custoUnit = b.custoTotal / qtd;
         const vendaUnit = b.precoFinal / qtd;
         const lucroUnit = b.lucro / qtd;
-        const markupPct = custoUnit > 0 ? (vendaUnit / custoUnit) * 100 : 0;
-        const margemPct = custoUnit > 0 ? ((vendaUnit - custoUnit) / custoUnit) * 100 : 0;
+        const markupPct = custoUnit > 0 ? ((vendaUnit - custoUnit) / custoUnit) * 100 : 0;
+        const margemPct = custoUnit > 0 ? ((vendaUnit - custoUnit) / vendaUnit) * 100 : 0;
         const taxaTotal = (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0);
         const lucroClass = b.lucro >= 0 ? 'text-green-600' : 'text-red-600';
 
@@ -3907,7 +4034,10 @@ function addOrcamentoEventListeners() {
     o('orc-margem', 'input', calculateBudget);
     o('orc-taxa-plataforma', 'input', calculateBudget);
     o('orc-taxa-fixa', 'input', calculateBudget);
-    o('orc-result-preco-final', 'input', calculateBudget);
+    o('orc-result-preco-final', 'input', function() {
+        orcPrecoFinalChanged = true;
+        calculateBudget();
+    });
     o('orc-modo-calculo', 'change', toggleOrcamentoMode);
     o('orc-filamento', 'change', onFilamentoChange);
     o('orc-peso', 'input', calculateBudget);

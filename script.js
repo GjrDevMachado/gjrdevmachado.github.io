@@ -2903,6 +2903,7 @@ let savedBudgets = [];
 let currentBudgetMaterials = [];
 let currentBudgetMachines = [];
 let editingBudgetId = null;
+let currentBudgetFilaments = [];
 let orcamentoSelectType = '';
 let orcamentoSelectData = null;
 let orcPrecoFinalChanged = false;
@@ -3070,6 +3071,7 @@ async function syncBudgetsToSupabase() {
                 valor_hora: b.valorHora,
                 materiais_json: JSON.stringify(b.materials || []),
                 maquinas_json: JSON.stringify(b.machines || []),
+                filamentos_json: JSON.stringify(b.filamentos || []),
                 custos_fixos_json: JSON.stringify({
                     aluguel: b.aluguel, internet: b.internet, mei: b.mei, outros: b.outros,
                     horas_dia: b.horasDia, dias_mes: b.diasMes,
@@ -3149,7 +3151,6 @@ function toggleOrcamentoMode() {
 
 function initOrcamentoModule() {
     loadOrcamentoData();
-    populateFilamentoSelect();
     const clienteSelect = document.getElementById('orc-cliente');
     if (clienteSelect) {
         clienteSelect.innerHTML = '<option value="">Selecione um cliente</option>';
@@ -3163,6 +3164,7 @@ function initOrcamentoModule() {
     }
     renderOrcamentoMaterials();
     renderOrcamentoMachines();
+    renderOrcamentoFilamentos();
     toggleOrcamentoMode();
     calculateBudget();
 }
@@ -3409,11 +3411,61 @@ function renderOrcamentoMachines() {
     attachOrcamentoQtyListeners();
 }
 
+function renderOrcamentoFilamentos() {
+    const tbody = document.getElementById('orc-filamentos-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (currentBudgetFilaments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum filamento adicionado.</td></tr>';
+        const totalEl = document.getElementById('orc-total-filamentos');
+        if (totalEl) totalEl.textContent = formatCurrency(0);
+        return;
+    }
+    let total = 0;
+    currentBudgetFilaments.forEach((fil, i) => {
+        const subtotal = (fil.weight / 1000) * fil.priceKg;
+        total += subtotal;
+        tbody.innerHTML += `<tr>
+            <td class="p-2">${fil.name}</td>
+            <td class="p-2 text-center">
+                <input type="number" value="${fil.weight}" min="0.1" step="0.1"
+                    data-index="${i}" data-type="filamento"
+                    class="orc-qty-input w-16 text-center border rounded p-1 bg-[var(--bg-secondary)]">
+            </td>
+            <td class="p-2 text-right">${formatCurrency(fil.priceKg)}</td>
+            <td class="p-2 text-right font-semibold orc-subtotal">${formatCurrency(subtotal)}</td>
+            <td class="p-2 text-center">
+                <button data-index="${i}" class="remove-filamento-btn text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
+            </td></tr>`;
+    });
+    const totalEl = document.getElementById('orc-total-filamentos');
+    if (totalEl) totalEl.textContent = formatCurrency(total);
+    attachOrcamentoQtyListeners();
+    attachRemoveFilamentoListeners();
+}
+
+function attachRemoveFilamentoListeners() {
+    document.querySelectorAll('.remove-filamento-btn').forEach(btn => {
+        btn.removeEventListener('click', handleRemoveFilamento);
+        btn.addEventListener('click', handleRemoveFilamento);
+    });
+}
+
+function handleRemoveFilamento(e) {
+    const idx = parseInt(e.currentTarget.dataset.index);
+    currentBudgetFilamentos.splice(idx, 1);
+    renderOrcamentoFilamentos();
+    calculateBudget();
+}
+
 function updateOrcamentoTotals() {
     const totalMateriais = currentBudgetMaterials.reduce((s, m) => s + m.quantity * m.unitCost, 0);
     const totalMaquinas = currentBudgetMachines.reduce((s, m) => s + (m.timeMinutes / 60) * m.costPerHour, 0);
+    const totalFilamentos = currentBudgetFilaments.reduce((s, f) => s + (f.weight / 1000) * f.priceKg, 0);
     document.getElementById('orc-total-materiais').textContent = formatCurrency(totalMateriais);
     document.getElementById('orc-total-maquinas').textContent = formatCurrency(totalMaquinas);
+    const totalFilamentosEl = document.getElementById('orc-total-filamentos');
+    if (totalFilamentosEl) totalFilamentosEl.textContent = formatCurrency(totalFilamentos);
 }
 
 function attachOrcamentoQtyListeners() {
@@ -3444,6 +3496,11 @@ function handleOrcamentoQtyChange(e) {
         const cost = (val / 60) * currentBudgetMachines[idx].costPerHour;
         const costCell = row.querySelector('.orc-subtotal');
         if (costCell) costCell.textContent = formatCurrency(cost);
+    } else if (type === 'filamento' && currentBudgetFilaments[idx]) {
+        currentBudgetFilaments[idx].weight = val;
+        const subtotal = (val / 1000) * currentBudgetFilaments[idx].priceKg;
+        const subtotalCell = row.querySelector('.orc-subtotal');
+        if (subtotalCell) subtotalCell.textContent = formatCurrency(subtotal);
     }
     updateOrcamentoTotals();
     calculateBudget();
@@ -3488,10 +3545,7 @@ function calculateBudget() {
     }
 
     function calc3d() {
-        const peso = parseFloat(document.getElementById('orc-peso').value) || 0;
-        const filamentoSelect = document.getElementById('orc-filamento');
-        const selectedFilamento = filamentCatalog.find(f => f.id === parseInt(filamentoSelect.value));
-        const precoFilamento = selectedFilamento ? selectedFilamento.priceKg : 0;
+        let custoFilamento = currentBudgetFilaments.reduce((sum, f) => sum + (f.weight / 1000) * f.priceKg, 0);
         const tempoImpressao = getTempoImpressaoMin();
         const taxaFalhas = parseFloat(document.getElementById('orc-falhas').value) || 0;
         const taxaAcabamento = parseFloat(document.getElementById('orc-acabamento').value) || 0;
@@ -3503,7 +3557,6 @@ function calculateBudget() {
         const horasDia3d = parseFloat(document.getElementById('orc-horas-dia-3d').value) || 8;
         const diasMes3d = parseFloat(document.getElementById('orc-dias-mes-3d').value) || 22;
 
-        const custoFilamento = (peso / 1000) * precoFilamento;
         const custoFalhas = custoFilamento * (taxaFalhas / 100);
         const custoAcabamento = custoFilamento * (taxaAcabamento / 100);
         const custoFixacaoTotal = custoFixacao;
@@ -3537,10 +3590,6 @@ function calculateBudget() {
         const custoMOGrafica = (tempoGasto / 60) * valorHora;
         const totalGrafica = custoMateriaisGrafica + custoMOGrafica;
 
-        const peso = parseFloat(document.getElementById('orc-peso').value) || 0;
-        const filamentoSelect = document.getElementById('orc-filamento');
-        const selectedFilamento = filamentCatalog.find(f => f.id === parseInt(filamentoSelect.value));
-        const precoFilamento = selectedFilamento ? selectedFilamento.priceKg : 0;
         const tempoImpressao = getTempoImpressaoMin();
         const taxaFalhas = parseFloat(document.getElementById('orc-falhas').value) || 0;
         const taxaAcabamento = parseFloat(document.getElementById('orc-acabamento').value) || 0;
@@ -3548,7 +3597,7 @@ function calculateBudget() {
         const roiMeses = parseFloat(document.getElementById('orc-roi-meses').value) || 1;
         const maquinasAtivas = parseFloat(document.getElementById('orc-maquinas-ativas').value) || 1;
 
-        const custoFilamento = (peso / 1000) * precoFilamento;
+        let custoFilamento = currentBudgetFilaments.reduce((sum, f) => sum + (f.weight / 1000) * f.priceKg, 0);
         const custoFalhas = custoFilamento * (taxaFalhas / 100);
         const custoAcabamento = custoFilamento * (taxaAcabamento / 100);
         const custoFixacaoTotal = custoFixacao;
@@ -3619,7 +3668,7 @@ function renderOrcamentoSelectList(filter) {
     if (!list) return;
     list.innerHTML = '';
 
-    const items = orcamentoSelectType === 'material' ? supplyCatalog : machines;
+    const items = orcamentoSelectType === 'material' ? supplyCatalog : (orcamentoSelectType === 'filamento' ? filamentCatalog : machines);
 
     const filtered = items.filter(item =>
         item.name.toLowerCase().includes(filter.toLowerCase())
@@ -3638,6 +3687,8 @@ function renderOrcamentoSelectList(filter) {
 
         if (orcamentoSelectType === 'material') {
             div.textContent = `${item.name} (${formatCurrency(item.unitCost)}/un)`;
+        } else if (orcamentoSelectType === 'filamento') {
+            div.textContent = `${item.name} (${formatCurrency(item.priceKg)}/kg)`;
         } else {
             div.textContent = `${item.name} (${formatCurrency(item.costPerHour)}/h)`;
         }
@@ -3710,6 +3761,15 @@ function openOrcamentoSelectModal(type) {
         label.textContent = 'Máquina';
         qtyLabel.textContent = 'Tempo (minutos)';
         qtyInput.value = '30';
+    } else if (type === 'filamento') {
+        if (filamentCatalog.length === 0) {
+            showToast('Cadastre filamentos primeiro!', 'error');
+            return;
+        }
+        title.textContent = 'Adicionar Filamento';
+        label.textContent = 'Filamento';
+        qtyLabel.textContent = 'Peso (g)';
+        qtyInput.value = '100';
     }
 
     renderOrcamentoSelectList('');
@@ -3748,6 +3808,16 @@ document.getElementById('orcamento-select-confirm').addEventListener('click', fu
         });
         renderOrcamentoMachines();
         calculateBudget();
+    } else if (orcamentoSelectType === 'filamento') {
+        currentBudgetFilaments.push({
+            filamentIndex: idx,
+            filamentId: item.id,
+            name: item.name,
+            weight: qty,
+            priceKg: item.priceKg
+        });
+        renderOrcamentoFilamentos();
+        calculateBudget();
     }
 
     closeModal('modal-orcamento-select');
@@ -3779,10 +3849,7 @@ async function saveBudget() {
     let custoMateriais, custoMaquinas, custoMO, custoFixo, custoTotal, precoSugerido;
     if (modo === 'impressao3d') {
         const custoMaquinasLoc = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
-        const peso = parseFloat(document.getElementById('orc-peso').value) || 0;
-        const filamentoSelect = document.getElementById('orc-filamento');
-        const selectedFilamento = filamentCatalog.find(f => f.id === parseInt(filamentoSelect.value));
-        const custoFilamento = (peso / 1000) * (selectedFilamento ? selectedFilamento.priceKg : 0);
+        const custoFilamento = currentBudgetFilaments.reduce((sum, f) => sum + (f.weight / 1000) * f.priceKg, 0);
         const tempoImpressao = getTempoImpressaoMin();
         const taxaFalhas = parseFloat(document.getElementById('orc-falhas').value) || 0;
         const taxaAcabamento = parseFloat(document.getElementById('orc-acabamento').value) || 0;
@@ -3818,10 +3885,7 @@ async function saveBudget() {
     } else if (modo === 'misto') {
         const custoMateriaisGrafica = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
         const custoMOGrafica = (tempoGasto / 60) * valorHora;
-        const peso = parseFloat(document.getElementById('orc-peso').value) || 0;
-        const filamentoSelect = document.getElementById('orc-filamento');
-        const selectedFilamento = filamentCatalog.find(f => f.id === parseInt(filamentoSelect.value));
-        const custoFilamento = (peso / 1000) * (selectedFilamento ? selectedFilamento.priceKg : 0);
+        const custoFilamento = currentBudgetFilaments.reduce((sum, f) => sum + (f.weight / 1000) * f.priceKg, 0);
         const tempoImpressao = getTempoImpressaoMin();
         const taxaFalhas = parseFloat(document.getElementById('orc-falhas').value) || 0;
         const taxaAcabamento = parseFloat(document.getElementById('orc-acabamento').value) || 0;
@@ -3886,8 +3950,9 @@ async function saveBudget() {
         tempoGasto: tempoGastoFinal, valorHora: valorHoraFinal, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
         modoCalculo: document.getElementById('orc-modo-calculo').value,
-        peso: parseFloat(document.getElementById('orc-peso').value) || 0,
-        filamentoId: parseInt(document.getElementById('orc-filamento').value) || 0,
+        peso: currentBudgetFilaments.reduce((sum, f) => sum + f.weight, 0),
+        filamentoId: currentBudgetFilaments.length > 0 ? currentBudgetFilaments[0].filamentoId || currentBudgetFilaments[0].filamentId : 0,
+        filamentos: JSON.parse(JSON.stringify(currentBudgetFilaments)),
         tempoImpressao: tempoImpressaoFinal,
         falhas: parseFloat(document.getElementById('orc-falhas').value) || 0,
         acabamento: parseFloat(document.getElementById('orc-acabamento').value) || 0,
@@ -3919,6 +3984,7 @@ async function saveBudget() {
             tempo_gasto: budget.tempoGasto, valor_hora: budget.valorHora,
             materiais_json: JSON.stringify(budget.materials || []),
             maquinas_json: JSON.stringify(budget.machines || []),
+            filamentos_json: JSON.stringify(budget.filamentos || []),
             custos_fixos_json: JSON.stringify({
                 aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
                 horas_dia: budget.horasDia, dias_mes: budget.diasMes,
@@ -3970,15 +4036,15 @@ function resetBudgetForm() {
     document.getElementById('orc-cliente').value = '';
     const dataInput = document.getElementById('orc-data');
     if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
-    document.getElementById('orc-peso').value = '100';
-    document.getElementById('orc-filamento').value = '';
     document.getElementById('orc-tempo-impressao-h').value = '0';
     document.getElementById('orc-tempo-impressao-min').value = '30';
     document.getElementById('orc-modo-calculo').value = 'grafica';
     currentBudgetMaterials = [];
     currentBudgetMachines = [];
+    currentBudgetFilamentos = [];
     renderOrcamentoMaterials();
     renderOrcamentoMachines();
+    renderOrcamentoFilamentos();
     const precoFinalInput = document.getElementById('orc-result-preco-final');
     if (precoFinalInput) precoFinalInput.value = '';
     orcPrecoFinalChanged = false;
@@ -4011,8 +4077,6 @@ function loadBudget(id) {
     document.getElementById('orc-dias-mes').value = budget.diasMes;
     const savedMode = budget.modoCalculo === 'geral' ? 'grafica' : (budget.modoCalculo || 'grafica');
     document.getElementById('orc-modo-calculo').value = savedMode;
-    document.getElementById('orc-peso').value = budget.peso || 0;
-    document.getElementById('orc-filamento').value = budget.filamentoId || '';
     const totalMin = budget.tempoImpressao || 0;
     document.getElementById('orc-tempo-impressao-h').value = Math.floor(totalMin / 60);
     document.getElementById('orc-tempo-impressao-min').value = Math.round(totalMin % 60);
@@ -4027,8 +4091,22 @@ function loadBudget(id) {
     if (budget.diasMes3d !== undefined) document.getElementById('orc-dias-mes-3d').value = budget.diasMes3d;
     currentBudgetMaterials = budget.materials ? JSON.parse(JSON.stringify(budget.materials)) : [];
     currentBudgetMachines = budget.machines ? JSON.parse(JSON.stringify(budget.machines)) : [];
+    if (budget.filamentos && budget.filamentos.length > 0) {
+        currentBudgetFilaments = JSON.parse(JSON.stringify(budget.filamentos));
+    } else if (budget.peso && budget.filamentoId) {
+        const fil = filamentCatalog.find(f => f.id === budget.filamentoId);
+        currentBudgetFilaments = [{
+            filamentId: budget.filamentoId,
+            name: fil ? fil.name : 'Desconhecido',
+            weight: budget.peso || 0,
+            priceKg: fil ? fil.priceKg : 0
+        }];
+    } else {
+        currentBudgetFilaments = [];
+    }
     renderOrcamentoMaterials();
     renderOrcamentoMachines();
+    renderOrcamentoFilamentos();
     toggleOrcamentoMode();
     calculateBudget();
     const precoFinalInput = document.getElementById('orc-result-preco-final');
@@ -4223,8 +4301,14 @@ function viewOrcamentoDetails(id) {
         if (b.modoCalculo === 'misto') {
             html += `<h4 class="font-semibold text-xs mb-1">IMPRESSÃO 3D</h4>`;
         }
+        const filaments = b.filamentos || (b.peso && b.filamentoId ? [{ name: 'Filamento', weight: b.peso, priceKg: 0 }] : []);
+        if (filaments.length > 0) {
+            html += `<h5 class="font-semibold text-xs mt-2 mb-1">Filamentos:</h5>`;
+            filaments.forEach(f => {
+                html += `<div class="flex justify-between text-xs"><span>${f.name}:</span><span>${f.weight}g</span></div>`;
+            });
+        }
         html += `
-            <div class="flex justify-between"><span>Peso:</span><span>${b.peso || 0}g</span></div>
             <div class="flex justify-between"><span>Tempo Impressão:</span><span>${hrs}h${mins}min</span></div>
         </div>`;
     }
@@ -4372,8 +4456,6 @@ function addOrcamentoEventListeners() {
         calculateBudget();
     });
     o('orc-modo-calculo', 'change', toggleOrcamentoMode);
-    o('orc-filamento', 'change', onFilamentoChange);
-    o('orc-peso', 'input', calculateBudget);
     o('orc-tempo-impressao-h', 'input', calculateBudget);
     o('orc-tempo-impressao-min', 'input', calculateBudget);
     o('orc-falhas', 'input', calculateBudget);
@@ -4400,6 +4482,10 @@ function addOrcamentoEventListeners() {
 
     o('add-maquina-btn', 'click', () => {
         openOrcamentoSelectModal('machine');
+    });
+
+    o('add-filamento-btn', 'click', () => {
+        openOrcamentoSelectModal('filamento');
     });
 
     o('orcamento-select-search', 'input', function() {

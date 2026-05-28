@@ -21,6 +21,7 @@ let confirmCallback = null;
 let areEventListenersAdded = false;
 let productSalesReportData = null;
 
+let rascunhos = [];
 let backupInterval = null;
 const BACKUP_INTERVAL_MINUTES = 60;
 
@@ -96,6 +97,70 @@ async function loadOrcamentoDataFromSupabase() {
         console.error("Erro ao carregar dados de orçamento do Supabase:", error);
     }
     saveOrcamentoData();
+    await loadRascunhosFromSupabase();
+    cleanupOldDrafts();
+}
+
+async function loadRascunhosFromSupabase() {
+    try {
+        const { data: rascunhosData } = await supabaseClient.from('rascunhos').select('*');
+        if (rascunhosData && rascunhosData.length > 0) {
+            rascunhos = rascunhosData.map(r => ({
+                id: r.id, date: r.data || '', clienteName: r.cliente_nome || '',
+                clienteId: r.cliente_id ? String(r.cliente_id) : '',
+                produto: r.produto || '', quantidade: parseFloat(r.quantidade) || 1,
+                tempoGasto: parseFloat(r.tempo_gasto) || 0,
+                valorHora: parseFloat(r.valor_hora) || 0,
+                margem: parseFloat(r.margem) || 0,
+                taxa: parseFloat(r.taxa_plataforma) || 0,
+                taxaFixa: parseFloat(r.taxa_fixa) || 0,
+                aluguel: parseFloat(r.aluguel) || 0,
+                internet: parseFloat(r.internet) || 0,
+                mei: parseFloat(r.mei) || 0,
+                outros: parseFloat(r.outros) || 0,
+                horasDia: parseFloat(r.horas_dia) || 1,
+                diasMes: parseFloat(r.dias_mes) || 1,
+                modoCalculo: r.modo_calculo || 'grafica',
+                peso: parseFloat(r.peso) || 0,
+                filamentoId: r.filamento_id ? parseInt(r.filamento_id) : 0,
+                filamentos: r.filamentos_json ? JSON.parse(r.filamentos_json) : [],
+                tempoImpressao: parseFloat(r.tempo_impressao) || 0,
+                falhas: parseFloat(r.falhas) || 10,
+                acabamento: parseFloat(r.acabamento) || 10,
+                fixacao: parseFloat(r.fixacao) || 0.10,
+                roiMeses: parseFloat(r.roi_meses) || 12,
+                maquinasAtivas: parseFloat(r.maquinas_ativas) || 1,
+                custoFixo3D: parseFloat(r.custo_fixo_3d) || 0,
+                precoLuz: parseFloat(r.preco_luz) || 0,
+                horasDia3d: parseFloat(r.horas_dia_3d) || 8,
+                diasMes3d: parseFloat(r.dias_mes_3d) || 22,
+                materials: r.materiais_json ? JSON.parse(r.materiais_json) : [],
+                machines: r.maquinas_json ? JSON.parse(r.maquinas_json) : [],
+                createdAt: r.created_at
+            }));
+            const fixosData = rascunhosData.map(r => {
+                if (r.custos_fixos_json) {
+                    try { return JSON.parse(r.custos_fixos_json); } catch(e) {}
+                }
+                return {};
+            });
+            rascunhos.forEach((r, i) => {
+                const f = fixosData[i] || {};
+                if (f.aluguel !== undefined) r.aluguel = parseFloat(f.aluguel);
+                if (f.internet !== undefined) r.internet = parseFloat(f.internet);
+                if (f.mei !== undefined) r.mei = parseFloat(f.mei);
+                if (f.outros !== undefined) r.outros = parseFloat(f.outros);
+                if (f.horas_dia !== undefined) r.horasDia = parseFloat(f.horas_dia);
+                if (f.dias_mes !== undefined) r.diasMes = parseFloat(f.dias_mes);
+                if (f.custo_fixo_3d !== undefined) r.custoFixo3D = parseFloat(f.custo_fixo_3d);
+                if (f.preco_luz !== undefined) r.precoLuz = parseFloat(f.preco_luz);
+                if (f.horas_dia_3d !== undefined) r.horasDia3d = parseFloat(f.horas_dia_3d);
+                if (f.dias_mes_3d !== undefined) r.diasMes3d = parseFloat(f.dias_mes_3d);
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao carregar rascunhos do Supabase:", error);
+    }
 }
 
 // --- FUNÇÃO PARA SALVAR LOCALMENTE (Para o Caixa e Tema) ---
@@ -1585,6 +1650,8 @@ function openModal(modalId) {
         renderOrcamentoSuppliesList();
     } else if (modalId === 'modal-historico-orcamentos') {
         renderHistoricoOrcamentos();
+    } else if (modalId === 'modal-rascunhos') {
+        renderRascunhos();
     }
 }
 
@@ -2358,6 +2425,7 @@ async function handleEditSale(e) {
 }
 
 function switchView(viewId) {
+    stopAutoSave();
     document.getElementById('dashboard-view').classList.add('hidden');
     document.getElementById('pos-view').classList.add('hidden');
     document.getElementById('orcamento-view').classList.add('hidden');
@@ -2379,6 +2447,7 @@ function switchView(viewId) {
     }
     if (viewId === 'orcamento-view') {
         initOrcamentoModule();
+        startAutoSave();
     }
     if (viewId === 'maquinas-view') {
         renderMaquinasView();
@@ -2807,6 +2876,10 @@ function addEventListeners() {
             viewOrcamentoDetails(parseInt(dataset.id));
         } else if (classList.contains('delete-orcamento-btn')) {
             deleteBudget(parseInt(dataset.id));
+        } else if (classList.contains('load-rascunho-btn')) {
+            loadRascunho(parseInt(dataset.id));
+        } else if (classList.contains('delete-rascunho-btn')) {
+            deleteRascunho(parseInt(dataset.id));
         } else if (classList.contains('save-produto-btn')) {
             const b = savedBudgets.find(x => x.id === parseInt(dataset.id));
             if (b) {
@@ -2919,6 +2992,8 @@ function loadOrcamentoData() {
         if (saved3) filamentCatalog = JSON.parse(saved3);
         const saved4 = localStorage.getItem('orcamentoBudgets');
         if (saved4) savedBudgets = JSON.parse(saved4);
+        const saved5 = localStorage.getItem('orcamentoRascunhos');
+        if (saved5 && rascunhos.length === 0) rascunhos = JSON.parse(saved5);
     } catch (e) { console.error(e); }
 }
 
@@ -3012,6 +3087,7 @@ function saveOrcamentoData() {
         localStorage.setItem('orcamentoSupplies', JSON.stringify(supplyCatalog));
         localStorage.setItem('orcamentoFilaments', JSON.stringify(filamentCatalog));
         localStorage.setItem('orcamentoBudgets', JSON.stringify(savedBudgets));
+        localStorage.setItem('orcamentoRascunhos', JSON.stringify(rascunhos));
     } catch (e) { console.error(e); }
 }
 
@@ -3079,6 +3155,8 @@ async function syncBudgetsToSupabase() {
                     custo_fixo_3d: b.custoFixo3D || 0, preco_luz: b.precoLuz || 0,
                     horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22
                 }),
+                modo_calculo: b.modoCalculo || 'grafica',
+                status: b.status || 'rascunho',
                 created_at: b.createdAt
             }]);
             if (error) {
@@ -3969,7 +4047,7 @@ async function saveBudget() {
         machines: JSON.parse(JSON.stringify(currentBudgetMachines)),
         custoMateriais, custoMaquinas, custoMO, custoFixo, custoTotal,
         precoSugerido, precoFinal, lucro,
-        status: 'rascunho',
+        status: 'finalizado',
         createdAt: editingBudgetId ? (savedBudgets.find(b => b.id === editingBudgetId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
     };
 
@@ -4000,6 +4078,7 @@ async function saveBudget() {
             maquinas_ativas: budget.maquinasAtivas || 1,
             custo_materiais: budget.custoMateriais, custo_maquinas: budget.custoMaquinas,
             custo_mo: budget.custoMO, custo_fixo: budget.custoFixo || 0,
+            status: budget.status,
             created_at: budget.createdAt || new Date().toISOString()
         }]);
         sbError = error;
@@ -4011,6 +4090,14 @@ async function saveBudget() {
         console.error('Detalhes completos:', JSON.stringify(sbError, null, 2));
         showToast('Erro ao salvar no banco: ' + (sbError.message || sbError.details || sbError.code || 'erro desconhecido'), 'error');
         return;
+    }
+
+    // Remove rascunho da tabela rascunhos se existir
+    try {
+        await supabaseClient.from('rascunhos').delete().eq('id', budget.id);
+        rascunhos = rascunhos.filter(r => r.id !== budget.id);
+    } catch (e) {
+        // silent - rascunho pode não existir
     }
 
     const isEditing = !!editingBudgetId;
@@ -4026,8 +4113,12 @@ async function saveBudget() {
     }
     saveOrcamentoData();
 
+    stopAutoSave();
+    lastAutoSaveState = '';
+
     showToast('Orçamento salvo com sucesso!');
     resetBudgetForm();
+    startAutoSave();
 }
 
 function resetBudgetForm() {
@@ -4048,6 +4139,8 @@ function resetBudgetForm() {
     if (precoFinalInput) precoFinalInput.value = '';
     orcPrecoFinalChanged = false;
     editingBudgetId = null;
+    lastAutoSaveState = '';
+    if (autoSaveTimeout) { clearTimeout(autoSaveTimeout); autoSaveTimeout = null; }
     document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
     loadOrcamentoAdvancedConfig();
     toggleOrcamentoMode();
@@ -4055,8 +4148,207 @@ function resetBudgetForm() {
     showToast('Novo orçamento iniciado!');
 }
 
+// ===================================================================================
+// AUTO-SAVE DE RASCUNHOS
+// ===================================================================================
+let autoSaveInterval = null;
+let autoSaveTimeout = null;
+let lastAutoSaveState = '';
+
+function getFormState() {
+    const produto = document.getElementById('orc-produto')?.value.trim() || '';
+    const cliente = document.getElementById('orc-cliente')?.value || '';
+    const data = document.getElementById('orc-data')?.value || '';
+    const qtd = document.getElementById('orc-quantidade')?.value || '';
+    return produto + '|' + cliente + '|' + data + '|' + qtd;
+}
+
+async function autoSaveDraft() {
+    const produto = document.getElementById('orc-produto')?.value.trim();
+    if (!produto) return;
+    const state = getFormState();
+    if (state === lastAutoSaveState) return;
+
+    const indicator = document.getElementById('auto-save-indicator');
+    if (indicator) indicator.classList.remove('hidden');
+
+    const clienteSelect = document.getElementById('orc-cliente');
+    const clienteName = clienteSelect.value ? clienteSelect.options[clienteSelect.selectedIndex]?.text : 'Sem cliente';
+    const qtd = parseFloat(document.getElementById('orc-quantidade').value) || 1;
+    const data = document.getElementById('orc-data').value || new Date().toISOString().split('T')[0];
+    const tempoGasto = parseFloat(document.getElementById('orc-tempo-gasto').value) || 0;
+    const valorHora = parseFloat(document.getElementById('orc-valor-hora').value) || 0;
+    const margem = parseFloat(document.getElementById('orc-margem').value) || 0;
+    const taxa = parseFloat(document.getElementById('orc-taxa-plataforma').value) || 0;
+    const taxaFixa = parseFloat(document.getElementById('orc-taxa-fixa').value) || 0;
+    const aluguel = parseFloat(document.getElementById('orc-aluguel').value) || 0;
+    const internet = parseFloat(document.getElementById('orc-internet').value) || 0;
+    const mei = parseFloat(document.getElementById('orc-mei').value) || 0;
+    const outros = parseFloat(document.getElementById('orc-outros').value) || 0;
+    const horasDia = parseFloat(document.getElementById('orc-horas-dia').value) || 1;
+    const diasMes = parseFloat(document.getElementById('orc-dias-mes').value) || 1;
+    const modo = document.getElementById('orc-modo-calculo').value;
+
+    const budget = {
+        id: editingBudgetId || Date.now(),
+        date: data, clienteId: clienteSelect.value || '', clienteName, produto, quantidade: qtd,
+        tempoGasto, valorHora, margem, taxa, taxaFixa,
+        aluguel, internet, mei, outros, horasDia, diasMes,
+        modoCalculo: modo,
+        peso: currentBudgetFilaments.reduce((sum, f) => sum + f.weight, 0),
+        filamentoId: currentBudgetFilaments.length > 0 ? currentBudgetFilaments[0].filamentoId || currentBudgetFilaments[0].filamentId : 0,
+        filamentos: JSON.parse(JSON.stringify(currentBudgetFilaments)),
+        tempoImpressao: getTempoImpressaoMin(),
+        falhas: parseFloat(document.getElementById('orc-falhas').value) || 0,
+        acabamento: parseFloat(document.getElementById('orc-acabamento').value) || 0,
+        fixacao: parseFloat(document.getElementById('orc-fixacao').value) || 0,
+        roiMeses: parseFloat(document.getElementById('orc-roi-meses').value) || 12,
+        maquinasAtivas: parseFloat(document.getElementById('orc-maquinas-ativas').value) || 1,
+        custoFixo3D: parseFloat(document.getElementById('orc-custo-fixo-3d').value) || 0,
+        precoLuz: parseFloat(document.getElementById('orc-preco-luz').value) || 0,
+        horasDia3d: parseFloat(document.getElementById('orc-horas-dia-3d').value) || 8,
+        diasMes3d: parseFloat(document.getElementById('orc-dias-mes-3d').value) || 22,
+        materials: JSON.parse(JSON.stringify(currentBudgetMaterials)),
+        machines: JSON.parse(JSON.stringify(currentBudgetMachines)),
+        custoMateriais: 0, custoMaquinas: 0, custoMO: 0, custoFixo: 0,
+        custoTotal: 0, precoSugerido: 0, precoFinal: 0, lucro: 0,
+        status: 'rascunho',
+        createdAt: editingBudgetId ? (rascunhos.find(r => r.id === editingBudgetId)?.createdAt || savedBudgets.find(b => b.id === editingBudgetId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+    };
+
+    try {
+        await supabaseClient.from('rascunhos').upsert([{
+            id: budget.id, data: budget.date, cliente_nome: budget.clienteName,
+            cliente_id: budget.clienteId,
+            produto: budget.produto, quantidade: budget.quantidade,
+            tempo_gasto: budget.tempoGasto, valor_hora: budget.valorHora,
+            margem: budget.margem, taxa_plataforma: budget.taxa, taxa_fixa: budget.taxaFixa || 0,
+            aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
+            horas_dia: budget.horasDia, dias_mes: budget.diasMes,
+            modo_calculo: budget.modoCalculo,
+            peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
+            filamentos_json: JSON.stringify(budget.filamentos || []),
+            tempo_impressao: budget.tempoImpressao || 0,
+            falhas: budget.falhas || 10, acabamento: budget.acabamento || 10,
+            fixacao: budget.fixacao || 0.10, roi_meses: budget.roiMeses || 12,
+            maquinas_ativas: budget.maquinasAtivas || 1,
+            custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
+            horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22,
+            materiais_json: JSON.stringify(budget.materials || []),
+            maquinas_json: JSON.stringify(budget.machines || []),
+            custos_fixos_json: JSON.stringify({
+                aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
+                horas_dia: budget.horasDia, dias_mes: budget.diasMes,
+                custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
+                horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
+            }),
+            created_at: budget.createdAt
+        }]);
+    } catch (e) {
+        console.error('Erro ao salvar rascunho no Supabase (tabela pode nao existir):', e);
+    }
+    // Always update in-memory array regardless of DB result
+    lastAutoSaveState = state;
+    if (!editingBudgetId) editingBudgetId = budget.id;
+    const idx = rascunhos.findIndex(r => r.id === budget.id);
+    if (idx !== -1) {
+        rascunhos[idx] = budget;
+    } else {
+        rascunhos.push(budget);
+    }
+    saveOrcamentoData();
+
+    if (indicator) indicator.classList.add('hidden');
+}
+
+function startAutoSave() {
+    stopAutoSave();
+    lastAutoSaveState = '';
+    autoSaveInterval = setInterval(autoSaveDraft, 30000);
+}
+
+function stopAutoSave() {
+    if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
+    }
+    if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = null;
+    }
+}
+
+// ===================================================================================
+// MODAL DE RASCUNHOS
+// ===================================================================================
+function renderRascunhos() {
+    const container = document.getElementById('rascunhos-list');
+    if (!container) return;
+
+    const drafts = [...rascunhos].sort((a, b) => new Date(b.date + 'T00:00:00') - new Date(a.date + 'T00:00:00'));
+
+    if (drafts.length === 0) {
+        container.innerHTML = '<div class="text-center py-12 text-[var(--text-secondary)]"><i class="fas fa-file-pen text-4xl mb-3 opacity-50"></i><p>Nenhum rascunho salvo.</p></div>';
+        return;
+    }
+
+    let html = `<table class="w-full text-sm">
+        <thead><tr class="border-b text-left text-[var(--text-secondary)]">
+            <th class="p-2">Data</th>
+            <th class="p-2">Cliente</th>
+            <th class="p-2">Produto</th>
+            <th class="p-2 text-right">Ações</th>
+        </tr></thead><tbody>`;
+
+    drafts.forEach(d => {
+        html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2">${d.date || '-'}</td>
+            <td class="p-2">${d.clienteName || '-'}</td>
+            <td class="p-2 font-medium">${d.produto}</td>
+            <td class="p-2 text-right whitespace-nowrap">
+                <button data-id="${d.id}" class="load-rascunho-btn bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"><i class="fas fa-edit"></i> Editar</button>
+                <button data-id="${d.id}" class="delete-rascunho-btn bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 ml-1"><i class="fas fa-trash"></i> Excluir</button>
+            </td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function loadRascunho(id) {
+    loadBudget(id);
+    editingBudgetId = id;
+    document.getElementById('salvar-orcamento-btn').textContent = 'Finalizar Orçamento';
+    closeModal('modal-rascunhos');
+    startAutoSave();
+}
+
+function deleteRascunho(id) {
+    openConfirmationModal('Excluir Rascunho', 'Tem certeza que deseja excluir este rascunho?', async () => {
+        let sbError;
+        try {
+            const { error } = await supabaseClient.from('rascunhos').delete().eq('id', id);
+            sbError = error;
+        } catch (e) {
+            sbError = e;
+        }
+        if (sbError) {
+            showToast('Erro ao excluir rascunho: ' + (sbError.message || sbError), 'error');
+            return;
+        }
+        rascunhos = rascunhos.filter(r => r.id !== id);
+        if (editingBudgetId === id) {
+            editingBudgetId = null;
+            document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
+        }
+        renderRascunhos();
+    });
+}
+
 function loadBudget(id) {
-    const budget = savedBudgets.find(b => b.id === id);
+    let budget = savedBudgets.find(b => b.id === id);
+    if (!budget) budget = rascunhos.find(r => r.id === id);
     if (!budget) { showToast('Orçamento não encontrado!', 'error'); return; }
     document.getElementById('orc-data').value = budget.date;
     const clienteSelect = document.getElementById('orc-cliente');
@@ -4138,6 +4430,41 @@ function deleteBudget(id) {
     });
 }
 
+async function cleanupOldDrafts() {
+    try {
+        const seteDiasAtras = new Date();
+        seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+        const dataLimite = seteDiasAtras.toISOString();
+
+        const { data: oldDrafts, error: selectError } = await supabaseClient
+            .from('rascunhos')
+            .select('id')
+            .lt('created_at', dataLimite);
+
+        if (selectError) {
+            console.error('Erro ao buscar rascunhos antigos:', selectError);
+            return;
+        }
+
+        if (oldDrafts && oldDrafts.length > 0) {
+            const ids = oldDrafts.map(d => d.id);
+            const { error: deleteError } = await supabaseClient
+                .from('rascunhos')
+                .delete()
+                .in('id', ids);
+
+            if (deleteError) {
+                console.error('Erro ao deletar rascunhos antigos:', deleteError);
+                return;
+            }
+
+            rascunhos = rascunhos.filter(r => !ids.includes(r.id));
+        }
+    } catch (e) {
+        console.error('Erro na limpeza de rascunhos:', e);
+    }
+}
+
 function populateHistoricoMonthYear() {
     const mesSelect = document.getElementById('historico-mes-select');
     const anoSelect = document.getElementById('historico-ano-select');
@@ -4191,7 +4518,6 @@ function renderHistoricoOrcamentos() {
             <th class="p-2 whitespace-nowrap">Data</th>
             <th class="p-2 whitespace-nowrap">Cliente</th>
             <th class="p-2 whitespace-nowrap">Produto</th>
-            <th class="p-2 whitespace-nowrap">Filamentos</th>
             <th class="p-2 text-right whitespace-nowrap">Custo Total</th>
             <th class="p-2 text-right whitespace-nowrap">Venda Total</th>
             <th class="p-2 text-right whitespace-nowrap">Lucro Total</th>
@@ -4214,19 +4540,10 @@ function renderHistoricoOrcamentos() {
         const taxaTotal = (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0);
         const lucroClass = b.lucro >= 0 ? 'text-green-600' : 'text-red-600';
 
-        const filamentos = b.filamentos && b.filamentos.length > 0 ? b.filamentos : [];
-        let filamentosHtml = '';
-        if (filamentos.length > 0) {
-            filamentosHtml = filamentos.map(f => `${f.name}: ${f.weight}g`).join(', ');
-            filamentosHtml = `<span class="text-xs text-[var(--text-secondary)]" title="${filamentosHtml.replace(/"/g, '&quot;')}">${filamentos.map(f => f.name).join(', ')}</span>`;
-        } else {
-            filamentosHtml = '<span class="text-xs text-[var(--text-tertiary)]">-</span>';
-        }
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
             <td class="p-2 font-medium whitespace-nowrap">${b.produto}</td>
-            <td class="p-2 whitespace-nowrap">${filamentosHtml}</td>
             <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
             <td class="p-2 text-right ${lucroClass} font-semibold">${formatCurrency(b.lucro)}</td>
@@ -4250,7 +4567,7 @@ function renderHistoricoOrcamentos() {
     html += `</tbody>
         <tfoot>
             <tr class="border-t-2 border-[var(--text-secondary)] font-bold">
-                <td class="p-2" colspan="4">Total (${filtered.length} orçamentos)</td>
+                <td class="p-2" colspan="3">Total (${filtered.length} orçamentos)</td>
                 <td class="p-2 text-right text-red-600">${formatCurrency(totalCusto)}</td>
                 <td class="p-2 text-right text-green-600">${formatCurrency(totalVenda)}</td>
                 <td class="p-2 text-right ${totalLucro >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(totalLucro)}</td>
@@ -4500,6 +4817,19 @@ function addOrcamentoEventListeners() {
 
     o('orcamento-select-search', 'input', function() {
         renderOrcamentoSelectList(this.value);
+    });
+
+    // Auto-save on any input change (debounced 2s)
+    document.getElementById('orcamento-view')?.addEventListener('input', (e) => {
+        if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(() => autoSaveDraft(), 2000);
+    });
+
+    // Auto-save on blur of key fields
+    ['orc-produto', 'orc-cliente', 'orc-quantidade', 'orc-data', 'orc-tempo-gasto',
+     'orc-valor-hora', 'orc-margem', 'orc-taxa-plataforma', 'orc-taxa-fixa'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('blur', () => autoSaveDraft());
     });
 
     o('salvar-orcamento-btn', 'click', saveBudget);

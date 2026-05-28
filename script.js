@@ -58,6 +58,7 @@ async function loadOrcamentoDataFromSupabase() {
                 valorHora: parseFloat(b.valor_hora),
                 materials: b.materiais_json ? JSON.parse(b.materiais_json) : [],
                 machines: b.maquinas_json ? JSON.parse(b.maquinas_json) : [],
+                filamentos: b.filamentos_json ? JSON.parse(b.filamentos_json) : [],
                 custoMateriais: parseFloat(b.custo_materiais) || 0,
                 custoMaquinas: parseFloat(b.custo_maquinas) || 0,
                 custoMO: parseFloat(b.custo_mo) || 0,
@@ -3940,8 +3941,9 @@ async function saveBudget() {
         tempoGastoFinal = tempoImpressaoFinal;
         valorHoraFinal = 0;
     }
+    const budgetId = editingBudgetId || Date.now();
     const budget = {
-        id: Date.now(),
+        id: budgetId,
         date: data,
         clienteId: clienteSelect.value || '',
         clienteName,
@@ -3968,14 +3970,13 @@ async function saveBudget() {
         custoMateriais, custoMaquinas, custoMO, custoFixo, custoTotal,
         precoSugerido, precoFinal, lucro,
         status: 'rascunho',
-        createdAt: new Date().toISOString()
+        createdAt: editingBudgetId ? (savedBudgets.find(b => b.id === editingBudgetId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
     };
 
-    const bId = budget.id;
     let sbError;
     try {
         const { error } = await supabaseClient.from('orcamentos').upsert([{
-            id: bId, data: budget.date, cliente_nome: budget.clienteName,
+            id: budget.id, data: budget.date, cliente_nome: budget.clienteName,
             cliente_id: budget.clienteId ? parseInt(budget.clienteId) : null,
             produto: budget.produto, quantidade: budget.quantidade,
             custo_total: budget.custoTotal, preco_sugerido: budget.precoSugerido,
@@ -4016,8 +4017,6 @@ async function saveBudget() {
     if (editingBudgetId) {
         const idx = savedBudgets.findIndex(b => b.id === editingBudgetId);
         if (idx !== -1) {
-            budget.id = editingBudgetId;
-            budget.createdAt = savedBudgets[idx].createdAt;
             savedBudgets[idx] = budget;
         }
         editingBudgetId = null;
@@ -4187,11 +4186,12 @@ function renderHistoricoOrcamentos() {
     const totalVenda = filtered.reduce((s, b) => s + b.precoFinal, 0);
     const totalLucro = filtered.reduce((s, b) => s + b.lucro, 0);
 
-    let html = `<div class="overflow-x-auto"><table class="w-full text-left text-sm">
+    let html = `<table class="w-full text-left text-sm">
         <thead><tr class="border-b text-[var(--text-secondary)]">
             <th class="p-2 whitespace-nowrap">Data</th>
             <th class="p-2 whitespace-nowrap">Cliente</th>
             <th class="p-2 whitespace-nowrap">Produto</th>
+            <th class="p-2 whitespace-nowrap">Filamentos</th>
             <th class="p-2 text-right whitespace-nowrap">Custo Total</th>
             <th class="p-2 text-right whitespace-nowrap">Venda Total</th>
             <th class="p-2 text-right whitespace-nowrap">Lucro Total</th>
@@ -4214,10 +4214,19 @@ function renderHistoricoOrcamentos() {
         const taxaTotal = (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0);
         const lucroClass = b.lucro >= 0 ? 'text-green-600' : 'text-red-600';
 
+        const filamentos = b.filamentos && b.filamentos.length > 0 ? b.filamentos : [];
+        let filamentosHtml = '';
+        if (filamentos.length > 0) {
+            filamentosHtml = filamentos.map(f => `${f.name}: ${f.weight}g`).join(', ');
+            filamentosHtml = `<span class="text-xs text-[var(--text-secondary)]" title="${filamentosHtml.replace(/"/g, '&quot;')}">${filamentos.map(f => f.name).join(', ')}</span>`;
+        } else {
+            filamentosHtml = '<span class="text-xs text-[var(--text-tertiary)]">-</span>';
+        }
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
             <td class="p-2 font-medium whitespace-nowrap">${b.produto}</td>
+            <td class="p-2 whitespace-nowrap">${filamentosHtml}</td>
             <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
             <td class="p-2 text-right ${lucroClass} font-semibold">${formatCurrency(b.lucro)}</td>
@@ -4241,7 +4250,7 @@ function renderHistoricoOrcamentos() {
     html += `</tbody>
         <tfoot>
             <tr class="border-t-2 border-[var(--text-secondary)] font-bold">
-                <td class="p-2" colspan="3">Total (${filtered.length} orçamentos)</td>
+                <td class="p-2" colspan="4">Total (${filtered.length} orçamentos)</td>
                 <td class="p-2 text-right text-red-600">${formatCurrency(totalCusto)}</td>
                 <td class="p-2 text-right text-green-600">${formatCurrency(totalVenda)}</td>
                 <td class="p-2 text-right ${totalLucro >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(totalLucro)}</td>
@@ -4253,7 +4262,7 @@ function renderHistoricoOrcamentos() {
                 <td class="p-2 text-right text-purple-600">${formatCurrency(totalTaxa)}</td>
                 <td class="p-2 text-center"></td>
             </tr>
-        </tfoot></table></div>`;
+        </tfoot></table>`;
     container.innerHTML = html;
     if (summaryDiv) summaryDiv.innerHTML = '';
 }
@@ -4301,11 +4310,12 @@ function viewOrcamentoDetails(id) {
         if (b.modoCalculo === 'misto') {
             html += `<h4 class="font-semibold text-xs mb-1">IMPRESSÃO 3D</h4>`;
         }
-        const filaments = b.filamentos || (b.peso && b.filamentoId ? [{ name: 'Filamento', weight: b.peso, priceKg: 0 }] : []);
+        const filaments = b.filamentos && b.filamentos.length > 0 ? b.filamentos : (b.peso && b.filamentoId ? [{ name: 'Filamento', weight: b.peso, priceKg: 0 }] : []);
         if (filaments.length > 0) {
             html += `<h5 class="font-semibold text-xs mt-2 mb-1">Filamentos:</h5>`;
             filaments.forEach(f => {
-                html += `<div class="flex justify-between text-xs"><span>${f.name}:</span><span>${f.weight}g</span></div>`;
+                const custoFil = (f.weight / 1000) * (f.priceKg || 0);
+                html += `<div class="flex justify-between text-xs"><span>${f.name}:</span><span>${f.weight}g ${custoFil > 0 ? ' - ' + formatCurrency(custoFil) : ''}</span></div>`;
             });
         }
         html += `

@@ -71,7 +71,8 @@ async function loadOrcamentoDataFromSupabase() {
                 fixacao: parseFloat(b.fixacao) || 0.10, roiMeses: parseFloat(b.roi_meses) || 12,
                 maquinasAtivas: parseFloat(b.maquinas_ativas) || 1,
                 aluguel: 0, internet: 0, mei: 0, outros: 0, horasDia: 1, diasMes: 1,
-                status: b.status || 'rascunho', createdAt: b.created_at || b.data
+                status: b.status || 'rascunho', createdAt: b.created_at || b.data,
+                isKit: b.is_kit || false, precoKit: parseFloat(b.preco_kit) || 0
             }));
             const fixosData = orcamentosData.map(b => {
                 if (b.custos_fixos_json) {
@@ -2891,8 +2892,11 @@ function addEventListeners() {
                         showToast('Produto "' + b.produto + '" já existe no catálogo!', 'error');
                         return;
                     }
-                    const qtd = b.quantidade || 1;
-                    await addProduct(b.produto, b.precoFinal / qtd, b.custoTotal / qtd, 1, '');
+                    const isKit = b.isKit || b.produto?.startsWith('KIT - ');
+                    const qtd = isKit ? 1 : (b.quantidade || 1);
+                    const precoProd = isKit ? b.precoFinal : (b.precoFinal / qtd);
+                    const custoProd = isKit ? b.custoTotal : (b.custoTotal / qtd);
+                    await addProduct(b.produto, precoProd, custoProd, 1, '');
                     const novo = products.find(p => p.name.toLowerCase() === b.produto.toLowerCase());
                     if (novo) {
                         novo.budgetData = {
@@ -4088,6 +4092,8 @@ async function saveBudget() {
             custo_materiais: budget.custoMateriais, custo_maquinas: budget.custoMaquinas,
             custo_mo: budget.custoMO, custo_fixo: budget.custoFixo || 0,
             status: budget.status,
+            is_kit: budget.isKit || false,
+            preco_kit: budget.precoKit || 0,
             created_at: budget.createdAt || new Date().toISOString()
         }]);
         sbError = error;
@@ -4517,6 +4523,15 @@ function populateHistoricoMonthYear() {
     }
 }
 
+function modoBadge(modo) {
+    const map = {
+        grafica: '<span class="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-1.5 py-0.5 rounded font-bold">GRÁFICA</span>',
+        impressao3d: '<span class="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 px-1.5 py-0.5 rounded font-bold">3D</span>',
+        misto: '<span class="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 px-1.5 py-0.5 rounded font-bold">MISTO</span>'
+    };
+    return map[modo] || '<span class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">—</span>';
+}
+
 function renderHistoricoOrcamentos() {
     const container = document.getElementById('historico-orcamentos-list');
     const summaryDiv = document.getElementById('historico-orcamentos-summary');
@@ -4526,8 +4541,12 @@ function renderHistoricoOrcamentos() {
 
     const mes = parseInt(document.getElementById('historico-mes-select').value);
     const ano = parseInt(document.getElementById('historico-ano-select').value);
+    const modoFilter = document.getElementById('historico-modo-select').value;
 
     let filtered = [...savedBudgets];
+    if (modoFilter) {
+        filtered = filtered.filter(b => (b.modoCalculo || 'grafica') === modoFilter);
+    }
     if (mes >= 0 && !isNaN(ano)) {
         filtered = filtered.filter(b => {
             const d = new Date(b.date + 'T00:00:00');
@@ -4548,10 +4567,11 @@ function renderHistoricoOrcamentos() {
     const totalLucro = filtered.reduce((s, b) => s + b.lucro, 0);
 
     let html = `<table class="w-full text-left text-sm">
-        <thead><tr class="border-b text-[var(--text-secondary)]">
+        <thead class="sticky top-0 bg-[var(--bg-primary)] z-10"><tr class="border-b text-[var(--text-secondary)]">
             <th class="p-2 whitespace-nowrap">Data</th>
             <th class="p-2 whitespace-nowrap">Cliente</th>
             <th class="p-2 whitespace-nowrap">Produto</th>
+            <th class="p-2 text-center whitespace-nowrap">Tipo</th>
             <th class="p-2 text-right whitespace-nowrap">Custo Total</th>
             <th class="p-2 text-right whitespace-nowrap">Venda Total</th>
             <th class="p-2 text-right whitespace-nowrap">Lucro Total</th>
@@ -4578,6 +4598,7 @@ function renderHistoricoOrcamentos() {
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
             <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.isKit ? ' <span class="text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded font-bold">KIT</span>' : ''}</td>
+            <td class="p-2 text-center">${modoBadge(b.modoCalculo)}</td>
             <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
             <td class="p-2 text-right ${lucroClass} font-semibold">${formatCurrency(b.lucro)}</td>
@@ -4899,6 +4920,7 @@ function addOrcamentoEventListeners() {
     o('historico-todos-btn', 'click', () => {
         document.getElementById('historico-mes-select').value = '-1';
         document.getElementById('historico-ano-select').value = new Date().getFullYear();
+        document.getElementById('historico-modo-select').value = '';
         renderHistoricoOrcamentos();
     });
 

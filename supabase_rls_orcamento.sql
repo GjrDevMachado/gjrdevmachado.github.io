@@ -1,6 +1,8 @@
 -- Add missing columns to orcamentos table
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS filamentos_json TEXT DEFAULT '[]';
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'rascunho';
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS is_kit BOOLEAN DEFAULT FALSE;
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS preco_kit NUMERIC DEFAULT 0;
 
 -- Add kit columns to existing rascunhos (if table already exists)
 ALTER TABLE rascunhos ADD COLUMN IF NOT EXISTS is_kit BOOLEAN DEFAULT FALSE;

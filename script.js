@@ -4085,11 +4085,19 @@ document.getElementById('orcamento-select-confirm').addEventListener('click', fu
     closeModal('modal-orcamento-select');
 });
 
+let isSavingBudget = false;
+
 async function saveBudget() {
+    if (isSavingBudget) { showToast('Já está salvando...', 'warning'); return; }
+    const produtoCheck = document.getElementById('orc-produto')?.value.trim();
+    if (!produtoCheck) { showToast('Informe o nome do produto/serviço!', 'error'); return; }
+    isSavingBudget = true;
+    const btn = document.getElementById('salvar-orcamento-btn');
+    if (btn) btn.disabled = true;
+    try {
     const clienteSelect = document.getElementById('orc-cliente');
     const clienteName = clienteSelect.value ? clienteSelect.options[clienteSelect.selectedIndex]?.text : 'Sem cliente';
-    const produto = document.getElementById('orc-produto').value.trim();
-    if (!produto) { showToast('Informe o nome do produto/serviço!', 'error'); return; }
+    const produto = produtoCheck;
 
     const isKit = document.getElementById('orc-kit-check').checked;
     const precoKit = isKit ? parseFloat(document.getElementById('orc-preco-kit').value.replace(',', '.')) || 0 : 0;
@@ -4313,6 +4321,10 @@ async function saveBudget() {
     showToast('Orçamento salvo com sucesso!');
     resetBudgetForm();
     startAutoSave();
+    } finally {
+        isSavingBudget = false;
+        if (btn) btn.disabled = false;
+    }
 }
 
 function resetBudgetForm() {

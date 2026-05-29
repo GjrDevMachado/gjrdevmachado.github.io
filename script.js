@@ -3180,6 +3180,7 @@ function addEventListeners() {
                             custoMaquinas: b.custoMaquinas,
                             custoMO: b.custoMO,
                             custoFixo: b.custoFixo,
+                            custoTotal: b.custoTotal,
                             quantidade: b.quantidade,
                             modoCalculo: b.modoCalculo,
                             peso: b.peso,
@@ -5050,6 +5051,7 @@ function showProductBudgetDetails(p) {
                 custoMaquinas: last.custoMaquinas,
                 custoMO: last.custoMO,
                 custoFixo: last.custoFixo,
+                custoTotal: last.custoTotal,
                 quantidade: last.quantidade,
                 modoCalculo: last.modoCalculo,
                 peso: last.peso || 0,
@@ -5105,7 +5107,7 @@ function showProductBudgetDetails(p) {
     }
     const custoMO = (d.tempoGasto / 60) * d.valorHora;
     const qtd = d.quantidade || 1;
-    const custoTotal = (d.custoMateriais || 0) + (d.custoMaquinas || 0) + (custoMO || 0) + (d.custoFixo || 0);
+    const custoTotal = d.custoTotal !== undefined ? d.custoTotal : (d.custoMateriais || 0) + (d.custoMaquinas || 0) + (custoMO || 0) + (d.custoFixo || 0);
     const precoFinal = d.precoFinal || p.price * qtd;
     const lucroTotal = d.lucro || (precoFinal - custoTotal);
     const modo = d.modoCalculo || (d.tempoImpressao ? 'impressao3d' : 'grafica');

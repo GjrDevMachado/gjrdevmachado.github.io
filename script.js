@@ -2731,11 +2731,6 @@ function addEventListeners() {
     });
 
     document.querySelectorAll('.open-modal-btn').forEach(btn => btn.addEventListener('click', () => openModal(btn.dataset.modalId)));
-    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-        backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) closeModal(backdrop.id);
-        });
-    });
     document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', (e) => closeModal(e.target.closest('.modal-backdrop').id)));
 
     safeAddListener('confirm-cancel-btn', 'click', () => closeModal('modal-confirm'));

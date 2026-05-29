@@ -316,7 +316,19 @@
                                 </div>
                                 <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium mb-1">Produto/Serviço</label>
-                                    <input type="text" id="orc-produto" placeholder="Ex: LIVRINHOS COLORIR" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    <div class="flex gap-2">
+                                        <input type="text" id="orc-produto" placeholder="Ex: LIVRINHOS COLORIR" class="flex-1 border rounded p-2 bg-[var(--bg-secondary)]">
+                                        <input type="hidden" id="orc-produto-id" value="">
+                                        <button type="button" id="btn-vincular-produto" class="px-3 py-2 rounded border border-[var(--primary-600)] text-[var(--primary-600)] hover:bg-[var(--primary-50)]" title="Vincular produto existente">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                        <button type="button" id="btn-desvincular-produto" class="px-3 py-2 rounded border border-red-500 text-red-500 hover:bg-red-50 hidden" title="Remover vínculo">
+                                            <i class="fas fa-unlink"></i>
+                                        </button>
+                                    </div>
+                                    <div id="produto-vinculado-info" class="hidden text-xs text-[var(--primary-600)] mt-1">
+                                        <i class="fas fa-check-circle"></i> Vinculado a: <span id="produto-vinculado-nome"></span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-4 mb-4">
@@ -691,6 +703,20 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-selecionar-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold">Selecionar Produto</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div class="mb-4 relative">
+                <input type="text" id="search-select-produto" placeholder="Pesquisar produto por nome..." class="w-full p-2 pl-10 border rounded bg-[var(--bg-primary)]">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
+            </div>
+            <div id="select-product-list-container" class="max-h-96 overflow-y-auto"></div>
         </div>
     </div>
 

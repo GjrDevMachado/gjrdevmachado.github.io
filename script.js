@@ -74,7 +74,8 @@ async function loadOrcamentoDataFromSupabase() {
                 maquinasAtivas: parseFloat(b.maquinas_ativas) || 1,
                 aluguel: 0, internet: 0, mei: 0, outros: 0, horasDia: 1, diasMes: 1,
                 status: b.status || 'rascunho', createdAt: b.created_at || b.data,
-                isKit: b.is_kit || false, precoKit: parseFloat(b.preco_kit) || 0
+                isKit: b.is_kit || false, precoKit: parseFloat(b.preco_kit) || 0,
+                produtoId: b.produto_id ? parseInt(b.produto_id) : null
             }));
             const fixosData = orcamentosData.map(b => {
                 if (b.custos_fixos_json) {
@@ -141,6 +142,7 @@ async function loadRascunhosFromSupabase() {
                 machines: r.maquinas_json ? JSON.parse(r.maquinas_json) : [],
                 isKit: r.is_kit || false,
                 precoKit: parseFloat(r.preco_kit) || 0,
+                produtoId: r.produto_id ? parseInt(r.produto_id) : null,
                 createdAt: r.created_at
             }));
             const fixosData = rascunhosData.map(r => {
@@ -431,10 +433,74 @@ function renderProducts(filter = '', categoryId = 'all') {
             <div class="flex justify-end gap-1 pt-2 border-t border-[var(--border-color)]" data-no-action>
                 <button data-id="${product.id}" class="edit-product-btn text-blue-500 hover:text-blue-700 p-1 transition-colors" title="Editar ${product.name}"><i class="fas fa-edit"></i></button>
                 <button data-id="${product.id}" class="view-product-budget-btn text-yellow-600 hover:text-yellow-800 p-1 transition-colors" title="Detalhes"><i class="fas fa-clipboard-list"></i></button>
+                <button data-id="${product.id}" class="view-linked-budgets-btn text-purple-600 hover:text-purple-800 p-1 transition-colors" title="Ver orçamentos vinculados"><i class="fas fa-file-invoice"></i></button>
             </div>
         `;
         productGrid.appendChild(card);
     });
+}
+
+function updateVincularUI() {
+    const produtoId = document.getElementById('orc-produto-id').value;
+    const produtoNome = document.getElementById('orc-produto').value;
+    const info = document.getElementById('produto-vinculado-info');
+    const nomeSpan = document.getElementById('produto-vinculado-nome');
+    const btnVincular = document.getElementById('btn-vincular-produto');
+    const btnDesvincular = document.getElementById('btn-desvincular-produto');
+    if (produtoId) {
+        info.classList.remove('hidden');
+        nomeSpan.textContent = produtoNome;
+        btnVincular.classList.add('hidden');
+        btnDesvincular.classList.remove('hidden');
+    } else {
+        info.classList.add('hidden');
+        btnVincular.classList.remove('hidden');
+        btnDesvincular.classList.add('hidden');
+    }
+}
+
+function renderSelectProductList(filter = '') {
+    const container = document.getElementById('select-product-list-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const filtered = products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase()));
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 mt-4">Nenhum produto encontrado.</p>';
+        return;
+    }
+
+    let html = '<table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Produto</th><th class="p-2 text-right">Preço</th><th class="p-2 text-right">Custo</th><th class="p-2 text-center">Selecionar</th></tr></thead><tbody>';
+    filtered.forEach(p => {
+        html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2 font-medium">${p.name}</td>
+            <td class="p-2 text-right">${formatCurrency(p.price)}</td>
+            <td class="p-2 text-right text-red-500">${formatCurrency(p.cost)}</td>
+            <td class="p-2 text-center">
+                <button data-id="${p.id}" data-name="${p.name}" class="select-product-btn text-green-600 hover:text-green-800 p-1" title="Selecionar ${p.name}"><i class="fas fa-check-circle"></i> Vincular</button>
+            </td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function openProductSelector() {
+    renderSelectProductList('');
+    openModal('modal-selecionar-produto');
+}
+
+function selectProduto(id, name) {
+    document.getElementById('orc-produto').value = name;
+    document.getElementById('orc-produto-id').value = id;
+    updateVincularUI();
+    closeModal('modal-selecionar-produto');
+}
+
+function clearProdutoVinculo() {
+    document.getElementById('orc-produto-id').value = '';
+    updateVincularUI();
 }
 
 function renderProductEditList(filter = '') {
@@ -2889,6 +2955,21 @@ function addEventListeners() {
     safeAddListener('kpi-card-unpaid', 'click', () => openModal('modal-contas-receber'));
     safeAddListener('search-edit-product', 'input', function(e) { renderProductEditList(e.target.value); });
 
+    safeAddListener('btn-vincular-produto', 'click', openProductSelector);
+
+    safeAddListener('btn-desvincular-produto', 'click', clearProdutoVinculo);
+
+    safeAddListener('search-select-produto', 'input', function(e) { renderSelectProductList(e.target.value); });
+
+    safeAddListener('select-product-list-container', 'click', function(e) {
+        const btn = e.target.closest('.select-product-btn');
+        if (btn) {
+            const id = parseInt(btn.dataset.id);
+            const name = btn.dataset.name;
+            selectProduto(id, name);
+        }
+    });
+
     safeAddListener('product-grid', 'click', function(e) {
         const target = e.target;
         const editButton = target.closest('.edit-product-btn');
@@ -2903,6 +2984,13 @@ function addEventListeners() {
             e.stopPropagation();
             const p = products.find(x => x.id === parseInt(detailsButton.dataset.id));
             if (p) showProductBudgetDetails(p);
+            return;
+        }
+        const linkedButton = target.closest('.view-linked-budgets-btn');
+        if (linkedButton) {
+            e.stopPropagation();
+            const productId = parseInt(linkedButton.dataset.id);
+            if (productId) showLinkedBudgets(productId);
             return;
         }
         const cardAction = target.closest('[data-action="add-to-cart"]');
@@ -3045,6 +3133,10 @@ function addEventListeners() {
         } else if (classList.contains('remove-machine-btn')) {
             currentBudgetMachines.splice(parseInt(dataset.index), 1);
             renderOrcamentoMachines();
+            calculateBudget();
+        } else if (classList.contains('remove-filamento-btn')) {
+            currentBudgetFilaments.splice(parseInt(dataset.index), 1);
+            renderOrcamentoFilamentos();
             calculateBudget();
         } else if (classList.contains('load-orcamento-btn')) {
             loadBudget(parseInt(dataset.id));
@@ -3339,6 +3431,9 @@ async function syncBudgetsToSupabase() {
                     horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22
                 }),
                 modo_calculo: b.modoCalculo || 'grafica',
+                is_kit: b.isKit || false,
+                preco_kit: b.precoKit || 0,
+                produto_id: b.produtoId || null,
                 status: b.status || 'rascunho',
                 created_at: b.createdAt
             }]);
@@ -3703,21 +3798,6 @@ function renderOrcamentoFilamentos() {
     const totalEl = document.getElementById('orc-total-filamentos');
     if (totalEl) totalEl.textContent = formatCurrency(total);
     attachOrcamentoQtyListeners();
-    attachRemoveFilamentoListeners();
-}
-
-function attachRemoveFilamentoListeners() {
-    document.querySelectorAll('.remove-filamento-btn').forEach(btn => {
-        btn.removeEventListener('click', handleRemoveFilamento);
-        btn.addEventListener('click', handleRemoveFilamento);
-    });
-}
-
-function handleRemoveFilamento(e) {
-    const idx = parseInt(e.currentTarget.dataset.index);
-    currentBudgetFilamentos.splice(idx, 1);
-    renderOrcamentoFilamentos();
-    calculateBudget();
 }
 
 function updateOrcamentoTotals() {
@@ -4216,12 +4296,14 @@ async function saveBudget() {
         valorHoraFinal = 0;
     }
     const budgetId = editingBudgetId || Date.now();
+    const produtoId = parseInt(document.getElementById('orc-produto-id').value) || null;
     const budget = {
         id: budgetId,
         date: data,
         clienteId: clienteSelect.value || '',
         clienteName,
         produto: finalProduto,
+        produtoId,
         isKit,
         precoKit,
         quantidade: qtd,
@@ -4279,6 +4361,7 @@ async function saveBudget() {
             status: budget.status,
             is_kit: budget.isKit || false,
             preco_kit: budget.precoKit || 0,
+            produto_id: budget.produtoId || null,
             created_at: budget.createdAt || new Date().toISOString()
         }]);
         sbError = error;
@@ -4329,6 +4412,8 @@ async function saveBudget() {
 
 function resetBudgetForm() {
     document.getElementById('orc-produto').value = '';
+    document.getElementById('orc-produto-id').value = '';
+    updateVincularUI();
     document.getElementById('orc-kit-check').checked = false;
     document.getElementById('orc-preco-kit-div').classList.add('hidden');
     document.getElementById('orc-preco-kit').value = '';
@@ -4402,9 +4487,10 @@ async function autoSaveDraft() {
     const diasMes = parseFloat(document.getElementById('orc-dias-mes').value) || 1;
     const modo = document.getElementById('orc-modo-calculo').value;
 
+    const produtoId = parseInt(document.getElementById('orc-produto-id').value) || null;
     const budget = {
         id: editingBudgetId || Date.now(),
-        date: data, clienteId: clienteSelect.value || '', clienteName, produto: finalProduto, isKit, precoKit, quantidade: qtd,
+        date: data, clienteId: clienteSelect.value || '', clienteName, produto: finalProduto, produtoId, isKit, precoKit, quantidade: qtd,
         tempoGasto, valorHora, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
         modoCalculo: modo,
@@ -4457,6 +4543,7 @@ async function autoSaveDraft() {
             }),
             is_kit: budget.isKit || false,
             preco_kit: budget.precoKit || 0,
+            produto_id: budget.produtoId || null,
             created_at: budget.createdAt
         }]);
     } catch (e) {
@@ -4583,6 +4670,8 @@ function loadBudget(id) {
         kitPriceDiv.classList.add('hidden');
         if (kitPriceInput) kitPriceInput.value = '';
     }
+    document.getElementById('orc-produto-id').value = budget.produtoId || '';
+    updateVincularUI();
     document.getElementById('orc-quantidade').value = budget.quantidade;
     document.getElementById('orc-tempo-gasto').value = budget.tempoGasto;
     document.getElementById('orc-valor-hora').value = budget.valorHora;
@@ -4786,7 +4875,7 @@ function renderHistoricoOrcamentos() {
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
-            <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.isKit ? ' <span class="text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded font-bold">KIT</span>' : ''}</td>
+            <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.isKit ? ' <span class="text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded font-bold">KIT</span>' : ''}${b.produtoId ? ' <span class="text-xs bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded font-bold"><i class="fas fa-link"></i></span>' : ''}</td>
             <td class="p-2 text-center">${modoBadge(b.modoCalculo)}</td>
             <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
@@ -4837,7 +4926,7 @@ function viewOrcamentoDetails(id) {
             <div class="grid grid-cols-2 gap-2">
                 <p><strong>Data:</strong> ${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                 <p><strong>Cliente:</strong> ${b.clienteName}</p>
-                <p><strong>Produto:</strong> ${b.produto}${b.isKit ? ' <span class="inline-block bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded font-bold">KIT</span>' : ''}</p>
+                <p><strong>Produto:</strong> ${b.produto}${b.isKit ? ' <span class="inline-block bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded font-bold">KIT</span>' : ''}${b.produtoId ? ' <span class="inline-block bg-blue-200 text-blue-800 text-xs px-2 py-0.5 rounded font-bold"><i class="fas fa-link"></i> Vinculado</span>' : ''}</p>
                 <p><strong>Quantidade:</strong> ${b.quantidade}</p>
             </div>
         </div>`;
@@ -4903,6 +4992,37 @@ function viewOrcamentoDetails(id) {
             <div class="flex justify-between"><span>Venda Unidade:</span><span>${formatCurrency(b.precoFinal/b.quantidade)}</span></div>
         </div>`;
     content.innerHTML = html;
+    document.querySelector('#modal-orcamento-detalhes h3').textContent = 'Detalhes do Orçamento';
+    openModal('modal-orcamento-detalhes');
+}
+
+function showLinkedBudgets(productId) {
+    const linked = savedBudgets.filter(b => b.produtoId === productId);
+    const product = products.find(p => p.id === productId);
+    const content = document.getElementById('orcamento-detalhes-content');
+    let html = `
+        <div class="border-b pb-3 mb-3">
+            <h4 class="text-lg font-bold">${product ? product.name : 'Produto'}</h4>
+            <p class="text-sm text-[var(--text-secondary)]">Orçamentos vinculados: ${linked.length}</p>
+        </div>`;
+    if (linked.length === 0) {
+        html += '<p class="text-center text-gray-500 py-4">Nenhum orçamento vinculado a este produto.</p>';
+    } else {
+        html += '<table class="w-full text-left text-sm"><thead><tr class="border-b text-[var(--text-secondary)]"><th class="p-2">Data</th><th class="p-2">Cliente</th><th class="p-2 text-right">Valor</th><th class="p-2 text-center">Ações</th></tr></thead><tbody>';
+        linked.forEach(b => {
+            html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+                <td class="p-2">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                <td class="p-2">${b.clienteName}</td>
+                <td class="p-2 text-right font-semibold text-green-600">${formatCurrency(b.precoFinal)}</td>
+                <td class="p-2 text-center">
+                    <button data-id="${b.id}" class="view-orcamento-btn text-green-500 hover:text-green-700 p-1" title="Detalhes"><i class="fas fa-eye"></i></button>
+                </td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+    }
+    content.innerHTML = html;
+    document.querySelector('#modal-orcamento-detalhes h3').textContent = 'Orçamentos Vinculados';
     openModal('modal-orcamento-detalhes');
 }
 
@@ -4912,6 +5032,31 @@ function showProductBudgetDetails(p) {
         const stored = localStorage.getItem('produtoBudgetData_' + p.id);
         if (stored) {
             try { d = JSON.parse(stored); } catch(e) {}
+        }
+    }
+    if (!d) {
+        const linked = savedBudgets.filter(b => b.produtoId === p.id);
+        if (linked.length > 0) {
+            const last = linked[linked.length - 1];
+            d = {
+                materiais: last.materials || [],
+                maquinas: last.machines || [],
+                tempoGasto: last.tempoGasto,
+                valorHora: last.valorHora,
+                margem: last.margem,
+                taxa: last.taxa,
+                taxaFixa: last.taxaFixa || 0,
+                custoMateriais: last.custoMateriais,
+                custoMaquinas: last.custoMaquinas,
+                custoMO: last.custoMO,
+                custoFixo: last.custoFixo,
+                quantidade: last.quantidade,
+                modoCalculo: last.modoCalculo,
+                peso: last.peso || 0,
+                tempoImpressao: last.tempoImpressao || 0,
+                precoFinal: last.precoFinal,
+                lucro: last.lucro
+            };
         }
     }
     let html = `
@@ -4931,6 +5076,7 @@ function showProductBudgetDetails(p) {
         }
         const content = document.getElementById('orcamento-detalhes-content');
         content.innerHTML = html;
+        document.querySelector('#modal-orcamento-detalhes h3').textContent = 'Budget do Produto';
         openModal('modal-orcamento-detalhes');
         return;
     }
@@ -4997,8 +5143,22 @@ function showProductBudgetDetails(p) {
             <div class="flex justify-between"><span>Margem Unitária:</span><span>${custoTotal > 0 ? ((lucroTotal / custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
             <div class="flex justify-between"><span>Markup:</span><span>${custoTotal > 0 ? ((precoFinal / custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
         </div>`;
+    const linked = savedBudgets.filter(b => b.produtoId === p.id);
+    if (linked.length > 0) {
+        html += `<div class="border-t pt-3 mt-4"><h4 class="font-bold mb-2">Orçamentos Vinculados (${linked.length})</h4><table class="w-full text-xs"><thead><tr class="border-b text-[var(--text-secondary)]"><th class="p-1">Data</th><th class="p-1">Cliente</th><th class="p-1 text-right">Valor</th><th class="p-1 text-center">Ações</th></tr></thead><tbody>`;
+        linked.forEach(b => {
+            html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+                <td class="p-1">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                <td class="p-1">${b.clienteName}</td>
+                <td class="p-1 text-right font-semibold text-green-600">${formatCurrency(b.precoFinal)}</td>
+                <td class="p-1 text-center"><button data-id="${b.id}" class="view-orcamento-btn text-green-500 hover:text-green-700 p-1" title="Detalhes"><i class="fas fa-eye"></i></button></td>
+            </tr>`;
+        });
+        html += '</tbody></table></div>';
+    }
     const content = document.getElementById('orcamento-detalhes-content');
     content.innerHTML = html;
+    document.querySelector('#modal-orcamento-detalhes h3').textContent = 'Budget do Produto';
     openModal('modal-orcamento-detalhes');
 }
 

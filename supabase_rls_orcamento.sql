@@ -3,10 +3,12 @@ ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS filamentos_json TEXT DEFAULT '[]
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'rascunho';
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS is_kit BOOLEAN DEFAULT FALSE;
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS preco_kit NUMERIC DEFAULT 0;
+ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS produto_id BIGINT DEFAULT NULL;
 
--- Add kit columns to existing rascunhos (if table already exists)
+-- Add kit/vinculo columns to existing rascunhos (if table already exists)
 ALTER TABLE rascunhos ADD COLUMN IF NOT EXISTS is_kit BOOLEAN DEFAULT FALSE;
 ALTER TABLE rascunhos ADD COLUMN IF NOT EXISTS preco_kit NUMERIC DEFAULT 0;
+ALTER TABLE rascunhos ADD COLUMN IF NOT EXISTS produto_id BIGINT DEFAULT NULL;
 
 -- Create rascunhos table for auto-save drafts (7-day expiry)
 CREATE TABLE IF NOT EXISTS rascunhos (
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS rascunhos (
     custos_fixos_json TEXT DEFAULT '{}',
     is_kit BOOLEAN DEFAULT FALSE,
     preco_kit NUMERIC DEFAULT 0,
+    produto_id BIGINT DEFAULT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

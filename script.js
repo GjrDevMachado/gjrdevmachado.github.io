@@ -136,6 +136,8 @@ async function loadRascunhosFromSupabase() {
                 diasMes3d: parseFloat(r.dias_mes_3d) || 22,
                 materials: r.materiais_json ? JSON.parse(r.materiais_json) : [],
                 machines: r.maquinas_json ? JSON.parse(r.maquinas_json) : [],
+                isKit: r.is_kit || false,
+                precoKit: parseFloat(r.preco_kit) || 0,
                 createdAt: r.created_at
             }));
             const fixosData = rascunhosData.map(r => {
@@ -3908,6 +3910,10 @@ async function saveBudget() {
     const produto = document.getElementById('orc-produto').value.trim();
     if (!produto) { showToast('Informe o nome do produto/serviço!', 'error'); return; }
 
+    const isKit = document.getElementById('orc-kit-check').checked;
+    const precoKit = isKit ? parseFloat(document.getElementById('orc-preco-kit').value.replace(',', '.')) || 0 : 0;
+    const finalProduto = isKit ? 'KIT - ' + produto : produto;
+
     const qtd = parseFloat(document.getElementById('orc-quantidade').value) || 1;
     const data = document.getElementById('orc-data').value || new Date().toISOString().split('T')[0];
     const tempoGasto = parseFloat(document.getElementById('orc-tempo-gasto').value) || 0;
@@ -4009,7 +4015,8 @@ async function saveBudget() {
     }
     const precoFinalInput = document.getElementById('orc-result-preco-final');
     const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
-    const precoFinal = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
+    const precoFinalCalc = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
+    const precoFinal = isKit ? precoKit : precoFinalCalc;
     const lucro = precoFinal - custoTotal;
 
     const tempoImpressaoFinal = getTempoImpressaoMin();
@@ -4025,7 +4032,9 @@ async function saveBudget() {
         date: data,
         clienteId: clienteSelect.value || '',
         clienteName,
-        produto,
+        produto: finalProduto,
+        isKit,
+        precoKit,
         quantidade: qtd,
         tempoGasto: tempoGastoFinal, valorHora: valorHoraFinal, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
@@ -4095,16 +4104,18 @@ async function saveBudget() {
     // Remove rascunho da tabela rascunhos se existir
     try {
         await supabaseClient.from('rascunhos').delete().eq('id', budget.id);
-        rascunhos = rascunhos.filter(r => r.id !== budget.id);
     } catch (e) {
         // silent - rascunho pode não existir
     }
+    rascunhos = rascunhos.filter(r => r.id !== budget.id);
 
     const isEditing = !!editingBudgetId;
     if (editingBudgetId) {
         const idx = savedBudgets.findIndex(b => b.id === editingBudgetId);
         if (idx !== -1) {
             savedBudgets[idx] = budget;
+        } else {
+            savedBudgets.push(budget);
         }
         editingBudgetId = null;
         document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
@@ -4123,6 +4134,9 @@ async function saveBudget() {
 
 function resetBudgetForm() {
     document.getElementById('orc-produto').value = '';
+    document.getElementById('orc-kit-check').checked = false;
+    document.getElementById('orc-preco-kit-div').classList.add('hidden');
+    document.getElementById('orc-preco-kit').value = '';
     document.getElementById('orc-cliente').value = '';
     const dataInput = document.getElementById('orc-data');
     if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
@@ -4166,6 +4180,10 @@ function getFormState() {
 async function autoSaveDraft() {
     const produto = document.getElementById('orc-produto')?.value.trim();
     if (!produto) return;
+
+    const isKit = document.getElementById('orc-kit-check')?.checked || false;
+    const precoKit = isKit ? parseFloat(document.getElementById('orc-preco-kit')?.value.replace(',', '.') || '0') || 0 : 0;
+    const finalProduto = isKit ? 'KIT - ' + produto : produto;
     const state = getFormState();
     if (state === lastAutoSaveState) return;
 
@@ -4191,7 +4209,7 @@ async function autoSaveDraft() {
 
     const budget = {
         id: editingBudgetId || Date.now(),
-        date: data, clienteId: clienteSelect.value || '', clienteName, produto, quantidade: qtd,
+        date: data, clienteId: clienteSelect.value || '', clienteName, produto: finalProduto, isKit, precoKit, quantidade: qtd,
         tempoGasto, valorHora, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
         modoCalculo: modo,
@@ -4242,6 +4260,8 @@ async function autoSaveDraft() {
                 custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
                 horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
             }),
+            is_kit: budget.isKit || false,
+            preco_kit: budget.precoKit || 0,
             created_at: budget.createdAt
         }]);
     } catch (e) {
@@ -4353,7 +4373,21 @@ function loadBudget(id) {
     document.getElementById('orc-data').value = budget.date;
     const clienteSelect = document.getElementById('orc-cliente');
     if (clienteSelect) clienteSelect.value = budget.clienteId || '';
-    document.getElementById('orc-produto').value = budget.produto;
+    const kitCheck = document.getElementById('orc-kit-check');
+    const kitPriceDiv = document.getElementById('orc-preco-kit-div');
+    const kitPriceInput = document.getElementById('orc-preco-kit');
+    if (budget.isKit) {
+        const originalProduto = budget.produto.startsWith('KIT - ') ? budget.produto.slice(5) : budget.produto;
+        document.getElementById('orc-produto').value = originalProduto;
+        kitCheck.checked = true;
+        kitPriceDiv.classList.remove('hidden');
+        if (kitPriceInput) kitPriceInput.value = budget.precoKit || '';
+    } else {
+        document.getElementById('orc-produto').value = budget.produto;
+        kitCheck.checked = false;
+        kitPriceDiv.classList.add('hidden');
+        if (kitPriceInput) kitPriceInput.value = '';
+    }
     document.getElementById('orc-quantidade').value = budget.quantidade;
     document.getElementById('orc-tempo-gasto').value = budget.tempoGasto;
     document.getElementById('orc-valor-hora').value = budget.valorHora;
@@ -4543,7 +4577,7 @@ function renderHistoricoOrcamentos() {
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
-            <td class="p-2 font-medium whitespace-nowrap">${b.produto}</td>
+            <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.isKit ? ' <span class="text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded font-bold">KIT</span>' : ''}</td>
             <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
             <td class="p-2 text-right ${lucroClass} font-semibold">${formatCurrency(b.lucro)}</td>
@@ -4593,7 +4627,7 @@ function viewOrcamentoDetails(id) {
             <div class="grid grid-cols-2 gap-2">
                 <p><strong>Data:</strong> ${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                 <p><strong>Cliente:</strong> ${b.clienteName}</p>
-                <p><strong>Produto:</strong> ${b.produto}</p>
+                <p><strong>Produto:</strong> ${b.produto}${b.isKit ? ' <span class="inline-block bg-yellow-200 text-yellow-800 text-xs px-2 py-0.5 rounded font-bold">KIT</span>' : ''}</p>
                 <p><strong>Quantidade:</strong> ${b.quantidade}</p>
             </div>
         </div>`;
@@ -4780,6 +4814,31 @@ function addOrcamentoEventListeners() {
     o('orc-taxa-fixa', 'input', calculateBudget);
     o('orc-result-preco-final', 'input', function() {
         orcPrecoFinalChanged = true;
+        calculateBudget();
+    });
+    o('orc-kit-check', 'change', function() {
+        const checked = this.checked;
+        document.getElementById('orc-preco-kit-div').classList.toggle('hidden', !checked);
+        if (checked) {
+            const kitVal = document.getElementById('orc-preco-kit').value;
+            if (kitVal) {
+                const precoFinalInput = document.getElementById('orc-result-preco-final');
+                if (precoFinalInput) {
+                    precoFinalInput.value = kitVal;
+                    orcPrecoFinalChanged = true;
+                }
+            }
+        } else {
+            orcPrecoFinalChanged = false;
+        }
+        calculateBudget();
+    });
+    o('orc-preco-kit', 'input', function() {
+        const precoFinalInput = document.getElementById('orc-result-preco-final');
+        if (precoFinalInput && document.getElementById('orc-kit-check').checked) {
+            precoFinalInput.value = this.value;
+            orcPrecoFinalChanged = true;
+        }
         calculateBudget();
     });
     o('orc-modo-calculo', 'change', toggleOrcamentoMode);

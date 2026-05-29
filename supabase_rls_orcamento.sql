@@ -2,6 +2,10 @@
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS filamentos_json TEXT DEFAULT '[]';
 ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'rascunho';
 
+-- Add kit columns to existing rascunhos (if table already exists)
+ALTER TABLE rascunhos ADD COLUMN IF NOT EXISTS is_kit BOOLEAN DEFAULT FALSE;
+ALTER TABLE rascunhos ADD COLUMN IF NOT EXISTS preco_kit NUMERIC DEFAULT 0;
+
 -- Create rascunhos table for auto-save drafts (7-day expiry)
 CREATE TABLE IF NOT EXISTS rascunhos (
     id BIGINT PRIMARY KEY,
@@ -38,27 +42,33 @@ CREATE TABLE IF NOT EXISTS rascunhos (
     materiais_json TEXT DEFAULT '[]',
     maquinas_json TEXT DEFAULT '[]',
     custos_fixos_json TEXT DEFAULT '{}',
+    is_kit BOOLEAN DEFAULT FALSE,
+    preco_kit NUMERIC DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Enable RLS and add policies for rascunhos
 ALTER TABLE rascunhos ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Usuarios autenticados podem ler rascunhos" ON rascunhos;
 CREATE POLICY "Usuarios autenticados podem ler rascunhos"
 ON rascunhos FOR SELECT
 TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Usuarios autenticados podem inserir rascunhos" ON rascunhos;
 CREATE POLICY "Usuarios autenticados podem inserir rascunhos"
 ON rascunhos FOR INSERT
 TO authenticated
 WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Usuarios autenticados podem atualizar rascunhos" ON rascunhos;
 CREATE POLICY "Usuarios autenticados podem atualizar rascunhos"
 ON rascunhos FOR UPDATE
 TO authenticated
 USING (true);
 
+DROP POLICY IF EXISTS "Usuarios autenticados podem deletar rascunhos" ON rascunhos;
 CREATE POLICY "Usuarios autenticados podem deletar rascunhos"
 ON rascunhos FOR DELETE
 TO authenticated

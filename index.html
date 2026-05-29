@@ -171,6 +171,48 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-teal-100 p-3 rounded-full"><i class="fas fa-calendar-day fa-2x text-teal-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Vendas do Mês</p>
+                            <p id="kpi-sales-month" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-chart-simple fa-2x text-amber-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Lucro do Mês</p>
+                            <p id="kpi-profit-month" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-sky-100 p-3 rounded-full"><i class="fas fa-file-invoice fa-2x text-sky-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Orçamentos do Mês</p>
+                            <p id="kpi-budgets-month" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-rose-100 p-3 rounded-full"><i class="fas fa-file-pen fa-2x text-rose-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Rascunhos Pendentes</p>
+                            <p id="kpi-drafts-pending" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
+                    <div class="xl:col-span-2 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-line mr-2 text-blue-500"></i> Vendas dos Últimos 30 Dias</h3>
+                        <div style="height:260px"><canvas id="chart-sales-trend"></canvas></div>
+                    </div>
+                    <div class="xl:col-span-1 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-pie mr-2 text-purple-500"></i> Orçamentos por Tipo</h3>
+                        <div style="height:260px"><canvas id="chart-budget-types"></canvas></div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
                     <div class="xl:col-span-1 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-bold mb-4">Ações Rápidas</h3>
@@ -182,10 +224,17 @@
                         </div>
                     </div>
                     <div class="xl:col-span-2 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4">Atividade Recente</h3>
-                        <div id="recent-transactions-list" class="space-y-2">
-                            <p class="text-center text-gray-500 mt-4">Nenhuma atividade recente.</p>
+                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-crown mr-2 text-yellow-500"></i> Produtos Mais Vendidos</h3>
+                        <div id="top-products-list" class="space-y-2">
+                            <p class="text-center text-gray-500 mt-4">Nenhuma venda neste período.</p>
                         </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
+                    <h3 class="text-xl font-bold mb-4"><i class="fas fa-clock-rotate-left mr-2 text-gray-500"></i> Atividade Recente</h3>
+                    <div id="recent-transactions-list" class="space-y-2">
+                        <p class="text-center text-gray-500 mt-4">Nenhuma atividade recente.</p>
                     </div>
                 </div>
             </div>

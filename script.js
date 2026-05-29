@@ -16,6 +16,8 @@ let rawMaterials = [];
 let categories = [];
 let cart = { items: [], generalDiscount: { type: 'fixed', value: 0 } };
 let salesChart;
+let dashboardSalesChart;
+let dashboardBudgetChart;
 let currentReportPeriod = 'daily';
 let confirmCallback = null;
 let areEventListenersAdded = false;
@@ -2469,8 +2471,17 @@ function renderDashboard() {
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
     const todaysTransactions = transactions.filter(t =>
         t.date >= startOfToday.getTime() &&
+        t.date <= endOfToday.getTime() &&
+        t.type === 'venda' && !t.reversed
+    );
+
+    const monthTransactions = transactions.filter(t =>
+        t.date >= startOfMonth.getTime() &&
         t.date <= endOfToday.getTime() &&
         t.type === 'venda' && !t.reversed
     );
@@ -2478,17 +2489,188 @@ function renderDashboard() {
     const salesToday = todaysTransactions.reduce((sum, t) => sum + t.amount, 0);
     const profitToday = todaysTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
     const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
-
     const salesCountToday = todaysTransactions.length;
     const averageTicket = salesCountToday > 0 ? salesToday / salesCountToday : 0;
+
+    const salesMonth = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const profitMonth = monthTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
+
+    const budgetsThisMonth = savedBudgets.filter(b => {
+        if (!b.date) return false;
+        const d = new Date(b.date + 'T00:00:00');
+        return d >= startOfMonth && d <= endOfToday;
+    });
 
     document.getElementById('kpi-sales-today').textContent = formatCurrency(salesToday);
     document.getElementById('kpi-profit-today').textContent = formatCurrency(profitToday);
     document.getElementById('kpi-unpaid').textContent = formatCurrency(unpaidAmount);
     document.getElementById('kpi-avg-ticket').textContent = formatCurrency(averageTicket);
+    document.getElementById('kpi-sales-month').textContent = formatCurrency(salesMonth);
+    document.getElementById('kpi-profit-month').textContent = formatCurrency(profitMonth);
+    document.getElementById('kpi-budgets-month').textContent = budgetsThisMonth.length;
+    document.getElementById('kpi-drafts-pending').textContent = rascunhos.length;
 
     const recentTransactionsList = document.getElementById('recent-transactions-list');
-    renderTransactionList(recentTransactionsList, transactions.slice(-5));
+    if (recentTransactionsList) renderTransactionList(recentTransactionsList, transactions.slice(-5));
+
+    renderSalesTrendChart(monthTransactions);
+    renderBudgetTypeChart(budgetsThisMonth);
+    renderTopProducts(monthTransactions);
+}
+
+function renderSalesTrendChart(monthTransactions) {
+    const canvas = document.getElementById('chart-sales-trend');
+    if (!canvas) return;
+    if (dashboardSalesChart) { dashboardSalesChart.destroy(); dashboardSalesChart = null; }
+
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const dailySales = {};
+    for (let d = 1; d <= daysInMonth; d++) {
+        dailySales[d] = 0;
+    }
+    monthTransactions.forEach(t => {
+        const d = new Date(t.date);
+        const day = d.getDate();
+        dailySales[day] = (dailySales[day] || 0) + t.amount;
+    });
+
+    const labels = Object.keys(dailySales).map(d => parseInt(d));
+    const values = labels.map(d => dailySales[d]);
+
+    const ctx = canvas.getContext('2d');
+    dashboardSalesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels.map(d => d.toString()),
+            datasets: [{
+                label: 'Vendas (R$)',
+                data: values,
+                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => 'R$ ' + ctx.parsed.y.toFixed(2)
+                    }
+                }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Dia do Mês' } },
+                y: { beginAtZero: true, title: { display: true, text: 'Valor (R$)' } }
+            }
+        }
+    });
+}
+
+function renderBudgetTypeChart(budgetsThisMonth) {
+    const canvas = document.getElementById('chart-budget-types');
+    if (!canvas) return;
+    if (dashboardBudgetChart) { dashboardBudgetChart.destroy(); dashboardBudgetChart = null; }
+
+    const counts = { grafica: 0, impressao3d: 0, misto: 0 };
+    budgetsThisMonth.forEach(b => {
+        const modo = b.modoCalculo || 'grafica';
+        if (counts[modo] !== undefined) counts[modo]++;
+    });
+
+    const hasData = Object.values(counts).some(v => v > 0);
+    if (!hasData) {
+        const ctx = canvas.getContext('2d');
+        dashboardBudgetChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Gráfica', 'Impressão 3D', 'Misto'],
+                datasets: [{ data: [1], backgroundColor: ['#e5e7eb'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+        return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    dashboardBudgetChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Gráfica', 'Impressão 3D', 'Misto'],
+            datasets: [{
+                data: [counts.grafica, counts.impressao3d, counts.misto],
+                backgroundColor: ['#3b82f6', '#a855f7', '#22c55e'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.label + ': ' + ctx.parsed + ' orçamentos'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderTopProducts(monthTransactions) {
+    const container = document.getElementById('top-products-list');
+    if (!container) return;
+
+    const productCount = {};
+    const productRevenue = {};
+
+    monthTransactions.forEach(t => {
+        if (t.items) {
+            t.items.forEach(item => {
+                const name = item.name || item.productName || 'Desconhecido';
+                productCount[name] = (productCount[name] || 0) + (item.quantity || 1);
+                const itemTotal = (item.price || 0) * (item.quantity || 1);
+                productRevenue[name] = (productRevenue[name] || 0) + itemTotal;
+            });
+        }
+    });
+
+    const sorted = Object.keys(productCount).sort((a, b) => productRevenue[b] - productRevenue[a]);
+    const top5 = sorted.slice(0, 5);
+
+    if (top5.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 mt-4">Nenhuma venda neste período.</p>';
+        return;
+    }
+
+    let html = `<table class="w-full text-sm">
+        <thead><tr class="border-b text-[var(--text-secondary)]">
+            <th class="p-2 text-left">Produto</th>
+            <th class="p-2 text-right">Qtd</th>
+            <th class="p-2 text-right">Receita</th>
+        </tr></thead><tbody>`;
+    top5.forEach(name => {
+        html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2 font-medium">${name}</td>
+            <td class="p-2 text-right">${productCount[name]}</td>
+            <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(productRevenue[name])}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
 }
 
 function openDiscountModal(itemIndex) {

@@ -336,10 +336,7 @@
                                     <input type="checkbox" id="orc-kit-check" class="w-5 h-5">
                                     <label for="orc-kit-check" class="text-sm font-medium">É um Kit</label>
                                 </div>
-                                <div id="orc-preco-kit-div" class="hidden flex items-center gap-2">
-                                    <label for="orc-preco-kit" class="text-sm font-medium whitespace-nowrap">Preço do Kit (R$)</label>
-                                    <input type="number" id="orc-preco-kit" min="0" step="0.01" placeholder="0,00" class="w-28 border rounded p-2 bg-[var(--bg-secondary)]">
-                                </div>
+
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
@@ -861,6 +858,10 @@
                 <button class="close-modal-btn text-2xl">&times;</button>
             </div>
             <div class="mt-4">
+                <div class="mb-3 relative">
+                    <input type="text" id="client-search-input" placeholder="Buscar cliente por nome..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
+                </div>
                 <div id="customers-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
             </div>
             <div class="mt-6 border-t pt-4">

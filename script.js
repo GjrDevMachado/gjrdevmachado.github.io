@@ -581,13 +581,15 @@ function renderRawMaterials() {
     });
 }
 
-function renderCustomers() {
+function renderCustomers(filter = '') {
     const customersList = document.getElementById('customers-list');
     const customerSelect = document.getElementById('customer-select');
     if(!customersList || !customerSelect) return;
     customersList.innerHTML = '';
     customerSelect.innerHTML = '<option value="">Nenhum cliente selecionado</option>';
-    customers.forEach(customer => {
+    const sorted = [...customers].sort((a, b) => a.name.localeCompare(b.name));
+    const filtered = filter ? sorted.filter(c => c.name.toLowerCase().includes(filter.toLowerCase())) : sorted;
+    filtered.forEach(customer => {
         customersList.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><p>${customer.name} <span class="text-sm text-[var(--text-secondary)]">${customer.contact}</span></p><div><button data-id="${customer.id}" class="edit-customer-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${customer.id}" class="delete-customer-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></div>`;
         customerSelect.innerHTML += `<option value="${customer.id}">${customer.name}</option>`;
     });
@@ -2908,6 +2910,8 @@ function addEventListeners() {
     
     safeAddListener('add-customer-form', 'submit', function(e) { e.preventDefault(); addCustomer(this.elements.customerName.value, this.elements.customerContact.value); this.reset(); });
     
+    safeAddListener('client-search-input', 'input', (e) => renderCustomers(e.target.value));
+    
     safeAddListener('edit-customer-form', 'submit', async function(e) {
         e.preventDefault();
         const customerId = parseInt(this.elements.customerId.value);
@@ -3512,7 +3516,8 @@ function initOrcamentoModule() {
     const clienteSelect = document.getElementById('orc-cliente');
     if (clienteSelect) {
         clienteSelect.innerHTML = '<option value="">Selecione um cliente</option>';
-        customers.forEach(c => {
+        const sorted = [...customers].sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(c => {
             clienteSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
         });
     }
@@ -4181,7 +4186,9 @@ async function saveBudget() {
     const produto = produtoCheck;
 
     const isKit = document.getElementById('orc-kit-check').checked;
-    const precoKit = isKit ? parseFloat(document.getElementById('orc-preco-kit').value.replace(',', '.')) || 0 : 0;
+    const precoFinalInput = document.getElementById('orc-result-preco-final');
+    const precoFinalVal = precoFinalInput ? parseFloat(precoFinalInput.value.replace(',', '.')) || 0 : 0;
+    const precoKit = isKit ? precoFinalVal : 0;
     const finalProduto = isKit ? 'KIT - ' + produto : produto;
 
     const qtd = parseFloat(document.getElementById('orc-quantidade').value) || 1;
@@ -4283,7 +4290,6 @@ async function saveBudget() {
         custoTotal = custoMateriais + custoMaquinas + custoMO;
         precoSugerido = taxa >= 100 ? 0 : ((custoMateriais + custoMaquinas) * (1 + margem / 100) + custoMO + taxaFixa) / (1 - taxa / 100);
     }
-    const precoFinalInput = document.getElementById('orc-result-preco-final');
     const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
     const precoFinalCalc = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
     const precoFinal = isKit ? precoKit : precoFinalCalc;
@@ -4416,8 +4422,6 @@ function resetBudgetForm() {
     document.getElementById('orc-produto-id').value = '';
     updateVincularUI();
     document.getElementById('orc-kit-check').checked = false;
-    document.getElementById('orc-preco-kit-div').classList.add('hidden');
-    document.getElementById('orc-preco-kit').value = '';
     document.getElementById('orc-cliente').value = '';
     const dataInput = document.getElementById('orc-data');
     if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
@@ -4463,7 +4467,9 @@ async function autoSaveDraft() {
     if (!produto) return;
 
     const isKit = document.getElementById('orc-kit-check')?.checked || false;
-    const precoKit = isKit ? parseFloat(document.getElementById('orc-preco-kit')?.value.replace(',', '.') || '0') || 0 : 0;
+    const precoFinalInput = document.getElementById('orc-result-preco-final');
+    const precoFinalVal = precoFinalInput ? parseFloat(precoFinalInput.value.replace(',', '.')) || 0 : 0;
+    const precoKit = isKit ? precoFinalVal : 0;
     const finalProduto = isKit ? 'KIT - ' + produto : produto;
     const state = getFormState();
     if (state === lastAutoSaveState) return;
@@ -4657,19 +4663,13 @@ function loadBudget(id) {
     const clienteSelect = document.getElementById('orc-cliente');
     if (clienteSelect) clienteSelect.value = budget.clienteId || '';
     const kitCheck = document.getElementById('orc-kit-check');
-    const kitPriceDiv = document.getElementById('orc-preco-kit-div');
-    const kitPriceInput = document.getElementById('orc-preco-kit');
     if (budget.isKit) {
         const originalProduto = budget.produto.startsWith('KIT - ') ? budget.produto.slice(5) : budget.produto;
         document.getElementById('orc-produto').value = originalProduto;
         kitCheck.checked = true;
-        kitPriceDiv.classList.remove('hidden');
-        if (kitPriceInput) kitPriceInput.value = budget.precoKit || '';
     } else {
         document.getElementById('orc-produto').value = budget.produto;
         kitCheck.checked = false;
-        kitPriceDiv.classList.add('hidden');
-        if (kitPriceInput) kitPriceInput.value = '';
     }
     document.getElementById('orc-produto-id').value = budget.produtoId || '';
     updateVincularUI();
@@ -5190,26 +5190,10 @@ function addOrcamentoEventListeners() {
     });
     o('orc-kit-check', 'change', function() {
         const checked = this.checked;
-        document.getElementById('orc-preco-kit-div').classList.toggle('hidden', !checked);
         if (checked) {
-            const kitVal = document.getElementById('orc-preco-kit').value;
-            if (kitVal) {
-                const precoFinalInput = document.getElementById('orc-result-preco-final');
-                if (precoFinalInput) {
-                    precoFinalInput.value = kitVal;
-                    orcPrecoFinalChanged = true;
-                }
-            }
+            orcPrecoFinalChanged = true;
         } else {
             orcPrecoFinalChanged = false;
-        }
-        calculateBudget();
-    });
-    o('orc-preco-kit', 'input', function() {
-        const precoFinalInput = document.getElementById('orc-result-preco-final');
-        if (precoFinalInput && document.getElementById('orc-kit-check').checked) {
-            precoFinalInput.value = this.value;
-            orcPrecoFinalChanged = true;
         }
         calculateBudget();
     });

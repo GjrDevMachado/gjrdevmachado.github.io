@@ -329,6 +329,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
 
 function initializeAppUI() {
     switchView('dashboard-view');
+    loadLogo();
     renderProducts();
     renderCart();
     updateCashBalance();
@@ -1962,6 +1963,76 @@ function applyTheme(themeName) {
     if(activeBtn) activeBtn.classList.add('active');
 }
 
+function applyLogoToUI(logoData) {
+    const logoContainer = document.getElementById('sidebar-logo-container');
+    const logoImg = document.getElementById('sidebar-logo');
+    const brandText = document.getElementById('sidebar-brand-text');
+    if (logoData && logoImg && logoContainer) {
+        logoImg.src = logoData;
+        logoContainer.classList.remove('hidden');
+        if (brandText) brandText.classList.add('hidden');
+    } else {
+        if (logoContainer) logoContainer.classList.add('hidden');
+        if (brandText) brandText.classList.remove('hidden');
+    }
+    const preview = document.getElementById('logo-preview');
+    const previewContainer = document.getElementById('logo-preview-container');
+    const removeBtn = document.getElementById('remove-logo-btn');
+    if (logoData && preview && previewContainer && removeBtn) {
+        preview.src = logoData;
+        previewContainer.classList.remove('hidden');
+        removeBtn.classList.remove('hidden');
+    } else {
+        if (previewContainer) previewContainer.classList.add('hidden');
+        if (removeBtn) removeBtn.classList.add('hidden');
+    }
+}
+
+async function loadLogo() {
+    const cached = localStorage.getItem('companyLogo');
+    if (cached) applyLogoToUI(cached);
+    try {
+        const { data, error } = await supabaseClient.from('empresa').select('logo').eq('id', 1).single();
+        if (!error && data && data.logo) {
+            if (data.logo !== cached) {
+                localStorage.setItem('companyLogo', data.logo);
+                applyLogoToUI(data.logo);
+            }
+        } else if (!error && data && !data.logo) {
+            localStorage.removeItem('companyLogo');
+            applyLogoToUI(null);
+        }
+    } catch (e) {
+        console.error('Erro ao carregar logo do Supabase:', e);
+    }
+}
+
+async function saveLogoToSupabase(dataUrl) {
+    try {
+        const { error } = await supabaseClient.from('empresa').upsert({ id: 1, logo: dataUrl, updated_at: new Date().toISOString() });
+        if (error) throw error;
+        localStorage.setItem('companyLogo', dataUrl);
+        applyLogoToUI(dataUrl);
+        showToast('Logo atualizada com sucesso!', 'success');
+    } catch (e) {
+        console.error('Erro ao salvar logo no Supabase:', e);
+        showToast('Erro ao salvar logo no servidor!', 'error');
+    }
+}
+
+async function removeLogoFromSupabase() {
+    try {
+        const { error } = await supabaseClient.from('empresa').upsert({ id: 1, logo: null, updated_at: new Date().toISOString() });
+        if (error) throw error;
+        localStorage.removeItem('companyLogo');
+        applyLogoToUI(null);
+        showToast('Logo removida!', 'success');
+    } catch (e) {
+        console.error('Erro ao remover logo do Supabase:', e);
+        showToast('Erro ao remover logo do servidor!', 'error');
+    }
+}
+
 function renderUnpaidSales() {
     const list = document.getElementById('unpaid-sales-list');
     const unpaidSales = transactions.filter(t => t.type === 'venda' && t.status === 'Não Pago' && !t.reversed);
@@ -3012,6 +3083,22 @@ function addEventListeners() {
     safeAddListener('reset-system-btn', 'click', resetSystem);
     safeAddListener('theme-selector', 'click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
     safeAddListener('export-data-btn', 'click', exportAllData);
+
+    safeAddListener('logo-upload-input', 'change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('A imagem deve ter no máximo 2MB!', 'error');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            saveLogoToSupabase(ev.target.result);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    safeAddListener('remove-logo-btn', 'click', removeLogoFromSupabase);
     safeAddListener('import-file-input', 'change', importAllData);
     safeAddListener('sync-data-btn', 'click', syncAllToSupabase);
     

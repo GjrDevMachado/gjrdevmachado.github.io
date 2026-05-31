@@ -3286,6 +3286,13 @@ function addEventListeners() {
                             lucro: b.lucro
                         };
                         localStorage.setItem('produtoBudgetData_' + novo.id, JSON.stringify(novo.budgetData));
+                        // Vincula o orçamento ao produto criado
+                        b.produtoId = novo.id;
+                        try {
+                            await supabaseClient.from('orcamentos').update({ produto_id: novo.id }).eq('id', b.id);
+                        } catch (e) {
+                            console.error('Erro ao vincular orçamento ao produto:', e);
+                        }
                     }
                 })();
             }
@@ -4467,6 +4474,21 @@ async function saveBudget() {
         console.error('Detalhes completos:', JSON.stringify(sbError, null, 2));
         showToast('Erro ao salvar no banco: ' + (sbError.message || sbError.details || sbError.code || 'erro desconhecido'), 'error');
         return;
+    }
+
+    // Atualiza o produto vinculado, se houver
+    if (budget.produtoId) {
+        const isKit = budget.isKit;
+        const qtd = isKit ? 1 : (budget.quantidade || 1);
+        const precoProd = parseFloat((budget.precoFinal / qtd).toFixed(2));
+        const custoProd = parseFloat((budget.custoTotal / qtd).toFixed(2));
+        try {
+            await supabaseClient.from('produtos').update({ preco: precoProd, custo: custoProd }).eq('id', budget.produtoId);
+            const prod = products.find(p => p.id === budget.produtoId);
+            if (prod) { prod.price = precoProd; prod.cost = custoProd; }
+        } catch (e) {
+            console.error('Erro ao atualizar produto vinculado:', e);
+        }
     }
 
     // Remove rascunho da tabela rascunhos se existir

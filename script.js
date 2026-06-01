@@ -2633,6 +2633,12 @@ function renderDashboard() {
 
     const salesMonth = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
     const profitMonth = monthTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
+    const costMonth = monthTransactions.reduce((sum, t) => sum + (t.cost || 0), 0);
+    const salesCountMonth = monthTransactions.length;
+    const avgTicketMonth = salesCountMonth > 0 ? salesMonth / salesCountMonth : 0;
+    const productsSoldMonth = monthTransactions.reduce((sum, t) => sum + (t.items ? t.items.reduce((s, i) => s + i.quantity, 0) : 0), 0);
+    const markupMonth = costMonth > 0 ? (profitMonth / costMonth) * 100 : 0;
+    const marginMonth = salesMonth > 0 ? (profitMonth / salesMonth) * 100 : 0;
 
     const budgetsThisMonth = savedBudgets.filter(b => {
         if (!b.date) return false;
@@ -2646,6 +2652,10 @@ function renderDashboard() {
     document.getElementById('kpi-avg-ticket').textContent = formatCurrency(averageTicket);
     document.getElementById('kpi-sales-month').textContent = formatCurrency(salesMonth);
     document.getElementById('kpi-profit-month').textContent = formatCurrency(profitMonth);
+    document.getElementById('kpi-avg-ticket-month').textContent = formatCurrency(avgTicketMonth);
+    document.getElementById('kpi-products-sold-month').textContent = productsSoldMonth;
+    document.getElementById('kpi-markup-month').textContent = markupMonth.toFixed(2) + '%';
+    document.getElementById('kpi-margin-month').textContent = marginMonth.toFixed(2) + '%';
     document.getElementById('kpi-budgets-month').textContent = budgetsThisMonth.length;
     document.getElementById('kpi-drafts-pending').textContent = rascunhos.length;
 

@@ -428,7 +428,7 @@ function renderProducts(filter = '', categoryId = 'all') {
                 <div class="mt-auto">
                     <p class="text-[var(--primary-600)] font-semibold">${formatCurrency(product.price)}</p>
                     <p class="text-xs text-red-500/80">Custo: ${formatCurrency(product.cost)}</p>
-                    ${product.cost > 0 ? `<p class="text-xs text-green-600">Margem: ${(((product.price - product.cost) / product.cost) * 100).toFixed(1)}%</p>` : ''}
+                    ${product.price > 0 ? `<p class="text-xs text-green-600">Margem: ${(((product.price - product.cost) / product.price) * 100).toFixed(1)}%</p>` : ''}
                 </div>
             </div>
             <div class="flex justify-end gap-1 pt-2 border-t border-[var(--border-color)]" data-no-action>
@@ -3599,6 +3599,10 @@ function toggleOrcamentoMode() {
     } else {
         fields3d.classList.add('hidden');
     }
+    const margemLabel = document.getElementById('orc-margem-label');
+    if (margemLabel) {
+        margemLabel.textContent = 'Markup (%)';
+    }
     if (moRow && moRow.parentElement) {
         moRow.parentElement.style.display = isPure3d ? 'none' : '';
     }
@@ -4073,7 +4077,7 @@ function calculateBudget() {
     } else {
         const totalGrafica = calcGrafica();
         custoTotal = totalGrafica;
-        precoSugerido = taxa >= 100 ? 0 : ((custoMateriais + custoMaquinas) * (1 + margem / 100) + custoMO + taxaFixa) / (1 - taxa / 100);
+        precoSugerido = taxa >= 100 ? 0 : (totalGrafica * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
     }
 
     const precoFinalInput = document.getElementById('orc-result-preco-final');
@@ -4088,8 +4092,8 @@ function calculateBudget() {
     const custoUnidade = custoTotal / qtd;
     const vendaUnidade = precoFinal / qtd;
     const lucroUnidade = vendaUnidade - custoUnidade;
-    const markupFator = custoUnidade > 0 ? (vendaUnidade / custoUnidade) * 100 : 0;
-    const margemLucro = custoUnidade > 0 ? ((vendaUnidade - custoUnidade) / custoUnidade) * 100 : 0;
+    const markupFator = custoUnidade > 0 ? ((vendaUnidade - custoUnidade) / custoUnidade) * 100 : 0;
+    const margemLucro = vendaUnidade > 0 ? ((vendaUnidade - custoUnidade) / vendaUnidade) * 100 : 0;
 
     document.getElementById('orc-result-materiais').textContent = formatCurrency(custoMateriais);
     document.getElementById('orc-result-maquinas').textContent = formatCurrency(custoMaquinas);
@@ -4382,7 +4386,7 @@ async function saveBudget() {
         custoMO = (tempoGasto / 60) * valorHora;
         custoFixo = custoFixoHora * (tempoGasto / 60);
         custoTotal = custoMateriais + custoMaquinas + custoMO;
-        precoSugerido = taxa >= 100 ? 0 : ((custoMateriais + custoMaquinas) * (1 + margem / 100) + custoMO + taxaFixa) / (1 - taxa / 100);
+        precoSugerido = taxa >= 100 ? 0 : (custoTotal * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
     }
     const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
     const precoFinalCalc = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
@@ -4977,8 +4981,8 @@ function renderHistoricoOrcamentos() {
         const custoUnit = b.custoTotal / qtd;
         const vendaUnit = b.precoFinal / qtd;
         const lucroUnit = b.lucro / qtd;
-        const markupPct = custoUnit > 0 ? (vendaUnit / custoUnit) * 100 : 0;
-        const margemPct = custoUnit > 0 ? ((vendaUnit - custoUnit) / custoUnit) * 100 : 0;
+        const markupPct = custoUnit > 0 ? ((vendaUnit - custoUnit) / custoUnit) * 100 : 0;
+        const margemPct = vendaUnit > 0 ? ((vendaUnit - custoUnit) / vendaUnit) * 100 : 0;
         const taxaTotal = (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0);
         const lucroClass = b.lucro >= 0 ? 'text-green-600' : 'text-red-600';
 
@@ -5006,7 +5010,7 @@ function renderHistoricoOrcamentos() {
 
     // Summary row at the bottom
     const totalTaxa = filtered.reduce((s, b) => s + (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0), 0);
-    const margemTotal = totalCusto > 0 ? ((totalVenda - totalCusto) / totalCusto) * 100 : 0;
+    const margemTotal = totalVenda > 0 ? ((totalVenda - totalCusto) / totalVenda) * 100 : 0;
     html += `</tbody>
         <tfoot>
             <tr class="border-t-2 border-[var(--text-secondary)] font-bold">
@@ -5097,8 +5101,8 @@ function viewOrcamentoDetails(id) {
             <div class="flex justify-between text-green-600"><span>Lucro:</span><span>${formatCurrency(b.lucro)}</span></div>
             <div class="flex justify-between border-t pt-2 mt-2"><span>Custo Unitário:</span><span>${formatCurrency(b.custoTotal / b.quantidade)}</span></div>
             <div class="flex justify-between"><span>Lucro Unitário:</span><span class="text-green-600">${formatCurrency(b.lucro / b.quantidade)}</span></div>
-            <div class="flex justify-between"><span>Margem Unitária:</span><span>${b.custoTotal > 0 ? ((b.lucro / b.custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
-            <div class="flex justify-between"><span>Markup:</span><span>${b.custoTotal > 0 ? ((b.precoFinal / b.custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Margem Unitária:</span><span>${b.precoFinal > 0 ? ((b.lucro / b.precoFinal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Markup:</span><span>${b.custoTotal > 0 ? ((b.lucro / b.custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
             <div class="flex justify-between"><span>Venda Unidade:</span><span>${formatCurrency(b.precoFinal/b.quantidade)}</span></div>
         </div>`;
     content.innerHTML = html;
@@ -5179,7 +5183,7 @@ function showProductBudgetDetails(p) {
     if (!d) {
         html += `<p class="text-center text-gray-500 py-4">Nenhum dado de orçamento disponível para este produto.</p>`;
         if (p.cost > 0) {
-            const margem = ((p.price - p.cost) / p.cost) * 100;
+            const margem = p.price > 0 ? ((p.price - p.cost) / p.price) * 100 : 0;
             html += `<div class="border-t pt-3 mt-3 space-y-1 text-sm">
                 <div class="flex justify-between"><span>Margem de Lucro:</span><span class="text-green-600">${margem.toFixed(2)}%</span></div>
                 <div class="flex justify-between"><span>Lucro:</span><span class="text-green-600">${formatCurrency(p.price - p.cost)}</span></div>
@@ -5245,14 +5249,14 @@ function showProductBudgetDetails(p) {
             <div class="flex justify-between"><span>Custo Máquinas:</span><span>${formatCurrency(d.custoMaquinas)}</span></div>
             <div class="flex justify-between"><span>Custo Fixo:</span><span>${formatCurrency(d.custoFixo || 0)}</span></div>
             <div class="flex justify-between font-bold"><span>Custo Total:</span><span class="text-red-600">${formatCurrency(custoTotal)}</span></div>
-            <div class="flex justify-between"><span>Margem:</span><span>${d.margem || 0}%</span></div>
+            <div class="flex justify-between"><span>Markup:</span><span>${d.margem || 0}%</span></div>
             <div class="flex justify-between"><span>Taxa Plataforma:</span><span>${d.taxa || 0}% + ${formatCurrency(d.taxaFixa || 0)}</span></div>
             <div class="flex justify-between font-bold text-green-600 border-t pt-2 mt-2"><span>PREÇO FINAL:</span><span>${formatCurrency(precoFinal)}</span></div>
             <div class="flex justify-between text-green-600"><span>Lucro:</span><span>${formatCurrency(lucroTotal)}</span></div>
             <div class="flex justify-between border-t pt-2 mt-2"><span>Custo Unitário:</span><span>${formatCurrency(custoTotal / qtd)}</span></div>
             <div class="flex justify-between"><span>Lucro Unitário:</span><span class="text-green-600">${formatCurrency(lucroTotal / qtd)}</span></div>
-            <div class="flex justify-between"><span>Margem Unitária:</span><span>${custoTotal > 0 ? ((lucroTotal / custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
-            <div class="flex justify-between"><span>Markup:</span><span>${custoTotal > 0 ? ((precoFinal / custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Margem Unitária:</span><span>${precoFinal > 0 ? ((lucroTotal / precoFinal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Markup:</span><span>${custoTotal > 0 ? ((lucroTotal / custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
         </div>`;
     const linked = savedBudgets.filter(b => b.produtoId === p.id);
     if (linked.length > 0) {

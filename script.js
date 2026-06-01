@@ -2040,7 +2040,22 @@ function renderUnpaidSales() {
     list.innerHTML = '';
     unpaidSales.forEach(sale => {
         const customer = customers.find(c => c.id == sale.customerId);
-        list.innerHTML += `<div class="flex justify-between items-center p-3 border-b border-[var(--border-color)]"><div><p class="font-bold">${customer ? customer.name : 'Cliente desconhecido'}</p><p class="text-sm text-[var(--text-secondary)]">Venda de ${new Date(sale.date).toLocaleDateString('pt-BR')}</p></div><div class="text-right"><p class="font-bold text-lg text-red-500">${formatCurrency(sale.amount)}</p><button data-id="${sale.id}" class="receive-payment-btn text-sm text-green-600 hover:underline">Receber Pagamento</button></div></div>`;
+        const recebimentos = transactions.filter(t => t.type === 'recebimento' && t.description && t.description.includes(`#${sale.id}`));
+        const totalPago = recebimentos.reduce((s, t) => s + t.amount, 0);
+        const saldoOriginal = sale.amount + totalPago;
+        const temParcial = totalPago > 0;
+        list.innerHTML += `<div class="flex justify-between items-center p-3 border-b border-[var(--border-color)]">
+            <div>
+                <p class="font-bold">${customer ? customer.name : 'Cliente desconhecido'}</p>
+                <p class="text-sm text-[var(--text-secondary)]">Venda de ${new Date(sale.date).toLocaleDateString('pt-BR')}${temParcial ? '' : ''}</p>
+                ${temParcial ? `<p class="text-xs text-blue-600">Valor original: ${formatCurrency(saldoOriginal)}</p>` : ''}
+            </div>
+            <div class="text-right">
+                <p class="font-bold text-lg text-red-500">${formatCurrency(sale.amount)}</p>
+                ${temParcial ? `<p class="text-xs text-green-600">Pago: ${formatCurrency(totalPago)}</p>` : ''}
+                <button data-id="${sale.id}" class="receive-payment-btn text-sm text-green-600 hover:underline">${temParcial ? 'Receber Restante' : 'Receber Pagamento'}</button>
+            </div>
+        </div>`;
     });
 }
 
@@ -2049,6 +2064,11 @@ function openReceivePaymentModal(transactionId) {
     const form = document.getElementById('receive-payment-form');
     form.elements.transactionId.value = sale.id;
     document.getElementById('receive-payment-total').textContent = formatCurrency(sale.amount);
+    const amountInput = document.getElementById('receive-payment-amount');
+    if (amountInput) {
+        amountInput.value = sale.amount.toFixed(2);
+        amountInput.max = sale.amount;
+    }
     openModal('modal-receber-pagamento');
 }
 
@@ -2060,17 +2080,37 @@ async function handleReceivedPayment(e) {
     
     if (!sale) return;
 
+    const valorRecebido = parseFloat(form.elements.paymentAmount?.value.replace(',', '.') || '0');
+    if (!valorRecebido || valorRecebido <= 0) {
+        showToast('Informe um valor válido para receber!', 'error');
+        return;
+    }
+    if (valorRecebido > sale.amount) {
+        showToast('Valor não pode ser maior que o saldo devedor!', 'error');
+        return;
+    }
+
     toggleLoading(true);
     try {
         const novoMetodo = form.elements.paymentMethod.value;
         const novasParcelas = novoMetodo === 'Cartão de Crédito' ? parseInt(form.elements.paymentInstallments.value) : 1;
-        const methodsStr = JSON.stringify([{ method: novoMetodo, amount: sale.amount, installments: novasParcelas }]);
+        const methodsStr = JSON.stringify([{ method: novoMetodo, amount: valorRecebido, installments: novasParcelas }]);
+        const novoSaldo = sale.amount - valorRecebido;
+        const isQuitado = novoSaldo <= 0.005;
 
-        const { error: updateError } = await supabaseClient
-            .from('transacoes')
-            .update({ status: 'Pago', metodo_pagamento: methodsStr, parcelas: novasParcelas })
-            .eq('id', saleId);
-        if (updateError) throw updateError;
+        if (isQuitado) {
+            const { error: updateError } = await supabaseClient
+                .from('transacoes')
+                .update({ status: 'Pago', valor_total: 0, metodo_pagamento: methodsStr, parcelas: novasParcelas })
+                .eq('id', saleId);
+            if (updateError) throw updateError;
+        } else {
+            const { error: updateError } = await supabaseClient
+                .from('transacoes')
+                .update({ valor_total: parseFloat(novoSaldo.toFixed(2)) })
+                .eq('id', saleId);
+            if (updateError) throw updateError;
+        }
 
         const { error: insertError } = await supabaseClient
             .from('transacoes')
@@ -2078,21 +2118,45 @@ async function handleReceivedPayment(e) {
                 id: Date.now(),
                 tipo: 'recebimento',
                 cliente_id: sale.customerId || 1,
-                valor_total: sale.amount,
+                valor_total: valorRecebido,
                 metodo_pagamento: methodsStr,
                 parcelas: novasParcelas,
                 status: 'Pago',
-                descricao: `Recebimento da venda #${sale.id}`,
+                descricao: `Recebimento da venda #${sale.id}${isQuitado ? '' : ' (parcial)'}`,
                 data_venda: new Date().toISOString()
             }]);
         if (insertError) throw insertError;
 
-        cashBalance += sale.amount;
+        if (isQuitado) {
+            sale.status = 'Pago';
+            sale.amount = 0;
+        } else {
+            sale.amount = parseFloat(novoSaldo.toFixed(2));
+        }
+        cashBalance += valorRecebido;
+
+        transactions.push({
+            id: Date.now(),
+            type: 'recebimento',
+            amount: valorRecebido,
+            cost: 0,
+            discount: 0,
+            description: `Recebimento da venda #${sale.id}${isQuitado ? '' : ' (parcial)'}`,
+            date: new Date().getTime(),
+            customerId: sale.customerId,
+            method: methodsStr,
+            status: 'Pago',
+            reversed: false,
+            items: []
+        });
+
         saveData();
-        
-        showToast('Pagamento recebido com sucesso!', 'success');
+        renderUnpaidSales();
+        renderDashboard();
+        updateCashBalance();
+
+        showToast(isQuitado ? 'Pagamento recebido com sucesso!' : `Pagamento parcial de ${formatCurrency(valorRecebido)} recebido. Restam ${formatCurrency(novoSaldo)}.`, 'success');
         closeModal('modal-receber-pagamento');
-        await loadDataFromSupabase();
 
     } catch (error) {
         console.error("Erro ao receber pagamento:", error);

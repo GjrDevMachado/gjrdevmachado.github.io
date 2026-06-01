@@ -1055,6 +1055,10 @@
                <form id="receive-payment-form" class="space-y-4">
                 <input type="hidden" name="transactionId">
                 <div>
+                    <label for="receive-payment-amount">Valor a Receber</label>
+                    <input type="number" id="receive-payment-amount" name="paymentAmount" min="0.01" step="0.01" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)] font-bold text-lg">
+                </div>
+                <div>
                     <label for="receive-payment-method">Forma de Pagamento</label>
                     <select id="receive-payment-method" name="paymentMethod" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
                         <option>Dinheiro</option>
@@ -1066,6 +1070,7 @@
                     <label for="receive-payment-installments">Parcelas</label>
                     <input type="number" id="receive-payment-installments" name="paymentInstallments" value="1" min="1" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
                 </div>
+                <p class="text-xs text-[var(--text-tertiary)]">Se o valor for menor que o total, o saldo restante continuará como <strong>Não Pago</strong>.</p>
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
                     <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Confirmar Recebimento</button>

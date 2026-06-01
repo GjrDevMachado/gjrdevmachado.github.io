@@ -9,15 +9,18 @@ CREATE TABLE IF NOT EXISTS empresa (
 INSERT INTO empresa (id, logo) VALUES (1, NULL)
 ON CONFLICT (id) DO NOTHING;
 
+-- Adiciona coluna modo_calculo à tabela transacoes (para classificar vendas por tipo)
+ALTER TABLE transacoes ADD COLUMN IF NOT EXISTS modo_calculo TEXT DEFAULT NULL;
+
 -- RLS
 ALTER TABLE empresa ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Usuários autenticados podem ler empresa"
+CREATE POLICY IF NOT EXISTS "Usuários autenticados podem ler empresa"
   ON empresa FOR SELECT
   TO authenticated
   USING (true);
 
-CREATE POLICY "Usuários autenticados podem inserir/atualizar empresa"
+CREATE POLICY IF NOT EXISTS "Usuários autenticados podem inserir/atualizar empresa"
   ON empresa FOR ALL
   TO authenticated
   USING (true)

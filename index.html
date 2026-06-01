@@ -239,13 +239,20 @@
                 </div>
 
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
-                    <div class="xl:col-span-2 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
+                    <div class="xl:col-span-3 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-line mr-2 text-blue-500"></i> Vendas dos Últimos 30 Dias</h3>
                         <div style="height:260px"><canvas id="chart-sales-trend"></canvas></div>
                     </div>
-                    <div class="xl:col-span-1 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-pie mr-2 text-purple-500"></i> Orçamentos por Tipo</h3>
                         <div style="height:260px"><canvas id="chart-budget-types"></canvas></div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-pie mr-2 text-orange-500"></i> Vendas por Tipo</h3>
+                        <div style="height:260px"><canvas id="chart-sales-types"></canvas></div>
                     </div>
                 </div>
 
@@ -314,6 +321,14 @@
                                     <div class="mb-4">
                                         <label for="customer-select" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Associar Cliente (Obrigatório)</label>
                                         <select id="customer-select" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="pos-modo-calculo" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Modo de Cálculo</label>
+                                        <select id="pos-modo-calculo" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                            <option value="grafica">Gráfica</option>
+                                            <option value="impressao3d">Impressão 3D</option>
+                                            <option value="misto">Misto (Gráfica + 3D)</option>
+                                        </select>
                                     </div>
                                     <div id="customer-info-summary" class="hidden mt-2 p-3 bg-[var(--bg-tertiary)] rounded-lg text-sm border border-[var(--border-color)] space-y-1"></div>
                                     <div id="cart-items" class="space-y-3 mt-4 max-h-[40vh] overflow-y-auto"></div>

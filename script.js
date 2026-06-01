@@ -18,6 +18,7 @@ let cart = { items: [], generalDiscount: { type: 'fixed', value: 0 } };
 let salesChart;
 let dashboardSalesChart;
 let dashboardBudgetChart;
+let dashboardSalesTypeChart;
 let currentReportPeriod = 'daily';
 let confirmCallback = null;
 let areEventListenersAdded = false;
@@ -254,7 +255,8 @@ async function loadDataFromSupabase() {
                 installments: t.parcelas, 
                 status: t.status, 
                 reversed: t.estornada || false, 
-                items: itemsFormatados 
+                items: itemsFormatados,
+                modoCalculo: t.modo_calculo || null
             };
         });
 
@@ -1408,6 +1410,7 @@ async function processSale(paymentDetails) {
 
         const methodsStr = JSON.stringify(paymentDetails.methods || [{ method: 'Dinheiro', amount: total, installments: 1 }]);
         const maxInstallments = (paymentDetails.methods || []).reduce((max, m) => Math.max(max, m.installments || 1), 1);
+        const modoCalculo = document.getElementById('pos-modo-calculo')?.value || document.getElementById('orc-modo-calculo')?.value || 'grafica';
 
         const novaTransacao = {
             id: transacaoId, 
@@ -1420,7 +1423,8 @@ async function processSale(paymentDetails) {
             metodo_pagamento: methodsStr,
             parcelas: maxInstallments,
             status: paymentDetails.status,
-            data_venda: saleDate
+            data_venda: saleDate,
+            modo_calculo: modoCalculo
         };
 
         const { error: transacaoError } = await supabaseClient.from('transacoes').insert([novaTransacao]);
@@ -2728,6 +2732,7 @@ function renderDashboard() {
 
     renderSalesTrendChart(monthTransactions);
     renderBudgetTypeChart(budgetsThisMonth);
+    renderSalesTypeChart(monthTransactions);
     renderTopProducts(monthTransactions);
 }
 
@@ -2836,6 +2841,59 @@ function renderBudgetTypeChart(budgetsThisMonth) {
                 tooltip: {
                     callbacks: {
                         label: ctx => ctx.label + ': ' + ctx.parsed + ' orçamentos'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderSalesTypeChart(monthTransactions) {
+    const canvas = document.getElementById('chart-sales-types');
+    if (!canvas) return;
+    if (dashboardSalesTypeChart) { dashboardSalesTypeChart.destroy(); dashboardSalesTypeChart = null; }
+
+    const amounts = { grafica: 0, impressao3d: 0, misto: 0 };
+    monthTransactions.forEach(t => {
+        const modo = t.modoCalculo || 'grafica';
+        if (amounts[modo] !== undefined) amounts[modo] += t.amount;
+    });
+
+    const hasData = Object.values(amounts).some(v => v > 0);
+    if (!hasData) {
+        const ctx = canvas.getContext('2d');
+        dashboardSalesTypeChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Gráfica', 'Impressão 3D', 'Misto'],
+                datasets: [{ data: [1], backgroundColor: ['#e5e7eb'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, tooltip: { enabled: false } }
+            }
+        });
+        return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    dashboardSalesTypeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Gráfica', 'Impressão 3D', 'Misto'],
+            datasets: [{
+                data: [amounts.grafica, amounts.impressao3d, amounts.misto],
+                backgroundColor: ['#3b82f6', '#a855f7', '#22c55e'],
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.label + ': ' + formatCurrency(ctx.parsed)
                     }
                 }
             }

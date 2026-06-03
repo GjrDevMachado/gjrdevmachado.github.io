@@ -5238,6 +5238,7 @@ function renderHistoricoOrcamentos() {
     const mes = parseInt(document.getElementById('historico-mes-select').value);
     const ano = parseInt(document.getElementById('historico-ano-select').value);
     const modoFilter = document.getElementById('historico-modo-select').value;
+    const searchTerm = (document.getElementById('historico-search-input')?.value || '').toLowerCase().trim();
 
     let filtered = [...savedBudgets];
     if (modoFilter) {
@@ -5247,6 +5248,14 @@ function renderHistoricoOrcamentos() {
         filtered = filtered.filter(b => {
             const d = new Date(b.date + 'T00:00:00');
             return d.getMonth() === mes && d.getFullYear() === ano;
+        });
+    }
+    if (searchTerm) {
+        filtered = filtered.filter(b => {
+            const dataStr = new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR');
+            return (b.clienteName || '').toLowerCase().includes(searchTerm) ||
+                   (b.produto || '').toLowerCase().includes(searchTerm) ||
+                   dataStr.includes(searchTerm);
         });
     }
     filtered.sort((a, b) => new Date(b.date + 'T00:00:00') - new Date(a.date + 'T00:00:00'));
@@ -5673,6 +5682,7 @@ function addOrcamentoEventListeners() {
         document.getElementById('historico-mes-select').value = '-1';
         document.getElementById('historico-ano-select').value = new Date().getFullYear();
         document.getElementById('historico-modo-select').value = '';
+        document.getElementById('historico-search-input').value = '';
         renderHistoricoOrcamentos();
     });
 

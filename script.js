@@ -101,8 +101,8 @@ async function loadOrcamentoDataFromSupabase() {
     } catch (error) {
         console.error("Erro ao carregar dados de orçamento do Supabase:", error);
     }
-    saveOrcamentoData();
     await loadRascunhosFromSupabase();
+    saveOrcamentoData();
     cleanupOldDrafts();
 }
 
@@ -2468,7 +2468,12 @@ async function handleEditCategory(e) {
 }
 
 function exportAllData() {
-    const allData = { products, customers, transactions, cashBalance, rawMaterials, categories, theme: document.documentElement.getAttribute('data-theme'), backupDate: new Date().toISOString() };
+    const allData = {
+        products, customers, transactions, cashBalance, rawMaterials, categories,
+        machines, supplyCatalog, filamentCatalog, savedBudgets, rascunhos,
+        theme: document.documentElement.getAttribute('data-theme'),
+        backupDate: new Date().toISOString()
+    };
     const dataStr = JSON.stringify(allData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob); const a = document.createElement('a');
@@ -2551,6 +2556,98 @@ async function importAllData(event) {
                     }
 
                     if (importedData.cashBalance) localStorage.setItem('cashBalance', JSON.stringify(importedData.cashBalance));
+
+                    if (importedData.machines && importedData.machines.length > 0) {
+                        const maqs = importedData.machines.map(m => ({
+                            id: m.id, nome: m.name, potencia: m.power,
+                            preco_luz: m.electricityPrice, valor_maquina: m.machineValue,
+                            anos_uso: m.yearsOfUse, horas_dia: m.hoursPerDay,
+                            depreciacao: m.depreciation || null, custo_hora: m.costPerHour
+                        }));
+                        await supabaseClient.from('maquinas').upsert(maqs);
+                    }
+
+                    if (importedData.supplyCatalog && importedData.supplyCatalog.length > 0) {
+                        const insumos = importedData.supplyCatalog.map(s => ({
+                            id: s.id, nome: s.name, preco_pacote: s.packagePrice,
+                            qtd_pacote: s.packageQuantity, custo_unitario: s.unitCost
+                        }));
+                        await supabaseClient.from('insumos_orcamento').upsert(insumos);
+                    }
+
+                    if (importedData.savedBudgets && importedData.savedBudgets.length > 0) {
+                        const orcs = importedData.savedBudgets.map(b => ({
+                            id: b.id, data: b.date, cliente_nome: b.clienteName,
+                            cliente_id: b.clienteId ? parseInt(b.clienteId) : null,
+                            produto: b.produto, quantidade: b.quantidade,
+                            custo_total: b.custoTotal, preco_sugerido: b.precoSugerido,
+                            preco_final: b.precoFinal, lucro: b.lucro, margem: b.margem,
+                            taxa_plataforma: b.taxa, taxa_fixa: b.taxaFixa || 0,
+                            tempo_gasto: b.tempoGasto, valor_hora: b.valorHora,
+                            materiais_json: JSON.stringify(b.materials || []),
+                            maquinas_json: JSON.stringify(b.machines || []),
+                            filamentos_json: JSON.stringify(b.filamentos || []),
+                            custos_fixos_json: JSON.stringify({
+                                aluguel: b.aluguel, internet: b.internet, mei: b.mei, outros: b.outros,
+                                horas_dia: b.horasDia, dias_mes: b.diasMes,
+                                custo_fixo_3d: b.custoFixo3D || 0, preco_luz: b.precoLuz || 0,
+                                horas_dia_3d: b.horasDia3d || 8, dias_mes_3d: b.diasMes3d || 22
+                            }),
+                            modo_calculo: b.modoCalculo || 'grafica',
+                            is_kit: b.isKit || false, preco_kit: b.precoKit || 0,
+                            produto_id: b.produtoId || null, status: b.status || 'rascunho',
+                            created_at: b.createdAt
+                        }));
+                        await supabaseClient.from('orcamentos').upsert(orcs);
+                    }
+
+                    if (importedData.rascunhos && importedData.rascunhos.length > 0) {
+                        const rasc = importedData.rascunhos.map(r => ({
+                            id: r.id, data: r.date || '', cliente_nome: r.clienteName || '',
+                            cliente_id: r.clienteId ? parseInt(r.clienteId) : null,
+                            produto: r.produto || '', quantidade: r.quantidade || 1,
+                            tempo_gasto: r.tempoGasto || 0, valor_hora: r.valorHora || 0,
+                            margem: r.margem || 0, taxa_plataforma: r.taxa || 0, taxa_fixa: r.taxaFixa || 0,
+                            aluguel: r.aluguel || 0, internet: r.internet || 0, mei: r.mei || 0, outros: r.outros || 0,
+                            horas_dia: r.horasDia || 1, dias_mes: r.diasMes || 1,
+                            modo_calculo: r.modoCalculo || 'grafica',
+                            peso: r.peso || 0, filamento_id: r.filamentoId || null,
+                            filamentos_json: JSON.stringify(r.filamentos || []),
+                            tempo_impressao: r.tempoImpressao || 0,
+                            falhas: r.falhas || 10, acabamento: r.acabamento || 10,
+                            fixacao: r.fixacao || 0.10, roi_meses: r.roiMeses || 12,
+                            maquinas_ativas: r.maquinasAtivas || 1,
+                            custo_fixo_3d: r.custoFixo3D || 0, preco_luz: r.precoLuz || 0,
+                            horas_dia_3d: r.horasDia3d || 8, dias_mes_3d: r.diasMes3d || 22,
+                            materiais_json: JSON.stringify(r.materials || []),
+                            maquinas_json: JSON.stringify(r.machines || []),
+                            custos_fixos_json: JSON.stringify({
+                                aluguel: r.aluguel, internet: r.internet, mei: r.mei, outros: r.outros,
+                                horas_dia: r.horasDia, dias_mes: r.diasMes,
+                                custo_fixo_3d: r.custoFixo3D || 0, preco_luz: r.precoLuz || 0,
+                                horas_dia_3d: r.horasDia3d || 8, dias_mes_3d: r.diasMes3d || 22
+                            }),
+                            is_kit: r.isKit || false, preco_kit: r.precoKit || 0,
+                            produto_id: r.produtoId || null, created_at: r.createdAt
+                        }));
+                        await supabaseClient.from('rascunhos').upsert(rasc);
+                    }
+
+                    if (importedData.filamentCatalog) {
+                        localStorage.setItem('orcamentoFilaments', JSON.stringify(importedData.filamentCatalog));
+                    }
+                    if (importedData.machines) {
+                        localStorage.setItem('orcamentoMachines', JSON.stringify(importedData.machines));
+                    }
+                    if (importedData.supplyCatalog) {
+                        localStorage.setItem('orcamentoSupplies', JSON.stringify(importedData.supplyCatalog));
+                    }
+                    if (importedData.savedBudgets) {
+                        localStorage.setItem('orcamentoBudgets', JSON.stringify(importedData.savedBudgets));
+                    }
+                    if (importedData.rascunhos) {
+                        localStorage.setItem('orcamentoRascunhos', JSON.stringify(importedData.rascunhos));
+                    }
 
                     showToast("Backup migrado para a nuvem com sucesso!", "success");
                     closeModal('modal-settings');
@@ -3704,15 +3801,65 @@ async function syncSuppliesToSupabase() {
     }
 }
 
+async function syncRascunhosToSupabase() {
+    try {
+        const { error: delError } = await supabaseClient.from('rascunhos').delete().neq('id', 0);
+        if (delError) {
+            showToast('Erro SQL (rascunhos): ' + delError.message, 'error');
+            return false;
+        }
+        for (const r of rascunhos) {
+            const { error } = await supabaseClient.from('rascunhos').insert([{
+                id: r.id, data: r.date || '', cliente_nome: r.clienteName || '',
+                cliente_id: r.clienteId ? parseInt(r.clienteId) : null,
+                produto: r.produto || '', quantidade: r.quantidade || 1,
+                tempo_gasto: r.tempoGasto || 0, valor_hora: r.valorHora || 0,
+                margem: r.margem || 0, taxa_plataforma: r.taxa || 0, taxa_fixa: r.taxaFixa || 0,
+                aluguel: r.aluguel || 0, internet: r.internet || 0, mei: r.mei || 0, outros: r.outros || 0,
+                horas_dia: r.horasDia || 1, dias_mes: r.diasMes || 1,
+                modo_calculo: r.modoCalculo || 'grafica',
+                peso: r.peso || 0, filamento_id: r.filamentoId || null,
+                filamentos_json: JSON.stringify(r.filamentos || []),
+                tempo_impressao: r.tempoImpressao || 0,
+                falhas: r.falhas || 10, acabamento: r.acabamento || 10,
+                fixacao: r.fixacao || 0.10, roi_meses: r.roiMeses || 12,
+                maquinas_ativas: r.maquinasAtivas || 1,
+                custo_fixo_3d: r.custoFixo3D || 0, preco_luz: r.precoLuz || 0,
+                horas_dia_3d: r.horasDia3d || 8, dias_mes_3d: r.diasMes3d || 22,
+                materiais_json: JSON.stringify(r.materials || []),
+                maquinas_json: JSON.stringify(r.machines || []),
+                custos_fixos_json: JSON.stringify({
+                    aluguel: r.aluguel, internet: r.internet, mei: r.mei, outros: r.outros,
+                    horas_dia: r.horasDia, dias_mes: r.diasMes,
+                    custo_fixo_3d: r.custoFixo3D || 0, preco_luz: r.precoLuz || 0,
+                    horas_dia_3d: r.horasDia3d || 8, dias_mes_3d: r.diasMes3d || 22
+                }),
+                is_kit: r.isKit || false, preco_kit: r.precoKit || 0,
+                produto_id: r.produtoId || null, created_at: r.createdAt
+            }]);
+            if (error) {
+                showToast('Erro SQL (rascunhos insert): ' + error.message, 'error');
+                return false;
+            }
+        }
+        return true;
+    } catch (e) {
+        showToast('Erro sync rascunhos: ' + e.message, 'error');
+        return false;
+    }
+}
+
 async function syncAllToSupabase() {
     loadOrcamentoData();
     console.log('Máquinas para sync:', machines.length);
     console.log('Insumos para sync:', supplyCatalog.length);
     console.log('Orçamentos para sync:', savedBudgets.length);
+    console.log('Rascunhos para sync:', rascunhos.length);
     const machinesOk = await syncMachinesToSupabase();
     const suppliesOk = await syncSuppliesToSupabase();
     const budgetsOk = await syncBudgetsToSupabase();
-    if (machinesOk && suppliesOk && budgetsOk) {
+    const rascunhosOk = await syncRascunhosToSupabase();
+    if (machinesOk && suppliesOk && budgetsOk && rascunhosOk) {
         showToast('Dados sincronizados com a nuvem!', 'success');
     } else {
         showToast('Sincronização parcial. Execute o SQL no Supabase primeiro.', 'error');
@@ -4700,14 +4847,32 @@ let autoSaveTimeout = null;
 let lastAutoSaveState = '';
 
 function getFormState() {
-    const produto = document.getElementById('orc-produto')?.value.trim() || '';
-    const cliente = document.getElementById('orc-cliente')?.value || '';
-    const data = document.getElementById('orc-data')?.value || '';
-    const qtd = document.getElementById('orc-quantidade')?.value || '';
-    return produto + '|' + cliente + '|' + data + '|' + qtd;
+    const parts = [
+        document.getElementById('orc-produto')?.value.trim() || '',
+        document.getElementById('orc-cliente')?.value || '',
+        document.getElementById('orc-data')?.value || '',
+        document.getElementById('orc-quantidade')?.value || '',
+        document.getElementById('orc-modo-calculo')?.value || '',
+        document.getElementById('orc-tempo-gasto')?.value || '',
+        document.getElementById('orc-valor-hora')?.value || '',
+        document.getElementById('orc-margem')?.value || '',
+        document.getElementById('orc-taxa-plataforma')?.value || '',
+        document.getElementById('orc-taxa-fixa')?.value || '',
+        JSON.stringify(currentBudgetMaterials),
+        JSON.stringify(currentBudgetMachines),
+        JSON.stringify(currentBudgetFilaments),
+        document.getElementById('orc-tempo-impressao-h')?.value || '',
+        document.getElementById('orc-tempo-impressao-min')?.value || '',
+        document.getElementById('orc-falhas')?.value || '',
+        document.getElementById('orc-acabamento')?.value || '',
+        document.getElementById('orc-fixacao')?.value || '',
+        document.getElementById('orc-kit-check')?.checked || false,
+    ];
+    return parts.join('|');
 }
 
 async function autoSaveDraft() {
+    if (isSavingBudget) return;
     const produto = document.getElementById('orc-produto')?.value.trim();
     if (!produto) return;
 
@@ -4871,6 +5036,13 @@ function renderRascunhos() {
 }
 
 function loadRascunho(id) {
+    stopAutoSave();
+    lastAutoSaveState = '';
+    if (editingBudgetId && editingBudgetId !== id) {
+        const oldId = editingBudgetId;
+        supabaseClient.from('rascunhos').delete().eq('id', oldId).catch(() => {});
+        rascunhos = rascunhos.filter(r => r.id !== oldId);
+    }
     loadBudget(id);
     editingBudgetId = id;
     document.getElementById('salvar-orcamento-btn').textContent = 'Finalizar Orçamento';

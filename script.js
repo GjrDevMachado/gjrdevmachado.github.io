@@ -189,7 +189,7 @@ async function loadDataFromSupabase() {
         categories = (categoriasData && categoriasData.length > 0) ? categoriasData.map(c => ({ id: c.id, name: c.nome })) : [{ id: 1, name: 'Sem Categoria' }];
 
         const { data: produtosData } = await supabaseClient.from('produtos').select('*');
-        products = (produtosData || []).map(p => ({ id: p.id, name: p.nome, price: parseFloat(p.preco), cost: parseFloat(p.custo), categoryId: p.categoria_id, barcode: p.codigo_barras }));
+        products = (produtosData || []).map(p => ({ id: p.id, name: p.nome, price: parseFloat(p.preco), cost: parseFloat(p.custo), categoryId: p.categoria_id, barcode: p.codigo_barras, modoCalculo: p.modo_calculo || 'grafica' }));
 
         const { data: clientesData } = await supabaseClient.from('clientes').select('*');
         customers = (clientesData && clientesData.length > 0) ? clientesData.map(c => ({ id: c.id, name: c.nome, contact: c.contato || '' })) : [{ id: 1, name: 'Cliente Balcão', contact: '' }];
@@ -347,7 +347,7 @@ function initializeAppUI() {
 }
 
 // --- FUNÇÕES DE LÓGICA PRINCIPAL ---
-async function addProduct(name, price, cost, categoryId, barcode) {
+async function addProduct(name, price, cost, categoryId, barcode, modoCalculo) {
     if (products.some(p => p.name.toLowerCase() === name.toLowerCase())) {
         showToast('Produto com este nome já está registado!', 'error');
         return;
@@ -365,7 +365,8 @@ async function addProduct(name, price, cost, categoryId, barcode) {
             preco: parseFloat(price),
             custo: parseFloat(cost),
             categoria_id: parseInt(categoryId) || 1,
-            codigo_barras: barcode ? barcode.trim() : null
+            codigo_barras: barcode ? barcode.trim() : null,
+            modo_calculo: modoCalculo || 'grafica'
         };
 
         const { error } = await supabaseClient.from('produtos').insert([novoProduto]);
@@ -497,6 +498,11 @@ function openProductSelector() {
 function selectProduto(id, name) {
     document.getElementById('orc-produto').value = name;
     document.getElementById('orc-produto-id').value = id;
+    const product = products.find(p => p.id === id);
+    if (product && product.modoCalculo) {
+        document.getElementById('orc-modo-calculo').value = product.modoCalculo;
+        toggleOrcamentoMode();
+    }
     updateVincularUI();
     closeModal('modal-selecionar-produto');
 }
@@ -1410,7 +1416,8 @@ async function processSale(paymentDetails) {
 
         const methodsStr = JSON.stringify(paymentDetails.methods || [{ method: 'Dinheiro', amount: total, installments: 1 }]);
         const maxInstallments = (paymentDetails.methods || []).reduce((max, m) => Math.max(max, m.installments || 1), 1);
-        const modoCalculo = document.getElementById('pos-modo-calculo')?.value || document.getElementById('orc-modo-calculo')?.value || 'grafica';
+        const uniqueModes = [...new Set(cart.items.map(item => item.modoCalculo || 'grafica'))];
+        const modoCalculo = uniqueModes.length === 1 ? uniqueModes[0] : 'misto';
 
         const novaTransacao = {
             id: transacaoId, 
@@ -1745,6 +1752,7 @@ function openEditProductModal(productId) {
     form.elements.productBarcode.value = product.barcode || '';
     populateCategoryDropdowns();
     form.elements.editProductCategory.value = product.categoryId;
+    form.elements.editProductModoCalculo.value = product.modoCalculo || 'grafica';
     openModal('modal-edit-produto');
 }
 
@@ -3130,7 +3138,7 @@ function addEventListeners() {
     
     safeAddListener('add-product-form', 'submit', function(e) {
         e.preventDefault();
-        addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productCategory.value, this.elements.productBarcode.value);
+        addProduct(this.elements.productName.value, this.elements.productPrice.value, this.elements.productCost.value, this.elements.productCategory.value, this.elements.productBarcode.value, this.elements.productModoCalculo.value);
         this.reset();
         closeModal('modal-produto');
     });
@@ -3151,13 +3159,15 @@ function addEventListeners() {
 
         toggleLoading(true);
         try {
+            const newModoCalculo = this.elements.editProductModoCalculo.value;
             const { error } = await supabaseClient.from('produtos')
                 .update({
                     nome: newName,
                     preco: newPrice,
                     custo: newCost,
                     categoria_id: newCategoryId,
-                    codigo_barras: newBarcode
+                    codigo_barras: newBarcode,
+                    modo_calculo: newModoCalculo
                 })
                 .eq('id', productId);
             
@@ -3485,9 +3495,15 @@ function addEventListeners() {
                     const qtd = isKit ? 1 : (b.quantidade || 1);
                     const precoProd = isKit ? b.precoFinal : (b.precoFinal / qtd);
                     const custoProd = isKit ? b.custoTotal : (b.custoTotal / qtd);
-                    await addProduct(b.produto, precoProd, custoProd, 1, '');
+                    await addProduct(b.produto, precoProd, custoProd, 1, '', b.modoCalculo);
                     const novo = products.find(p => p.name.toLowerCase() === b.produto.toLowerCase());
                     if (novo) {
+                        novo.modoCalculo = b.modoCalculo || 'grafica';
+                        try {
+                            await supabaseClient.from('produtos').update({ modo_calculo: novo.modoCalculo }).eq('id', novo.id);
+                        } catch (e) {
+                            console.error('Erro ao atualizar modo_calculo do produto:', e);
+                        }
                         novo.budgetData = {
                             materiais: b.materials || [],
                             maquinas: b.machines || [],
@@ -4766,9 +4782,9 @@ async function saveBudget() {
         const precoProd = parseFloat((budget.precoFinal / qtd).toFixed(2));
         const custoProd = parseFloat((budget.custoTotal / qtd).toFixed(2));
         try {
-            await supabaseClient.from('produtos').update({ preco: precoProd, custo: custoProd }).eq('id', budget.produtoId);
+            await supabaseClient.from('produtos').update({ preco: precoProd, custo: custoProd, modo_calculo: budget.modoCalculo }).eq('id', budget.produtoId);
             const prod = products.find(p => p.id === budget.produtoId);
-            if (prod) { prod.price = precoProd; prod.cost = custoProd; }
+            if (prod) { prod.price = precoProd; prod.cost = custoProd; prod.modoCalculo = budget.modoCalculo; }
         } catch (e) {
             console.error('Erro ao atualizar produto vinculado:', e);
         }

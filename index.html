@@ -322,14 +322,6 @@
                                         <label for="customer-select" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Associar Cliente (Obrigatório)</label>
                                         <select id="customer-select" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
                                     </div>
-                                    <div class="mb-4">
-                                        <label for="pos-modo-calculo" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Modo de Cálculo</label>
-                                        <select id="pos-modo-calculo" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
-                                            <option value="grafica">Gráfica</option>
-                                            <option value="impressao3d">Impressão 3D</option>
-                                            <option value="misto">Misto (Gráfica + 3D)</option>
-                                        </select>
-                                    </div>
                                     <div id="customer-info-summary" class="hidden mt-2 p-3 bg-[var(--bg-tertiary)] rounded-lg text-sm border border-[var(--border-color)] space-y-1"></div>
                                     <div id="cart-items" class="space-y-3 mt-4 max-h-[40vh] overflow-y-auto"></div>
                                 </div>
@@ -782,6 +774,14 @@
                     <label for="add-product-category" class="block text-sm font-medium">Categoria</label>
                     <select id="add-product-category" name="productCategory" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]"></select>
                 </div>
+                <div>
+                    <label for="add-product-modo-calculo" class="block text-sm font-medium">Modo de Cálculo</label>
+                    <select id="add-product-modo-calculo" name="productModoCalculo" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option value="grafica">Gráfica</option>
+                        <option value="impressao3d">Impressão 3D</option>
+                        <option value="misto">Misto (Gráfica + 3D)</option>
+                    </select>
+                </div>
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
                     <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar Produto</button>
@@ -818,6 +818,14 @@
                 <div>
                     <label for="edit-product-category" class="block text-sm font-medium">Categoria</label>
                     <select id="edit-product-category" name="editProductCategory" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]"></select>
+                </div>
+                <div>
+                    <label for="edit-product-modo-calculo" class="block text-sm font-medium">Modo de Cálculo</label>
+                    <select id="edit-product-modo-calculo" name="editProductModoCalculo" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option value="grafica">Gráfica</option>
+                        <option value="impressao3d">Impressão 3D</option>
+                        <option value="misto">Misto (Gráfica + 3D)</option>
+                    </select>
                 </div>
                 <div class="flex justify-between gap-3 mt-4">
                     <button type="button" id="delete-product-btn" class="px-4 py-2 rounded bg-[var(--danger-500)] text-white">Excluir</button>

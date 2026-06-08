@@ -6,6 +6,7 @@
     <title>Sistema de Gestão - MOLDART 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -66,10 +67,24 @@
         .toggle-checkbox:checked + .toggle-label { background-color: var(--secondary-500); }
         .toggle-checkbox { transition: all 0.2s ease-in-out; }
         .sidebar-item.active { background-color: var(--primary-600); color: white; }
+        .receipt-image {
+            width: 360px; padding: 24px; background: #ffffff; color: #1f2937;
+            font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;
+        }
+        .receipt-image .header { text-align: center; margin-bottom: 16px; }
+        .receipt-image .header h2 { font-size: 16px; font-weight: bold; margin: 0; }
+        .receipt-image .header p { font-size: 11px; color: #6b7280; margin: 2px 0; }
+        .receipt-image .divider { border-top: 1px dashed #9ca3af; margin: 8px 0; }
+        .receipt-image table { width: 100%; border-collapse: collapse; }
+        .receipt-image th { text-align: left; font-size: 10px; text-transform: uppercase; color: #6b7280; padding: 4px 2px; border-bottom: 1px solid #d1d5db; }
+        .receipt-image td { padding: 4px 2px; border-bottom: 1px dotted #e5e7eb; }
+        .receipt-image .total-row { font-weight: bold; font-size: 14px; }
+        .receipt-image .footer { text-align: center; margin-top: 16px; font-size: 10px; color: #9ca3af; }
         @media print {
             body * { visibility: hidden; }
             #receipt-modal, #receipt-modal *, #modal-venda-detalhes, #modal-venda-detalhes * { visibility: visible; }
             #receipt-modal, #modal-venda-detalhes { position: absolute; left: 0; top: 0; width: 100%; }
+            .internal-only { display: none !important; }
             .no-print { display: none; }
         }
     </style>
@@ -1109,7 +1124,10 @@
             <div id="sale-details-content" class="space-y-2">
             </div>
 
+            <div id="customer-receipt-content" class="hidden"></div>
+
             <div class="flex justify-end mt-4 no-print">
+                <button id="generate-img-btn" class="px-4 py-2 rounded bg-green-600 text-white mr-2"><i class="fas fa-image"></i> Gerar Imagem</button>
                 <button id="print-details-btn" class="px-4 py-2 rounded bg-blue-600 text-white mr-2">Imprimir</button>
                 <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
             </div>

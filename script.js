@@ -676,7 +676,15 @@ function renderReports(period = currentReportPeriod, month, year) {
         const salesSummary = document.getElementById('sales-summary');
         const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
 
-        const totalRevenue = salesTransactions.reduce((s, t) => s + t.amount, 0);
+        const saleEffectiveAmount = (sale) => {
+            const recebimentos = transactions.filter(t =>
+                t.type === 'recebimento' && t.description && t.description.includes(`#${sale.id}`)
+            );
+            const totalRecebido = recebimentos.reduce((s, r) => s + r.amount, 0);
+            return sale.amount + totalRecebido;
+        };
+
+        const totalRevenue = salesTransactions.reduce((s, t) => s + saleEffectiveAmount(t), 0);
         const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
         const grossRevenue = totalRevenue; 
         const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0);
@@ -712,13 +720,14 @@ function renderReports(period = currentReportPeriod, month, year) {
         if (paymentMethodSummary) {
             const totals = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0 };
             salesTransactions.forEach(t => {
+                const effectiveAmount = saleEffectiveAmount(t);
                 const methods = parsePaymentMethods(t.method);
                 if (methods.length > 1) {
                     methods.forEach(m => {
                         if (totals.hasOwnProperty(m.method)) totals[m.method] += m.amount;
                     });
                 } else if (methods.length === 1 && totals.hasOwnProperty(methods[0].method)) {
-                    totals[methods[0].method] += t.amount;
+                    totals[methods[0].method] += effectiveAmount;
                 }
             });
             const totalGeral = Object.values(totals).reduce((a, b) => a + b, 0);
@@ -750,8 +759,9 @@ function renderReports(period = currentReportPeriod, month, year) {
 
             salesTransactions.forEach(t => {
                 const month = new Date(t.date).getMonth();
-                if (t.status === 'Não Pago') monthlyData[month].unpaid += t.amount;
-                else monthlyData[month].paid += t.amount;
+                const effectiveAmount = saleEffectiveAmount(t);
+                if (t.status === 'Não Pago') monthlyData[month].unpaid += effectiveAmount;
+                else monthlyData[month].paid += effectiveAmount;
                 monthlyData[month].cost += (t.cost || 0);
                 monthlyData[month].discount += (t.discount || 0);
             });
@@ -808,9 +818,10 @@ function renderReports(period = currentReportPeriod, month, year) {
 
             salesTransactions.forEach(t => {
                 const key = new Date(t.date).toISOString().split('T')[0];
+                const effectiveAmount = saleEffectiveAmount(t);
                 if(salesByDate[key]) {
-                    if (t.status === 'Não Pago') salesByDate[key].unpaid += t.amount;
-                    else salesByDate[key].paid += t.amount;
+                    if (t.status === 'Não Pago') salesByDate[key].unpaid += effectiveAmount;
+                    else salesByDate[key].paid += effectiveAmount;
                 }
             });
 
@@ -882,8 +893,11 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
                     totalsByMethod[m.method] += m.amount;
                 }
             });
-        } else if (totalsByMethod.hasOwnProperty(t.method)) {
-            totalsByMethod[t.method] += t.amount;
+        } else if (methods.length === 1) {
+            const m = methods[0];
+            if (totalsByMethod.hasOwnProperty(m.method)) {
+                totalsByMethod[m.method] += m.amount;
+            }
         }
         totalsByMethod.total += t.amount;
     });
@@ -1967,6 +1981,41 @@ function showReceipt(transaction) {
     openModal('receipt-modal');
 }
 
+function generateReceiptImage() {
+    const capture = document.getElementById('receipt-capture');
+    if (!capture) { showToast('Nenhum comprovante disponível.', 'error'); return; }
+
+    const parent = document.getElementById('customer-receipt-content');
+    const wasHidden = parent.classList.contains('hidden');
+
+    toggleLoading(true);
+    if (wasHidden) parent.classList.remove('hidden');
+
+    setTimeout(() => {
+        html2canvas(capture, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            allowTaint: false,
+            logging: false
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `comprovante-venda-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Imagem gerada com sucesso!', 'success');
+        }).catch(err => {
+            console.error('Erro ao gerar imagem:', err);
+            showToast('Erro ao gerar imagem.', 'error');
+        }).finally(() => {
+            if (wasHidden) parent.classList.add('hidden');
+            toggleLoading(false);
+        });
+    }, 100);
+}
+
 function applyTheme(themeName) {
     document.documentElement.setAttribute('data-theme', themeName);
     localStorage.setItem('theme', themeName);
@@ -2240,7 +2289,7 @@ function openSaleDetailsModal(transactionId) {
         const bd = prod ? prod.budgetData : null;
         let budgetInfo = '';
         if (bd && bd.materiais && bd.materiais.length > 0) {
-            budgetInfo += `<div class="mt-1 pt-1 border-t border-dashed text-xs text-[var(--text-secondary)]">`;
+            budgetInfo += `<div class="mt-1 pt-1 border-t border-dashed text-xs text-[var(--text-secondary)] internal-only">`;
             budgetInfo += bd.materiais.map(m => `<div class="ml-1">- ${m.name}: ${formatCurrency(m.unitCost)}/un</div>`).join('');
             budgetInfo += `<div class="mt-1"><span>Custo Un.: ${formatCurrency(prod.cost)} | Venda Un.: ${formatCurrency(prod.price)}</span></div>`;
             budgetInfo += `</div>`;
@@ -2301,7 +2350,7 @@ function openSaleDetailsModal(transactionId) {
                     <span>TOTAL PAGO:</span>
                     <span>${formatCurrency(sale.amount)}</span>
                 </div>
-                <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm">
+                <div class="mt-4 pt-4 border-t border-[var(--border-color)] space-y-1 text-sm internal-only">
                 <div class="flex justify-between">
                     <span>Custo Total:</span>
                     <span class="text-red-600">-${formatCurrency(sale.cost)}</span>
@@ -2310,6 +2359,60 @@ function openSaleDetailsModal(transactionId) {
                     <span>Lucro Líquido:</span>
                     <span class="text-green-600">${formatCurrency(profit)}</span>
                 </div>
+            </div>
+        </div>
+    `;
+
+    const receiptDiv = document.getElementById('customer-receipt-content');
+    const logoImg = localStorage.getItem('companyLogo');
+    const methods = parsePaymentMethods(sale.method);
+    const methodStr = methods.map(m => {
+        const label = m.method === 'Cartão de Crédito' ? 'Cartão de Crédito' + (m.installments > 1 ? ` (${m.installments}x)` : '') : m.method;
+        return `${label}: ${formatCurrency(methods.length > 1 ? m.amount : sale.amount)}`;
+    }).join('\n') || (sale.method || 'N/A');
+
+    receiptDiv.innerHTML = `
+        <div class="receipt-image" id="receipt-capture">
+            <div class="header">
+                ${logoImg ? `<img src="${logoImg}" style="max-width:120px;max-height:60px;margin:0 auto 8px;display:block;">` : ''}
+                <h2>COMPROVANTE DE VENDA</h2>
+                <p>${new Date(sale.date).toLocaleString('pt-BR')}</p>
+                <p>#${sale.id}</p>
+            </div>
+            <div class="divider"></div>
+            <p style="margin:4px 0;"><strong>Cliente:</strong> ${customers.find(c => c.id == sale.customerId)?.name || 'Não identificado'}</p>
+            <div class="divider"></div>
+            <table>
+                <thead>
+                    <tr><th style="width:50%">Item</th><th style="text-align:center">Qtd</th><th style="text-align:right">Valor</th></tr>
+                </thead>
+                <tbody>
+                    ${sale.items.map(item => `
+                        <tr>
+                            <td>${item.name}</td>
+                            <td style="text-align:center">${item.quantity}</td>
+                            <td style="text-align:right">${formatCurrency(item.price * item.quantity)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <div class="divider"></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span>Subtotal:</span><span>${formatCurrency(subtotal)}</span>
+            </div>
+            ${discountValue > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#dc2626;">
+                <span>Descontos:</span><span>-${formatCurrency(discountValue)}</span>
+            </div>` : ''}
+            <div class="divider"></div>
+            <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:bold;">
+                <span>TOTAL:</span><span>${formatCurrency(sale.amount)}</span>
+            </div>
+            <div style="margin-top:8px;font-size:11px;">
+                <strong>Pagamento:</strong> ${methodStr}
+            </div>
+            <div class="footer">
+                Obrigado pela preferência!<br>
+                MOLDART 3D
             </div>
         </div>
     `;
@@ -2355,11 +2458,21 @@ function renderTransactionList(container, transactionList) {
         container.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhuma transação encontrada para este período.</p>`;
         return;
     }
+    const listEffectiveAmount = (s) => {
+        if (s.type !== 'venda') return s.amount;
+        const recebimentos = transactions.filter(r =>
+            r.type === 'recebimento' && r.description && r.description.includes(`#${s.id}`)
+        );
+        const totalRecebido = recebimentos.reduce((sum, r) => sum + r.amount, 0);
+        return s.amount + totalRecebido;
+    };
     [...transactionList].reverse().forEach(t => {
         let color = '', icon = 'fa-question-circle', profitHtml = '', actionsHtml = '', paymentInfo = '', rowClass = '', discountHtml = '';
+        let displayAmount = t.amount;
         if (t.type === 'venda') {
+            displayAmount = listEffectiveAmount(t);
             icon = 'fa-shopping-cart';
-            const profit = t.amount - (t.cost || 0);
+            const profit = displayAmount - (t.cost || 0);
             profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
 
             if (t.discount > 0) {
@@ -2396,7 +2509,7 @@ function renderTransactionList(container, transactionList) {
         if (t.type === 'entrada' || t.type === 'recebimento') { color = 'text-blue-600'; icon = 'fa-arrow-down'; }
         if (t.type === 'saida') { color = 'text-red-600'; icon = 'fa-arrow-up'; }
         if (t.type === 'estorno') { color = 'text-yellow-600'; icon = 'fa-undo'; }
-        container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(t.amount)}</p>${profitHtml}${discountHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
+        container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(displayAmount)}</p>${profitHtml}${discountHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
     });
 }
 
@@ -3359,6 +3472,7 @@ function addEventListeners() {
     safeAddListener('retroactive-sale-toggle', 'change', function() { document.getElementById('retroactive-date-group').classList.toggle('hidden', !this.checked); });
     safeAddListener('print-receipt-btn', 'click', window.print);
     safeAddListener('print-details-btn', 'click', window.print);
+    safeAddListener('generate-img-btn', 'click', generateReceiptImage);
     
     const handleMonthYearChange = () => {
         setReportPeriod(currentReportPeriod);

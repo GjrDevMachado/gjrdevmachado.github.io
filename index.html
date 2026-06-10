@@ -6,7 +6,6 @@
     <title>Sistema de Gestão - MOLDART 3D (Online)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -67,24 +66,10 @@
         .toggle-checkbox:checked + .toggle-label { background-color: var(--secondary-500); }
         .toggle-checkbox { transition: all 0.2s ease-in-out; }
         .sidebar-item.active { background-color: var(--primary-600); color: white; }
-        .receipt-image {
-            width: 360px; padding: 24px; background: #ffffff; color: #1f2937;
-            font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;
-        }
-        .receipt-image .header { text-align: center; margin-bottom: 16px; }
-        .receipt-image .header h2 { font-size: 16px; font-weight: bold; margin: 0; }
-        .receipt-image .header p { font-size: 11px; color: #6b7280; margin: 2px 0; }
-        .receipt-image .divider { border-top: 1px dashed #9ca3af; margin: 8px 0; }
-        .receipt-image table { width: 100%; border-collapse: collapse; }
-        .receipt-image th { text-align: left; font-size: 10px; text-transform: uppercase; color: #6b7280; padding: 4px 2px; border-bottom: 1px solid #d1d5db; }
-        .receipt-image td { padding: 4px 2px; border-bottom: 1px dotted #e5e7eb; }
-        .receipt-image .total-row { font-weight: bold; font-size: 14px; }
-        .receipt-image .footer { text-align: center; margin-top: 16px; font-size: 10px; color: #9ca3af; }
         @media print {
             body * { visibility: hidden; }
             #receipt-modal, #receipt-modal *, #modal-venda-detalhes, #modal-venda-detalhes * { visibility: visible; }
             #receipt-modal, #modal-venda-detalhes { position: absolute; left: 0; top: 0; width: 100%; }
-            .internal-only { display: none !important; }
             .no-print { display: none; }
         }
     </style>
@@ -121,13 +106,8 @@
                                          transform -translate-x-full transition-transform duration-300
                                          lg:relative lg:translate-x-0 lg:shadow-lg">
             <div class="text-center mb-10">
-                <div id="sidebar-logo-container" class="hidden mb-2">
-                    <img id="sidebar-logo" src="" alt="Logo" class="max-w-full h-auto max-h-20 mx-auto">
-                </div>
-                <div id="sidebar-brand-text">
-                    <h2 class="text-2xl font-bold text-[var(--primary-600)]">Gestão PDV</h2>
-                    <p class="text-sm text-[var(--text-secondary)]">Papelaria & 3D</p>
-                </div>
+                <h2 class="text-2xl font-bold text-[var(--primary-600)]">Gestão PDV</h2>
+                <p class="text-sm text-[var(--text-secondary)]">Papelaria & 3D</p>
             </div>
            <ul class="space-y-2">
                 <li><button data-view="dashboard-view" class="sidebar-item w-full text-left flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200"><i class="fas fa-tachometer-alt w-5"></i> Dashboard</button></li>
@@ -191,86 +171,6 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-teal-100 p-3 rounded-full"><i class="fas fa-calendar-day fa-2x text-teal-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Vendas do Mês</p>
-                            <p id="kpi-sales-month" class="text-2xl font-bold">R$ 0,00</p>
-                        </div>
-                    </div>
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-chart-simple fa-2x text-amber-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Lucro do Mês</p>
-                            <p id="kpi-profit-month" class="text-2xl font-bold">R$ 0,00</p>
-                        </div>
-                    </div>
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-receipt fa-2x text-purple-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Ticket Médio (Mês)</p>
-                            <p id="kpi-avg-ticket-month" class="text-2xl font-bold">R$ 0,00</p>
-                        </div>
-                    </div>
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-cube fa-2x text-indigo-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Produtos Vendidos (Mês)</p>
-                            <p id="kpi-products-sold-month" class="text-2xl font-bold">0</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-emerald-100 p-3 rounded-full"><i class="fas fa-percentage fa-2x text-emerald-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Markup Médio (Mês)</p>
-                            <p id="kpi-markup-month" class="text-2xl font-bold">0,00%</p>
-                        </div>
-                    </div>
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-cyan-100 p-3 rounded-full"><i class="fas fa-chart-pie fa-2x text-cyan-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Margem Média (Mês)</p>
-                            <p id="kpi-margin-month" class="text-2xl font-bold">0,00%</p>
-                        </div>
-                    </div>
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-sky-100 p-3 rounded-full"><i class="fas fa-file-invoice fa-2x text-sky-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Orçamentos do Mês</p>
-                            <p id="kpi-budgets-month" class="text-2xl font-bold">0</p>
-                        </div>
-                    </div>
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md flex items-center gap-4">
-                        <div class="bg-rose-100 p-3 rounded-full"><i class="fas fa-file-pen fa-2x text-rose-600"></i></div>
-                        <div>
-                            <p class="text-sm text-[var(--text-secondary)]">Rascunhos Pendentes</p>
-                            <p id="kpi-drafts-pending" class="text-2xl font-bold">0</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
-                    <div class="xl:col-span-3 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-line mr-2 text-blue-500"></i> Vendas dos Últimos 30 Dias</h3>
-                        <div style="height:260px"><canvas id="chart-sales-trend"></canvas></div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-pie mr-2 text-purple-500"></i> Orçamentos por Tipo</h3>
-                        <div style="height:260px"><canvas id="chart-budget-types"></canvas></div>
-                    </div>
-                    <div class="bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-chart-pie mr-2 text-orange-500"></i> Vendas por Tipo</h3>
-                        <div style="height:260px"><canvas id="chart-sales-types"></canvas></div>
-                    </div>
-                </div>
-
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
                     <div class="xl:col-span-1 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-bold mb-4">Ações Rápidas</h3>
@@ -282,17 +182,10 @@
                         </div>
                     </div>
                     <div class="xl:col-span-2 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4"><i class="fas fa-crown mr-2 text-yellow-500"></i> Produtos Mais Vendidos</h3>
-                        <div id="top-products-list" class="space-y-2">
-                            <p class="text-center text-gray-500 mt-4">Nenhuma venda neste período.</p>
+                        <h3 class="text-xl font-bold mb-4">Atividade Recente</h3>
+                        <div id="recent-transactions-list" class="space-y-2">
+                            <p class="text-center text-gray-500 mt-4">Nenhuma atividade recente.</p>
                         </div>
-                    </div>
-                </div>
-
-                <div class="mt-8 bg-[var(--bg-primary)] p-6 rounded-lg shadow-md">
-                    <h3 class="text-xl font-bold mb-4"><i class="fas fa-clock-rotate-left mr-2 text-gray-500"></i> Atividade Recente</h3>
-                    <div id="recent-transactions-list" class="space-y-2">
-                        <p class="text-center text-gray-500 mt-4">Nenhuma atividade recente.</p>
                     </div>
                 </div>
             </div>
@@ -374,27 +267,8 @@
                                 </div>
                                 <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium mb-1">Produto/Serviço</label>
-                                    <div class="flex gap-2">
-                                        <input type="text" id="orc-produto" placeholder="Ex: LIVRINHOS COLORIR" class="flex-1 border rounded p-2 bg-[var(--bg-secondary)]">
-                                        <input type="hidden" id="orc-produto-id" value="">
-                                        <button type="button" id="btn-vincular-produto" class="px-3 py-2 rounded border border-[var(--primary-600)] text-[var(--primary-600)] hover:bg-[var(--primary-50)]" title="Vincular produto existente">
-                                            <i class="fas fa-link"></i>
-                                        </button>
-                                        <button type="button" id="btn-desvincular-produto" class="px-3 py-2 rounded border border-red-500 text-red-500 hover:bg-red-50 hidden" title="Remover vínculo">
-                                            <i class="fas fa-unlink"></i>
-                                        </button>
-                                    </div>
-                                    <div id="produto-vinculado-info" class="hidden text-xs text-[var(--primary-600)] mt-1">
-                                        <i class="fas fa-check-circle"></i> Vinculado a: <span id="produto-vinculado-nome"></span>
-                                    </div>
+                                    <input type="text" id="orc-produto" placeholder="Ex: LIVRINHOS COLORIR" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
                                 </div>
-                            </div>
-                            <div class="flex items-center gap-4 mb-4">
-                                <div class="flex items-center gap-2">
-                                    <input type="checkbox" id="orc-kit-check" class="w-5 h-5">
-                                    <label for="orc-kit-check" class="text-sm font-medium">É um Kit</label>
-                                </div>
-
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
@@ -417,31 +291,15 @@
                                 </div>
                             </div>
                             <div id="orc-3d-fields" class="hidden">
-                                <div class="mt-4 p-4 border border-dashed border-purple-400 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                                    <div class="flex justify-between items-center mb-3">
-                                        <h3 class="text-sm font-bold"><i class="fas fa-spool text-purple-600 mr-2"></i> Filamentos Usados</h3>
-                                        <button id="add-filamento-btn" class="text-sm bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700"><i class="fas fa-plus"></i> Adicionar</button>
-                                    </div>
-                                    <div class="overflow-x-auto">
-                                        <table class="w-full text-sm" id="tabela-filamentos">
-                                            <thead>
-                                                <tr class="border-b text-left">
-                                                    <th class="p-2">Filamento</th>
-                                                    <th class="p-2 text-center">Peso (g)</th>
-                                                    <th class="p-2 text-right">Preço/kg</th>
-                                                    <th class="p-2 text-right">Subtotal</th>
-                                                    <th class="p-2 text-center w-16">Ações</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="orc-filamentos-body"></tbody>
-                                        </table>
-                                    </div>
-                                    <div class="flex justify-between items-center mt-3 pt-3 border-t border-purple-300 dark:border-purple-700">
-                                        <button onclick="switchView('filamentos-view')" class="text-xs text-purple-600 hover:underline"><i class="fas fa-edit"></i> Gerenciar Filamentos</button>
-                                        <span class="font-bold">Total Filamentos: <span id="orc-total-filamentos">R$ 0,00</span></span>
-                                    </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 p-4 border border-dashed border-blue-400 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Peso da Peça (g)</label>
+                                    <input type="number" id="orc-peso" value="100" min="0" step="0.1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
                                 </div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 p-4 border border-dashed border-blue-400 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Filamento</label>
+                                    <select id="orc-filamento" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
+                                </div>
                                 <div>
                                     <label class="block text-sm font-medium mb-1">Tempo Impressão</label>
                                     <div class="flex gap-2">
@@ -556,7 +414,7 @@
                                 <h3 class="text-lg font-bold mb-3"><i class="fas fa-percentage text-purple-500 mr-2"></i> Margem & Taxas</h3>
                                 <div class="space-y-3 text-sm">
                                     <div>
-                                        <label id="orc-margem-label" class="block font-medium mb-1">Markup (%)</label>
+                                        <label class="block font-medium mb-1">Margem de Lucro (%)</label>
                                         <input type="number" id="orc-margem" value="50" min="0" step="0.1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
                                     </div>
                                     <div class="flex gap-2 items-end">
@@ -607,11 +465,9 @@
                             </div>
                             <div class="flex flex-col gap-2">
                                 <button id="salvar-orcamento-btn" class="w-full bg-[var(--primary-600)] text-white py-3 rounded-lg font-bold hover:bg-[var(--primary-700)]"><i class="fas fa-save"></i> Salvar Orçamento</button>
-                                <button data-modal-id="modal-rascunhos" class="open-modal-btn w-full border-2 border-yellow-600 text-yellow-600 py-2 rounded-lg hover:bg-yellow-600 hover:text-white"><i class="fas fa-file-pen"></i> Rascunhos</button>
                                 <button id="imprimir-orcamento-btn" class="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700"><i class="fas fa-print"></i> Imprimir</button>
                                 <button data-modal-id="modal-historico-orcamentos" class="open-modal-btn w-full border-2 border-[var(--primary-600)] text-[var(--primary-600)] py-2 rounded-lg hover:bg-[var(--primary-600)] hover:text-white"><i class="fas fa-history"></i> Histórico</button>
                                 <button id="limpar-orcamento-btn" class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"><i class="fas fa-eraser"></i> Novo Orçamento</button>
-                                <div id="auto-save-indicator" class="text-xs text-center text-yellow-600 mt-2 hidden"><i class="fas fa-spinner fa-spin"></i> Salvando rascunho...</div>
                             </div>
                         </div>
                     </div>
@@ -720,7 +576,6 @@
 
                 <div id="tab-vendas" class="tab-content space-y-6">
                     <div id="sales-summary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center"></div>
-                    <div id="payment-method-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center"></div>
                     <div class="relative h-64 sm:h-96 w-full mb-4">
                         <canvas id="salesChart"></canvas>
                     </div>
@@ -761,20 +616,6 @@
         </div>
     </div>
 
-    <div id="modal-selecionar-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
-            <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h3 class="text-xl font-bold">Selecionar Produto</h3>
-                <button class="close-modal-btn text-2xl">&times;</button>
-            </div>
-            <div class="mb-4 relative">
-                <input type="text" id="search-select-produto" placeholder="Pesquisar produto por nome..." class="w-full p-2 pl-10 border rounded bg-[var(--bg-primary)]">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
-            </div>
-            <div id="select-product-list-container" class="max-h-96 overflow-y-auto"></div>
-        </div>
-    </div>
-
     <div id="modal-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
         <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
             <h3 class="text-xl font-bold mb-4">Adicionar Novo Produto</h3>
@@ -788,14 +629,6 @@
                 <div>
                     <label for="add-product-category" class="block text-sm font-medium">Categoria</label>
                     <select id="add-product-category" name="productCategory" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]"></select>
-                </div>
-                <div>
-                    <label for="add-product-modo-calculo" class="block text-sm font-medium">Modo de Cálculo</label>
-                    <select id="add-product-modo-calculo" name="productModoCalculo" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
-                        <option value="grafica">Gráfica</option>
-                        <option value="impressao3d">Impressão 3D</option>
-                        <option value="misto">Misto (Gráfica + 3D)</option>
-                    </select>
                 </div>
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
@@ -833,14 +666,6 @@
                 <div>
                     <label for="edit-product-category" class="block text-sm font-medium">Categoria</label>
                     <select id="edit-product-category" name="editProductCategory" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]"></select>
-                </div>
-                <div>
-                    <label for="edit-product-modo-calculo" class="block text-sm font-medium">Modo de Cálculo</label>
-                    <select id="edit-product-modo-calculo" name="editProductModoCalculo" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
-                        <option value="grafica">Gráfica</option>
-                        <option value="impressao3d">Impressão 3D</option>
-                        <option value="misto">Misto (Gráfica + 3D)</option>
-                    </select>
                 </div>
                 <div class="flex justify-between gap-3 mt-4">
                     <button type="button" id="delete-product-btn" class="px-4 py-2 rounded bg-[var(--danger-500)] text-white">Excluir</button>
@@ -932,10 +757,6 @@
                 <button class="close-modal-btn text-2xl">&times;</button>
             </div>
             <div class="mt-4">
-                <div class="mb-3 relative">
-                    <input type="text" id="client-search-input" placeholder="Buscar cliente por nome..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]">
-                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
-                </div>
                 <div id="customers-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
             </div>
             <div class="mt-6 border-t pt-4">
@@ -976,22 +797,6 @@
                         <button class="theme-button w-10 h-10 rounded-full bg-blue-200" data-theme="ocean"></button>
                         <button class="theme-button w-10 h-10 rounded-full bg-green-200" data-theme="forest"></button>
                     </div>
-                </div>
-                <div class="border-t pt-4">
-                    <h4 class="font-semibold">Logo da Empresa</h4>
-                    <div class="flex items-center gap-3 mt-2">
-                        <label class="px-4 py-2 bg-[var(--primary-600)] text-white rounded cursor-pointer hover:bg-[var(--primary-700)] transition-colors">
-                            <i class="fas fa-upload mr-1"></i> Upload Logo
-                            <input type="file" id="logo-upload-input" class="hidden" accept="image/*">
-                        </label>
-                        <button id="remove-logo-btn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors hidden">
-                            <i class="fas fa-trash mr-1"></i> Remover
-                        </button>
-                    </div>
-                    <div id="logo-preview-container" class="hidden mt-2">
-                        <img id="logo-preview" src="" alt="Preview" class="max-h-16 rounded border border-[var(--border-color)]">
-                    </div>
-                    <p class="text-xs text-[var(--text-tertiary)] mt-1">Formatos: PNG, JPG, SVG. Tamanho máximo: 2MB.</p>
                 </div>
                 <div class="border-t pt-4">
                        <h4 class="font-semibold">Backup e Restauração</h4>
@@ -1093,10 +898,6 @@
                <form id="receive-payment-form" class="space-y-4">
                 <input type="hidden" name="transactionId">
                 <div>
-                    <label for="receive-payment-amount">Valor a Receber</label>
-                    <input type="number" id="receive-payment-amount" name="paymentAmount" min="0.01" step="0.01" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)] font-bold text-lg">
-                </div>
-                <div>
                     <label for="receive-payment-method">Forma de Pagamento</label>
                     <select id="receive-payment-method" name="paymentMethod" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
                         <option>Dinheiro</option>
@@ -1108,7 +909,6 @@
                     <label for="receive-payment-installments">Parcelas</label>
                     <input type="number" id="receive-payment-installments" name="paymentInstallments" value="1" min="1" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
                 </div>
-                <p class="text-xs text-[var(--text-tertiary)]">Se o valor for menor que o total, o saldo restante continuará como <strong>Não Pago</strong>.</p>
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
                     <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Confirmar Recebimento</button>
@@ -1124,10 +924,7 @@
             <div id="sale-details-content" class="space-y-2">
             </div>
 
-            <div id="customer-receipt-content" class="hidden"></div>
-
             <div class="flex justify-end mt-4 no-print">
-                <button id="generate-img-btn" class="px-4 py-2 rounded bg-green-600 text-white mr-2"><i class="fas fa-image"></i> Gerar Imagem</button>
                 <button id="print-details-btn" class="px-4 py-2 rounded bg-blue-600 text-white mr-2">Imprimir</button>
                 <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
             </div>
@@ -1347,30 +1144,11 @@
                 <label class="text-sm font-medium">Filtrar por Mês:</label>
                 <select id="historico-mes-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm"></select>
                 <select id="historico-ano-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm"></select>
-                <label class="text-sm font-medium ml-2">Tipo:</label>
-                <select id="historico-modo-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm">
-                    <option value="">Todos</option>
-                    <option value="grafica">Gráfica</option>
-                    <option value="impressao3d">Impressão 3D</option>
-                    <option value="misto">Misto</option>
-                </select>
-                <input id="historico-search-input" type="text" placeholder="Buscar por cliente, produto ou data..." class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm flex-1 min-w-[200px]">
                 <button id="historico-filtrar-btn" class="bg-[var(--primary-600)] text-white px-4 py-2 rounded text-sm hover:bg-[var(--primary-700)]">Filtrar</button>
                 <button id="historico-todos-btn" class="border border-[var(--border-color)] px-4 py-2 rounded text-sm hover:bg-[var(--bg-tertiary)]">Todos</button>
             </div>
             <div id="historico-orcamentos-summary" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
-            <div id="historico-orcamentos-list" class="flex-grow overflow-y-scroll overflow-x-scroll"></div>
-        </div>
-    </div>
-
-    <div id="modal-rascunhos" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
-        <div class="modal w-full max-w-6xl h-[90vh] flex flex-col rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
-            <div class="flex justify-between items-center border-b pb-3 mb-4 flex-shrink-0">
-                <h3 class="text-xl font-bold"><i class="fas fa-file-pen mr-2 text-yellow-600"></i> Rascunhos Salvos</h3>
-                <button class="close-modal-btn text-2xl">&times;</button>
-            </div>
-            <p class="text-sm text-[var(--text-secondary)] mb-4">Rascunhos expiram automaticamente após 7 dias.</p>
-            <div id="rascunhos-list" class="flex-grow overflow-y-scroll overflow-x-scroll"></div>
+            <div id="historico-orcamentos-list" class="flex-grow overflow-y-auto"></div>
         </div>
     </div>
 

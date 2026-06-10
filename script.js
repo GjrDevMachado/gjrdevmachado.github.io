@@ -271,20 +271,38 @@ async function loadDataFromSupabase() {
     } catch (error) {
         console.error("Erro ao conectar com o Supabase:", error);
     } finally {
-        initializeAppUI();
-        loadOrcamentoAdvancedConfig();
         toggleLoading(false);
+        try {
+            initializeAppUI();
+            loadOrcamentoAdvancedConfig();
+        } catch (e) {
+            console.error("Erro ao inicializar interface:", e);
+        }
     }
 }
 
 // --- LÓGICA DE LOGIN E SESSÃO ---
 window.onload = async function() {
     toggleLoading(true);
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    
-    if (session) {
-        showApp();
-    } else {
+
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 10000));
+
+    try {
+        const result = await Promise.race([
+            supabaseClient.auth.getSession(),
+            timeoutPromise
+        ]);
+        const session = result?.data?.session;
+        if (result.timedOut) {
+            console.warn("Timeout ao verificar sessão Supabase");
+        }
+        if (session) {
+            showApp();
+        } else {
+            showLogin();
+        }
+    } catch (e) {
+        console.error("Erro ao verificar sessão:", e);
         showLogin();
     }
 };
@@ -294,6 +312,7 @@ function showApp() {
     document.getElementById('app-layout').style.display = 'block';
     loadOrcamentoAdvancedConfig();
     loadDataFromSupabase();
+    setTimeout(() => toggleLoading(false), 15000);
 }
 
 function showLogin() {
@@ -321,6 +340,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     });
 
     if (error) {
+        console.error("Erro no login:", error);
         showToast("E-mail ou senha incorretos!", "error");
         toggleLoading(false);
     } else {

@@ -60,9 +60,9 @@ async function loadOrcamentoDataFromSupabase() {
                 margem: parseFloat(b.margem), taxa: parseFloat(b.taxa_plataforma),
                 taxaFixa: parseFloat(b.taxa_fixa), tempoGasto: parseFloat(b.tempo_gasto),
                 valorHora: parseFloat(b.valor_hora),
-                materials: b.materiais_json ? (() => { try { return JSON.parse(b.materiais_json); } catch(e) { return []; } })() : [],
-                machines: b.maquinas_json ? (() => { try { return JSON.parse(b.maquinas_json); } catch(e) { return []; } })() : [],
-                filamentos: b.filamentos_json ? (() => { try { return JSON.parse(b.filamentos_json); } catch(e) { return []; } })() : [],
+                materials: b.materiais_json ? JSON.parse(b.materiais_json) : [],
+                machines: b.maquinas_json ? JSON.parse(b.maquinas_json) : [],
+                filamentos: b.filamentos_json ? JSON.parse(b.filamentos_json) : [],
                 custoMateriais: parseFloat(b.custo_materiais) || 0,
                 custoMaquinas: parseFloat(b.custo_maquinas) || 0,
                 custoMO: parseFloat(b.custo_mo) || 0,
@@ -128,7 +128,7 @@ async function loadRascunhosFromSupabase() {
                 modoCalculo: r.modo_calculo || 'grafica',
                 peso: parseFloat(r.peso) || 0,
                 filamentoId: r.filamento_id ? parseInt(r.filamento_id) : 0,
-                filamentos: r.filamentos_json ? (() => { try { return JSON.parse(r.filamentos_json); } catch(e) { return []; } })() : [],
+                filamentos: r.filamentos_json ? JSON.parse(r.filamentos_json) : [],
                 tempoImpressao: parseFloat(r.tempo_impressao) || 0,
                 falhas: parseFloat(r.falhas) || 10,
                 acabamento: parseFloat(r.acabamento) || 10,
@@ -139,8 +139,8 @@ async function loadRascunhosFromSupabase() {
                 precoLuz: parseFloat(r.preco_luz) || 0,
                 horasDia3d: parseFloat(r.horas_dia_3d) || 8,
                 diasMes3d: parseFloat(r.dias_mes_3d) || 22,
-                materials: r.materiais_json ? (() => { try { return JSON.parse(r.materiais_json); } catch(e) { return []; } })() : [],
-                machines: r.maquinas_json ? (() => { try { return JSON.parse(r.maquinas_json); } catch(e) { return []; } })() : [],
+                materials: r.materiais_json ? JSON.parse(r.materiais_json) : [],
+                machines: r.maquinas_json ? JSON.parse(r.maquinas_json) : [],
                 isKit: r.is_kit || false,
                 precoKit: parseFloat(r.preco_kit) || 0,
                 produtoId: r.produto_id ? parseInt(r.produto_id) : null,
@@ -271,38 +271,20 @@ async function loadDataFromSupabase() {
     } catch (error) {
         console.error("Erro ao conectar com o Supabase:", error);
     } finally {
+        initializeAppUI();
+        loadOrcamentoAdvancedConfig();
         toggleLoading(false);
-        try {
-            initializeAppUI();
-            loadOrcamentoAdvancedConfig();
-        } catch (e) {
-            console.error("Erro ao inicializar interface:", e);
-        }
     }
 }
 
 // --- LÓGICA DE LOGIN E SESSÃO ---
 window.onload = async function() {
     toggleLoading(true);
-
-    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 10000));
-
-    try {
-        const result = await Promise.race([
-            supabaseClient.auth.getSession(),
-            timeoutPromise
-        ]);
-        const session = result?.data?.session;
-        if (result.timedOut) {
-            console.warn("Timeout ao verificar sessão Supabase");
-        }
-        if (session) {
-            showApp();
-        } else {
-            showLogin();
-        }
-    } catch (e) {
-        console.error("Erro ao verificar sessão:", e);
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    
+    if (session) {
+        showApp();
+    } else {
         showLogin();
     }
 };
@@ -312,7 +294,6 @@ function showApp() {
     document.getElementById('app-layout').style.display = 'block';
     loadOrcamentoAdvancedConfig();
     loadDataFromSupabase();
-    setTimeout(() => toggleLoading(false), 15000);
 }
 
 function showLogin() {
@@ -340,7 +321,6 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     });
 
     if (error) {
-        console.error("Erro no login:", error);
         showToast("E-mail ou senha incorretos!", "error");
         toggleLoading(false);
     } else {
@@ -635,7 +615,7 @@ function getFilteredTransactions(period, month, year) {
         endDate = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
     } else if (period === 'monthly') {
         const selectedYear = parseInt(year) || now.getFullYear();
-        const selectedMonth = month ? parseInt(month) : now.getMonth();
+        const selectedMonth = parseInt(month) ?? now.getMonth();
         startDate = new Date(selectedYear, selectedMonth, 1);
         endDate = new Date(selectedYear, selectedMonth + 1, 0);
         endDate.setHours(23, 59, 59, 999);
@@ -822,7 +802,7 @@ function renderReports(period = currentReportPeriod, month, year) {
                 endDateForLoop.setHours(23,59,59,999);
             } else if (period === 'monthly') {
                 const selectedYear = parseInt(year) || new Date().getFullYear();
-                const selectedMonth = month ? parseInt(month) : new Date().getMonth();
+                const selectedMonth = parseInt(month) ?? new Date().getMonth();
                 startDateForLoop = new Date(selectedYear, selectedMonth, 1);
                 endDateForLoop = new Date(selectedYear, selectedMonth + 1, 0);
                 endDateForLoop.setHours(23,59,59,999);
@@ -3790,21 +3770,8 @@ function saveOrcamentoFilaments() {
     } catch (e) { console.error(e); }
 }
 
-function populateFilamentoSelect() {
-    const select = document.getElementById('orc-filamento');
-    if (!select) return;
-    select.innerHTML = '<option value="">Selecione...</option>';
-    filamentCatalog.forEach(f => {
-        const opt = document.createElement('option');
-        opt.value = f.id;
-        opt.textContent = `${f.name} (R$ ${f.priceKg.toFixed(2)}/kg)`;
-        select.appendChild(opt);
-    });
-}
+function populateFilamentoSelect() {}
 
-function onFilamentoChange() {
-    calculateBudget();
-}
 
 function getTempoImpressaoMin() {
     const h = parseFloat(document.getElementById('orc-tempo-impressao-h').value) || 0;
@@ -4027,6 +3994,10 @@ function toggleOrcamentoMode() {
         fields3d.classList.remove('hidden');
     } else {
         fields3d.classList.add('hidden');
+    }
+    const filamentosSection = document.getElementById('orc-3d-filamentos-section');
+    if (filamentosSection) {
+        filamentosSection.style.display = is3d ? '' : 'none';
     }
     const margemLabel = document.getElementById('orc-margem-label');
     if (margemLabel) {
@@ -5832,8 +5803,7 @@ function addOrcamentoEventListeners() {
         document.getElementById('historico-mes-select').value = '-1';
         document.getElementById('historico-ano-select').value = new Date().getFullYear();
         document.getElementById('historico-modo-select').value = '';
-        const historicoSearchInput = document.getElementById('historico-search-input');
-        if (historicoSearchInput) historicoSearchInput.value = '';
+        document.getElementById('historico-search-input').value = '';
         renderHistoricoOrcamentos();
     });
 

@@ -635,7 +635,7 @@ function getFilteredTransactions(period, month, year) {
         endDate = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
     } else if (period === 'monthly') {
         const selectedYear = parseInt(year) || now.getFullYear();
-        const selectedMonth = parseInt(month) ?? now.getMonth();
+        const selectedMonth = month ? parseInt(month) : now.getMonth();
         startDate = new Date(selectedYear, selectedMonth, 1);
         endDate = new Date(selectedYear, selectedMonth + 1, 0);
         endDate.setHours(23, 59, 59, 999);
@@ -822,7 +822,7 @@ function renderReports(period = currentReportPeriod, month, year) {
                 endDateForLoop.setHours(23,59,59,999);
             } else if (period === 'monthly') {
                 const selectedYear = parseInt(year) || new Date().getFullYear();
-                const selectedMonth = parseInt(month) ?? new Date().getMonth();
+                const selectedMonth = month ? parseInt(month) : new Date().getMonth();
                 startDateForLoop = new Date(selectedYear, selectedMonth, 1);
                 endDateForLoop = new Date(selectedYear, selectedMonth + 1, 0);
                 endDateForLoop.setHours(23,59,59,999);
@@ -5832,7 +5832,8 @@ function addOrcamentoEventListeners() {
         document.getElementById('historico-mes-select').value = '-1';
         document.getElementById('historico-ano-select').value = new Date().getFullYear();
         document.getElementById('historico-modo-select').value = '';
-        document.getElementById('historico-search-input').value = '';
+        const historicoSearchInput = document.getElementById('historico-search-input');
+        if (historicoSearchInput) historicoSearchInput.value = '';
         renderHistoricoOrcamentos();
     });
 

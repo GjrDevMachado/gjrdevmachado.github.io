@@ -1754,7 +1754,7 @@ function openModal(modalId) {
     }
 }
 
-function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } }
+function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } if (modalId === 'modal-relatorios') { switchView('dashboard-view'); renderDashboard(); } }
 
 function openEditProductModal(productId) {
     const product = products.find(p => p.id === productId); if (!product) return;
@@ -2911,14 +2911,23 @@ function renderDashboard() {
         t.type === 'venda' && !t.reversed
     );
 
-    const salesToday = todaysTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const profitToday = todaysTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
-    const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + t.amount, 0);
+    const saleEffectiveAmount = (s) => {
+        if (s.type !== 'venda') return s.amount;
+        const recebimentos = transactions.filter(r =>
+            r.type === 'recebimento' && r.description && r.description.includes(`#${s.id}`)
+        );
+        const totalRecebido = recebimentos.reduce((sum, r) => sum + (r.amount || 0), 0);
+        return (s.amount || 0) + totalRecebido;
+    };
+
+    const salesToday = todaysTransactions.reduce((sum, t) => sum + saleEffectiveAmount(t), 0);
+    const profitToday = todaysTransactions.reduce((sum, t) => sum + (saleEffectiveAmount(t) - (t.cost || 0)), 0);
+    const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + (t.amount || 0), 0);
     const salesCountToday = todaysTransactions.length;
     const averageTicket = salesCountToday > 0 ? salesToday / salesCountToday : 0;
 
-    const salesMonth = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const profitMonth = monthTransactions.reduce((sum, t) => sum + (t.amount - (t.cost || 0)), 0);
+    const salesMonth = monthTransactions.reduce((sum, t) => sum + saleEffectiveAmount(t), 0);
+    const profitMonth = monthTransactions.reduce((sum, t) => sum + (saleEffectiveAmount(t) - (t.cost || 0)), 0);
     const costMonth = monthTransactions.reduce((sum, t) => sum + (t.cost || 0), 0);
     const salesCountMonth = monthTransactions.length;
     const avgTicketMonth = salesCountMonth > 0 ? salesMonth / salesCountMonth : 0;
@@ -3534,7 +3543,7 @@ function addEventListeners() {
             setReportPeriod(dataset.period);
         } else if (classList.contains('customer-details-row')) {
             openCustomerDetailsModal(dataset.customerId);
-        } else if (classList.contains('sidebar-item') || classList.contains('quick-action-btn')) {
+        } else if ((classList.contains('sidebar-item') || classList.contains('quick-action-btn')) && dataset.view) {
             switchView(dataset.view);
         } else if (classList.contains('apply-item-discount-btn')) {
             openDiscountModal(parseInt(dataset.index));

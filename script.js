@@ -4039,6 +4039,17 @@ function toggleOrcamentoMode() {
     if (moRow && moRow.parentElement) {
         moRow.parentElement.style.display = isPure3d ? 'none' : '';
     }
+    const tempoGastoGroup = document.getElementById('orc-tempo-gasto-group');
+    const valorHoraGroup = document.getElementById('orc-valor-hora-group');
+    if (isPure3d) {
+        if (tempoGastoGroup) tempoGastoGroup.style.display = 'none';
+        if (valorHoraGroup) valorHoraGroup.style.display = 'none';
+        document.getElementById('orc-tempo-gasto').value = '0';
+        document.getElementById('orc-valor-hora').value = '0';
+    } else {
+        if (tempoGastoGroup) tempoGastoGroup.style.display = '';
+        if (valorHoraGroup) valorHoraGroup.style.display = '';
+    }
     calculateBudget();
 }
 

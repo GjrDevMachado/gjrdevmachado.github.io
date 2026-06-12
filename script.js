@@ -369,8 +369,18 @@ async function addProduct(name, price, cost, categoryId, barcode, modoCalculo) {
             modo_calculo: modoCalculo || 'grafica'
         };
 
-        const { error } = await supabaseClient.from('produtos').insert([novoProduto]);
-        if (error) throw error;
+        try {
+            const { error } = await supabaseClient.from('produtos').insert([novoProduto]);
+            if (error) throw error;
+        } catch (e) {
+            if (e.code === '42703' || e.message?.includes('modo_calculo')) {
+                delete novoProduto.modo_calculo;
+                const { error } = await supabaseClient.from('produtos').insert([novoProduto]);
+                if (error) throw error;
+            } else {
+                throw e;
+            }
+        }
 
         showToast('Novo produto adicionado na nuvem!');
         await loadDataFromSupabase(); 
@@ -3281,19 +3291,31 @@ function addEventListeners() {
 
         toggleLoading(true);
         try {
-            const newModoCalculo = this.elements.editProductModoCalculo.value;
-            const { error } = await supabaseClient.from('produtos')
-                .update({
-                    nome: newName,
-                    preco: newPrice,
-                    custo: newCost,
-                    categoria_id: newCategoryId,
-                    codigo_barras: newBarcode,
-                    modo_calculo: newModoCalculo
-                })
-                .eq('id', productId);
-            
-            if (error) throw error;
+            const newModoCalculo = this.elements.editProductModoCalculo?.value || 'grafica';
+            const updateData = {
+                nome: newName,
+                preco: newPrice,
+                custo: newCost,
+                categoria_id: newCategoryId,
+                codigo_barras: newBarcode
+            };
+            try {
+                updateData.modo_calculo = newModoCalculo;
+                const { error } = await supabaseClient.from('produtos')
+                    .update(updateData)
+                    .eq('id', productId);
+                if (error) throw error;
+            } catch (e) {
+                if (e.code === '42703' || e.message?.includes('modo_calculo')) {
+                    delete updateData.modo_calculo;
+                    const { error } = await supabaseClient.from('produtos')
+                        .update(updateData)
+                        .eq('id', productId);
+                    if (error) throw error;
+                } else {
+                    throw e;
+                }
+            }
             
             showToast('Produto atualizado na nuvem!', 'success');
             closeModal('modal-edit-produto');
@@ -3655,12 +3677,14 @@ function addEventListeners() {
                         };
                         localStorage.setItem('produtoBudgetData_' + novo.id, JSON.stringify(novo.budgetData));
                         // Vincula o orçamento ao produto criado
-                        b.produtoId = novo.id;
+                        const budgetToLink = savedBudgets.find(x => x.id === b.id) || b;
+                        budgetToLink.produtoId = novo.id;
                         try {
                             await supabaseClient.from('orcamentos').update({ produto_id: novo.id }).eq('id', b.id);
                         } catch (e) {
                             console.error('Erro ao vincular orçamento ao produto:', e);
                         }
+                        saveOrcamentoData();
                     }
                 })();
             }
@@ -4896,11 +4920,23 @@ async function saveBudget() {
         const precoProd = parseFloat((budget.precoFinal / qtd).toFixed(2));
         const custoProd = parseFloat((budget.custoTotal / qtd).toFixed(2));
         try {
-            await supabaseClient.from('produtos').update({ preco: precoProd, custo: custoProd, modo_calculo: budget.modoCalculo }).eq('id', budget.produtoId);
+            const { error } = await supabaseClient.from('produtos').update({ preco: precoProd, custo: custoProd, modo_calculo: budget.modoCalculo }).eq('id', budget.produtoId);
+            if (error) throw error;
             const prod = products.find(p => p.id === budget.produtoId);
             if (prod) { prod.price = precoProd; prod.cost = custoProd; prod.modoCalculo = budget.modoCalculo; }
         } catch (e) {
-            console.error('Erro ao atualizar produto vinculado:', e);
+            if (e.code === '42703' || e.message?.includes('modo_calculo')) {
+                try {
+                    const { error } = await supabaseClient.from('produtos').update({ preco: precoProd, custo: custoProd }).eq('id', budget.produtoId);
+                    if (error) throw error;
+                    const prod = products.find(p => p.id === budget.produtoId);
+                    if (prod) { prod.price = precoProd; prod.cost = custoProd; }
+                } catch (e2) {
+                    console.error('Erro ao atualizar produto vinculado (fallback):', e2);
+                }
+            } else {
+                console.error('Erro ao atualizar produto vinculado:', e);
+            }
         }
     }
 
@@ -4966,6 +5002,8 @@ function resetBudgetForm() {
     loadOrcamentoAdvancedConfig();
     toggleOrcamentoMode();
     calculateBudget();
+    const precoFinalInputReset = document.getElementById('orc-result-preco-final');
+    if (precoFinalInputReset) precoFinalInputReset.value = '';
     showToast('Novo orçamento iniciado!');
 }
 

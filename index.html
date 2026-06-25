@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestão - MOLDART 3D (Online)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #ffffff; --bg-secondary: #f3f4f6; --bg-tertiary: #f9fafb;
+            --text-primary: #1f2937; --text-secondary: #4b5563; --text-tertiary: #6b7280;
+            --border-color: #e5e7eb;
+            --primary-500: #6366f1; --primary-600: #4f46e5; --primary-700: #4338ca;
+            --secondary-500: #10b981; --secondary-600: #059669; --secondary-700: #047857;
+            --danger-500: #ef4444; --danger-600: #dc2626;
+        }
+        [data-theme="dark"] {
+            --bg-primary: #1f2937; --bg-secondary: #111827; --bg-tertiary: #374151;
+            --text-primary: #f9fafb; --text-secondary: #d1d5db; --text-tertiary: #9ca3af;
+            --border-color: #374151;
+        }
+        [data-theme="ocean"] {
+            --bg-primary: #eff6ff; --bg-secondary: #dbeafe; --bg-tertiary: #bfdbfe;
+            --text-primary: #1e3a8a; --text-secondary: #1d4ed8; --text-tertiary: #1e40af;
+            --border-color: #93c5fd;
+            --primary-500: #3b82f6; --primary-600: #2563eb; --primary-700: #1d4ed8;
+            --secondary-500: #2dd4bf; --secondary-600: #14b8a6; --secondary-700: #0d9488;
+        }
+        [data-theme="forest"] {
+            --bg-primary: #f0fdf4; --bg-secondary: #dcfce7; --bg-tertiary: #bbf7d0;
+            --text-primary: #14532d; --text-secondary: #166534; --text-tertiary: #15803d;
+            --border-color: #86efac;
+            --primary-500: #84cc16; --primary-600: #65a30d; --primary-700: #4d7c0f;
+            --secondary-500: #22c55e; --secondary-600: #16a34a; --secondary-700: #15803d;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-secondary); color: var(--text-primary); }
+        .modal-backdrop { background-color: rgba(0,0,0,0.5); z-index: 50; }
+        .modal { transition: opacity 0.3s ease, transform 0.3s ease; z-index: 100; background-color: var(--bg-primary); }
+        .product-card { background-color: var(--bg-primary); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
+        .tab-button.active, .category-filter-btn.active { border-color: var(--primary-500); color: var(--primary-500); background-color: var(--bg-tertiary); }
+        .period-button.active { background-color: var(--primary-500); color: white; }
+        .theme-button.active { box-shadow: 0 0 0 3px var(--primary-500); }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-600); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes blink { 50% { opacity: 0; } }
+        .blinking-icon { animation: blink 1s linear infinite; }
+        .payment-badge { padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-left: 8px; display: inline-block; vertical-align: middle; }
+        .badge-dinheiro { background-color: #d1fae5; color: #065f46; }
+        .badge-pix { background-color: #cffafe; color: #0e7490; }
+        .badge-credito { background-color: #dbeafe; color: #1e40af; }
+        
+        #modal-relatorios { z-index: 105; }
+        #modal-edit-produto, #modal-edit-materiaprima, #modal-edit-cliente, #modal-venda-antiga, #modal-importar-vendas, #modal-edit-categoria, #modal-edit-product-list { z-index: 110; }
+        #modal-cliente-detalhes { z-index: 115; }
+        #modal-venda-detalhes, #modal-edit-venda, #modal-desconto, #modal-contas-receber { z-index: 120; }
+        #modal-receber-pagamento { z-index: 125; }
+        #modal-confirm { z-index: 130; }
+        #modal-backup-reminder { z-index: 150; }
+
+        #loading-overlay { z-index: 9999; }
+        .toggle-checkbox:checked { right: 0; border-color: var(--secondary-500); background-color: white; }
+        .toggle-checkbox:checked + .toggle-label { background-color: var(--secondary-500); }
+        .toggle-checkbox { transition: all 0.2s ease-in-out; }
+        .sidebar-item.active { background-color: var(--primary-600); color: white; }
+        @media print {
+            body * { visibility: hidden; }
+            #receipt-modal, #receipt-modal *, #modal-venda-detalhes, #modal-venda-detalhes * { visibility: visible; }
+            #receipt-modal, #modal-venda-detalhes { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden z-[9999]">
+        <div class="loader"></div>
+    </div>
+
+    <div id="login-view" class="min-h-screen flex items-center justify-center bg-[var(--bg-secondary)] px-4">
+        <div class="bg-[var(--bg-primary)] p-8 rounded-lg shadow-xl w-full max-w-md border border-[var(--border-color)]">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-[var(--primary-600)]">MOLDART 3D</h2>
+                <p class="text-[var(--text-secondary)] mt-2">Acesse o seu PDV</p>
+            </div>
+            <form id="login-form" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-[var(--text-secondary)]">E-mail</label>
+                    <input type="email" id="login-email" class="w-full border border-[var(--border-color)] rounded-lg p-3 bg-[var(--bg-secondary)] focus:ring-2 focus:ring-[var(--primary-500)] outline-none" placeholder="seu@email.com" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Senha</label>
+                    <input type="password" id="login-password" class="w-full border border-[var(--border-color)] rounded-lg p-3 bg-[var(--bg-secondary)] focus:ring-2 focus:ring-[var(--primary-500)] outline-none" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="w-full bg-[var(--primary-600)] text-white py-3 rounded-lg font-bold text-lg hover:bg-[var(--primary-700)] transition-colors shadow-lg mt-4">Entrar no Sistema</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-layout" style="display: none;">
+        <div class="relative min-h-screen lg:flex">
+        <nav id="sidebar" class="bg-[var(--bg-primary)] text-[var(--text-primary)] w-64 p-3 fixed inset-y-0 left-0 z-40
+                                         transform -translate-x-full transition-transform duration-300
+                                         lg:relative lg:translate-x-0 lg:shadow-lg">
+            <div class="text-center mb-4">
+                <h2 class="text-xl font-bold text-[var(--primary-600)]">Gestão PDV</h2>
+                <p class="text-xs text-[var(--text-secondary)]">Papelaria & 3D</p>
+            </div>
+           <ul class="space-y-1">
+                <li><button data-view="dashboard-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-tachometer-alt w-4"></i> Dashboard</button></li>
+                <li><button data-view="pos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-cash-register w-4"></i> Ponto de Venda</button></li>
+                <li><button data-modal-id="modal-relatorios" class="open-modal-btn sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-chart-bar w-4"></i> Relatórios</button></li>
+                <li><button data-view="orcamento-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-calculator w-4"></i> Orçamentos</button></li>
+                <li><button data-view="maquinas-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-cogs w-4"></i> Máquinas</button></li>
+                <li><button data-view="insumos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-boxes w-4"></i> Insumos</button></li>
+                <li><button data-view="filamentos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-spool w-4"></i> Filamentos</button></li>
+                <li class="pt-4"><button onclick="logout()" class="w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-sign-out-alt w-4"></i> Sair</button></li>
+            </ul>
+        </nav>
+
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black opacity-50 z-30 hidden lg:hidden"></div>
+
+            <main class="flex-1 p-2 sm:p-3 lg:p-4 bg-[var(--bg-secondary)] overflow-y-auto">
+            <header class="flex items-center justify-between mb-2">
+                <button id="hamburger-btn" class="text-lg text-[var(--text-secondary)] lg:hidden">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="lg:hidden"></div>
+                
+                <button id="open-settings-modal-btn" class="text-lg text-[var(--text-secondary)] hover:text-[var(--primary-600)] transition-colors duration-200">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </header>
+
+            <div id="dashboard-view" class="">
+                <header class="mb-4">
+                    <h1 class="text-2xl font-bold">Dashboard</h1>
+                    <p class="text-[var(--text-secondary)] text-sm">Resumo do seu negócio em tempo real.</p>
+                </header>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-green-100 p-3 rounded-full"><i class="fas fa-dollar-sign fa-2x text-green-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Vendas Hoje</p>
+                            <p id="kpi-sales-today" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-blue-100 p-3 rounded-full"><i class="fas fa-chart-line fa-2x text-blue-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Lucro Hoje</p>
+                            <p id="kpi-profit-today" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-receipt fa-2x text-purple-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Ticket Médio (Hoje)</p>
+                            <p id="kpi-avg-ticket" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div id="kpi-card-unpaid" class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4 cursor-pointer hover:shadow-xl transition-shadow">
+                        <div class="bg-red-100 p-3 rounded-full"><i class="fas fa-file-invoice-dollar fa-2x text-red-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Contas a Receber</p>
+                            <p id="kpi-unpaid" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-emerald-100 p-3 rounded-full"><i class="fas fa-calendar-day fa-2x text-emerald-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Vendas no Mês</p>
+                            <p id="kpi-sales-month" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-cyan-100 p-3 rounded-full"><i class="fas fa-chart-bar fa-2x text-cyan-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Lucro no Mês</p>
+                            <p id="kpi-profit-month" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-calculator fa-2x text-indigo-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Ticket Médio (Mês)</p>
+                            <p id="kpi-avg-ticket-month" class="text-2xl font-bold">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-teal-100 p-3 rounded-full"><i class="fas fa-box fa-2x text-teal-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Produtos Vendidos (Mês)</p>
+                            <p id="kpi-products-sold-month" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-percentage fa-2x text-amber-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Markup (Mês)</p>
+                            <p id="kpi-markup-month" class="text-2xl font-bold">0%</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-rose-100 p-3 rounded-full"><i class="fas fa-chart-pie fa-2x text-rose-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Margem (Mês)</p>
+                            <p id="kpi-margin-month" class="text-2xl font-bold">0%</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-violet-100 p-3 rounded-full"><i class="fas fa-file-invoice fa-2x text-violet-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Orçamentos (Mês)</p>
+                            <p id="kpi-budgets-month" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-orange-100 p-3 rounded-full"><i class="fas fa-pen-fancy fa-2x text-orange-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Rascunhos Pendentes</p>
+                            <p id="kpi-drafts-pending" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-[var(--bg-primary)] p-3 rounded-lg shadow-md">
+                    <h3 class="text-sm font-bold mb-1">Vendas do Mês</h3>
+                    <div class="h-[200px]"><canvas id="chart-sales-trend"></canvas></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div class="bg-[var(--bg-primary)] p-3 rounded-lg shadow-md">
+                        <h3 class="text-sm font-bold mb-1 text-center">Orçamentos por Tipo</h3>
+                        <div class="h-[120px]"><canvas id="chart-budget-types"></canvas></div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-3 rounded-lg shadow-md">
+                        <h3 class="text-sm font-bold mb-1 text-center">Vendas por Tipo</h3>
+                        <div class="h-[120px]"><canvas id="chart-sales-types"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mt-4">
+                    <div class="xl:col-span-1 bg-[var(--bg-primary)] p-3 rounded-lg shadow-md">
+                        <h3 class="text-base font-bold mb-2">Ações Rápidas</h3>
+                        <div class="space-y-1.5">
+                            <button data-view="pos-view" class="quick-action-btn w-full text-left bg-[var(--primary-600)] text-white px-3 py-1.5 rounded-lg shadow hover:bg-[var(--primary-700)] transition flex items-center gap-2 text-sm"><i class="fas fa-cash-register w-4"></i> Nova Venda</button>
+                            <button data-modal-id="modal-produto" class="open-modal-btn w-full text-left bg-[var(--secondary-600)] text-white px-3 py-1.5 rounded-lg shadow hover:bg-[var(--secondary-700)] transition flex items-center gap-2 text-sm"><i class="fas fa-plus-circle w-4"></i> Adicionar Produto</button>
+                            <button data-modal-id="modal-contas-receber" class="open-modal-btn w-full text-left bg-orange-500 text-white px-3 py-1.5 rounded-lg shadow hover:bg-orange-600 transition flex items-center gap-2 text-sm"><i class="fas fa-file-invoice-dollar w-4"></i> Contas a Receber</button>
+                        </div>
+                    </div>
+                    <div class="xl:col-span-2 bg-[var(--bg-primary)] p-3 rounded-lg shadow-md">
+                        <h3 class="text-base font-bold mb-2">Atividade Recente</h3>
+                        <div id="recent-transactions-list" class="space-y-1.5">
+                            <p class="text-center text-gray-500 mt-2">Nenhuma atividade recente.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pos-view" class="hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    <div class="lg:col-span-3">
+                        <header class="mb-2">
+                            <h1 class="text-xl lg:text-2xl font-bold">Ponto de Venda</h1>
+                            <p class="text-[var(--text-secondary)]">Selecione produtos para adicionar ao caixa.</p>
+                        </header>
+                        
+                        <div class="flex flex-wrap gap-2 sm:gap-3 mb-2">
+                            <button data-modal-id="modal-produto" class="open-modal-btn bg-[var(--primary-600)] text-white px-3 py-2 text-sm sm:px-4 rounded-lg shadow hover:bg-[var(--primary-700)] transition flex items-center gap-2"><i class="fas fa-plus-circle"></i> Novo Produto</button>
+                            <button data-modal-id="modal-categorias" class="open-modal-btn bg-teal-600 text-white px-3 py-2 text-sm sm:px-4 rounded-lg shadow hover:bg-teal-700 transition flex items-center gap-2"><i class="fas fa-tags"></i> Gerir Categorias</button>
+                            <button data-modal-id="modal-materiaprima" class="open-modal-btn bg-[var(--secondary-600)] text-white px-3 py-2 text-sm sm:px-4 rounded-lg shadow hover:bg-[var(--secondary-700)] transition flex items-center gap-2"><i class="fas fa-boxes-stacked"></i> Estoque</button>
+                            <button data-modal-id="modal-clientes" class="open-modal-btn bg-purple-600 text-white px-3 py-2 text-sm sm:px-4 rounded-lg shadow hover:bg-purple-700 transition flex items-center gap-2"><i class="fas fa-users"></i> Clientes</button>
+                            <button data-modal-id="modal-contas-receber" class="open-modal-btn bg-orange-500 text-white px-3 py-2 text-sm sm:px-4 rounded-lg shadow hover:bg-orange-600 transition flex items-center gap-2"><i class="fas fa-file-invoice-dollar"></i> A Receber</button>
+                        </div>
+                        
+                        <div class="mb-2 relative">
+                            <input type="text" id="search-barcode" placeholder="BIPAR CÓDIGO DE BARRAS AQUI..." class="w-full p-2 pl-10 border-2 border-dashed border-[var(--primary-500)] rounded-lg bg-[var(--bg-tertiary)] text-center text-sm font-semibold">
+                            <i class="fas fa-barcode absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] text-xl"></i>
+                        </div>
+                        
+                        <div class="mb-2 relative">
+                            <input type="text" id="search-product" placeholder="Ou procurar produto por nome..." class="w-full p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
+                        </div>
+                        
+                        <div id="category-filters" class="mb-2 flex flex-wrap gap-2"></div>
+                        
+                        <div id="product-grid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <div class="lg:sticky top-6">
+                            <div class="bg-[var(--bg-primary)] shadow-lg rounded-lg flex flex-col p-3 sm:p-4">
+                                <div class="flex-grow">
+                                    <h2 class="text-lg lg:text-xl font-bold mb-2 border-b pb-1 border-[var(--border-color)]">Caixa</h2>
+                                    <div class="mb-2">
+                                        <label for="customer-select" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Cliente</label>
+                                        <select id="customer-select" class="w-full border rounded p-1 text-sm bg-[var(--bg-secondary)]"></select>
+                                    </div>
+                                    <div id="customer-info-summary" class="hidden mt-1 p-2 bg-[var(--bg-tertiary)] rounded-lg text-sm border border-[var(--border-color)] space-y-1"></div>
+                                    <div id="cart-items" class="space-y-2 mt-2 max-h-[30vh] overflow-y-auto"></div>
+                                </div>
+                                <div class="border-t border-[var(--border-color)] pt-2 mt-2 space-y-2 flex-shrink-0">
+                                    <div class="flex justify-between font-medium text-base"><span>Subtotal</span><span id="subtotal">R$ 0,00</span></div>
+                                    <div class="flex justify-between font-medium text-base text-red-500"><span>Descontos</span><span id="discounts-total">R$ 0,00</span></div>
+                                    <div class="flex justify-between font-bold text-lg lg:text-xl text-[var(--primary-600)]"><span>TOTAL</span><span id="total">R$ 0,00</span></div>
+                                    <button id="apply-general-discount-btn" class="w-full text-[var(--primary-600)] border-2 border-[var(--primary-600)] py-1 rounded-lg text-sm hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200"><i class="fas fa-tags"></i> Aplicar Desconto</button>
+                                    <button id="checkout-button" class="w-full bg-[var(--primary-600)] text-white py-2 rounded-lg text-base font-bold hover:bg-[var(--primary-700)]" disabled><i class="fas fa-check-circle"></i> Finalizar Venda</button>
+                                    <button id="clear-cart-button" class="w-full bg-[var(--danger-500)] text-white py-1 rounded-lg hover:bg-[var(--danger-600)]"><i class="fas fa-times-circle"></i> Cancelar Venda</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="orcamento-view" class="hidden">
+                <header class="mb-3">
+                    <h1 class="text-2xl font-bold">Calculadora de Orçamento</h1>
+                    <p class="text-[var(--text-secondary)] text-sm">Precifique e gere orçamentos completos para seus clientes.</p>
+                </header>
+
+                <div class="grid grid-cols-1 xl:grid-cols-4 gap-4">
+                    <div class="xl:col-span-3 space-y-4">
+                        <div class="bg-[var(--bg-primary)] p-4 sm:p-6 rounded-lg shadow-md">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Data</label>
+                                    <input type="date" id="orc-data" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Cliente</label>
+                                    <select id="orc-cliente" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium mb-1">Produto/Serviço</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="orc-produto" placeholder="Ex: LIVRINHOS COLORIR" class="flex-1 border rounded p-2 bg-[var(--bg-secondary)]">
+                                        <input type="hidden" id="orc-produto-id" value="">
+                                        <button id="btn-vincular-produto" type="button" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"><i class="fas fa-link"></i></button>
+                                        <div id="produto-vinculado-info" class="hidden flex items-center gap-2 text-sm text-green-600">
+                                            <i class="fas fa-check-circle"></i>
+                                            <span id="produto-vinculado-nome"></span>
+                                            <button id="btn-desvincular-produto" type="button" class="text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Quantidade</label>
+                                    <input type="number" id="orc-quantidade" value="1" min="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                </div>
+                                <div id="orc-tempo-gasto-group">
+                                    <label class="block text-sm font-medium mb-1">Tempo Gasto (min)</label>
+                                    <input type="number" id="orc-tempo-gasto" value="20" min="0" step="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Modo de Cálculo</label>
+                                    <select id="orc-modo-calculo" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                        <option value="grafica">Gráfica</option>
+                                        <option value="impressao3d">Impressão 3D</option>
+                                        <option value="misto">Misto (Gráfica + 3D)</option>
+                                        <option value="grafica_marketplace">Gráfica + Marketplace</option>
+                                        <option value="impressao3d_marketplace">3D + Marketplace</option>
+                                        <option value="misto_marketplace">Misto + Marketplace</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-end pb-2 gap-4">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" id="orc-kit-check" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                        <span class="text-sm font-medium">Kit de produtos</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" id="orc-marketplace-check" class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                                        <span class="text-sm font-medium">Marketplace</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div id="orc-3d-fields" class="hidden">
+                                <div class="mt-4 p-4 border border-dashed border-blue-400 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">Tempo Impressão</label>
+                                    <div class="flex gap-2">
+                                        <input type="number" id="orc-tempo-impressao-h" value="0" min="0" step="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" placeholder="h">
+                                        <span class="self-center text-sm font-medium">h</span>
+                                        <input type="number" id="orc-tempo-impressao-min" value="30" min="0" max="59" step="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" placeholder="min">
+                                        <span class="self-center text-sm font-medium">min</span>
+                                    </div>
+                                </div>
+                                </div>
+                                <details class="mt-3 text-sm">
+                                    <summary class="cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium px-1 py-1"><i class="fas fa-cog mr-1"></i> Configurações Avançadas</summary>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-3 p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Taxa de Falhas (%)</label>
+                                        <input type="number" id="orc-falhas" value="10" min="0" step="0.1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Custo Acabamento (%)</label>
+                                        <input type="number" id="orc-acabamento" value="10" min="0" step="0.1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Custo Fixação (R$)</label>
+                                        <input type="number" id="orc-fixacao" value="0.10" min="0" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Retorno Invest. (meses)</label>
+                                        <input type="number" id="orc-roi-meses" value="12" min="1" step="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Máquinas Ativas</label>
+                                        <input type="number" id="orc-maquinas-ativas" value="1" min="1" step="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Custo Fixo 3D (R$/mês)</label>
+                                        <input type="number" id="orc-custo-fixo-3d" value="500" min="0" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Preço Luz (R$/kWh)</label>
+                                        <input type="number" id="orc-preco-luz" value="0.90" min="0" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Horas/Dia 3D</label>
+                                        <input type="number" id="orc-horas-dia-3d" value="8" min="1" step="0.5" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Dias/Mês 3D</label>
+                                        <input type="number" id="orc-dias-mes-3d" value="22" min="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-base font-bold"><i class="fas fa-boxes text-green-600 mr-2"></i> Materiais Usados</h3>
+                                <button id="add-material-btn" class="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"><i class="fas fa-plus"></i> Adicionar</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm" id="tabela-materiais">
+                                    <thead>
+                                        <tr class="border-b text-left">
+                                            <th class="p-2">Material</th>
+                                            <th class="p-2 text-center">Qtd</th>
+                                            <th class="p-2 text-right">Custo Unit.</th>
+                                            <th class="p-2 text-right">Subtotal</th>
+                                            <th class="p-2 text-center w-16">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="orc-materiais-body"></tbody>
+                                </table>
+                            </div>
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t">
+                                <button onclick="switchView('insumos-view')" class="text-xs text-blue-600 hover:underline"><i class="fas fa-book"></i> Catálogo de Insumos</button>
+                                <span class="font-bold">Total Materiais: <span id="orc-total-materiais">R$ 0,00</span></span>
+                            </div>
+                        </div>
+
+                        <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-base font-bold"><i class="fas fa-cogs text-blue-600 mr-2"></i> Máquinas Usadas</h3>
+                                <button id="add-maquina-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-plus"></i> Adicionar</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm" id="tabela-maquinas">
+                                    <thead>
+                                        <tr class="border-b text-left">
+                                            <th class="p-2">Máquina</th>
+                                            <th class="p-2 text-center">Tempo (min)</th>
+                                            <th class="p-2 text-right">Custo Hora</th>
+                                            <th class="p-2 text-right">Custo Total</th>
+                                            <th class="p-2 text-center w-16">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="orc-maquinas-body"></tbody>
+                                </table>
+                            </div>
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t">
+                                <button onclick="switchView('maquinas-view')" class="text-xs text-blue-600 hover:underline"><i class="fas fa-tools"></i> Gerir Máquinas</button>
+                                <span class="font-bold">Total Máquinas: <span id="orc-total-maquinas">R$ 0,00</span></span>
+                            </div>
+                        </div>
+
+                        <div id="orc-3d-filamentos-section" class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-base font-bold"><i class="fas fa-spool text-purple-600 mr-2"></i> Filamentos Usados</h3>
+                                <button id="add-filamento-btn" class="text-sm bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700"><i class="fas fa-plus"></i> Adicionar</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm" id="tabela-filamentos">
+                                    <thead>
+                                        <tr class="border-b text-left">
+                                            <th class="p-2">Filamento</th>
+                                            <th class="p-2 text-center">Peso (g)</th>
+                                            <th class="p-2 text-right">Preço/kg</th>
+                                            <th class="p-2 text-right">Subtotal</th>
+                                            <th class="p-2 text-center w-16">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="orc-filamentos-body"></tbody>
+                                </table>
+                            </div>
+                            <div class="flex justify-between items-center mt-3 pt-3 border-t">
+                                <button onclick="switchView('filamentos-view')" class="text-xs text-blue-600 hover:underline"><i class="fas fa-book"></i> Gerenciar Filamentos</button>
+                                <span class="font-bold">Total Filamentos: <span id="orc-total-filamentos">R$ 0,00</span></span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                                <h3 class="text-base font-bold mb-2"><i class="fas fa-percentage text-purple-500 mr-2"></i> Margem & Taxas</h3>
+                                <div class="space-y-3 text-sm">
+                                    <div>
+                                        <label class="block font-medium mb-1">Margem de Lucro (%)</label>
+                                        <input type="number" id="orc-margem" value="50" min="0" step="0.1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                    <div class="flex gap-2 items-end">
+                                        <div class="flex-1">
+                                            <label class="block font-medium mb-1">Taxa Plataforma (%)</label>
+                                            <input type="number" id="orc-taxa-plataforma" value="0" min="0" step="0.1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" disabled>
+                                        </div>
+                                        <div class="flex-1">
+                                            <label class="block font-medium mb-1">Taxa Fixa (R$)</label>
+                                            <input type="number" id="orc-taxa-fixa" value="0" min="0" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" disabled>
+                                        </div>
+                                    </div>
+                                    <div id="orc-valor-hora-group">
+                                        <label class="block font-medium mb-1">Valor Hora (Mão de Obra R$)</label>
+                                        <input type="number" id="orc-valor-hora" value="22.27" min="0" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                                <h3 class="text-base font-bold mb-2 text-green-600"><i class="fas fa-cog text-orange-400 mr-1"></i><i class="fas fa-chart-line mr-1"></i> Resultados</h3>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between"><span>Custo Materiais</span><span id="orc-result-materiais" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between"><span>Custo Máquinas</span><span id="orc-result-maquinas" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between"><span>Custo Mão de Obra</span><span id="orc-result-mo" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between">
+                                        <span>Custo Fixo <button data-modal-id="modal-custos-fixos" class="open-modal-btn text-blue-500 hover:text-blue-700 text-xs ml-1" title="Editar custos fixos"><i class="fas fa-pen"></i></button></span>
+                                        <span id="orc-result-fixo" class="font-semibold">R$ 0,00</span>
+                                    </div>
+                                    <div class="flex justify-between"><span>Custo Marketplace</span><span id="orc-result-marketplace" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between font-bold border-t pt-2 mt-2"><span>Custo Total</span><span id="orc-result-custo-total" class="text-red-600">R$ 0,00</span></div>
+                                    <div class="flex justify-between font-bold text-lg text-blue-600 border-t pt-2 mt-2"><span>Preço Sugerido</span><span id="orc-result-preco-sugerido">R$ 0,00</span></div>
+                                    <div class="flex justify-between items-center font-bold text-xl text-green-600 border-t pt-2 mt-2"><span>Preço Final (R$)</span><input type="text" inputmode="decimal" id="orc-result-preco-final" class="w-28 border rounded p-1 text-right font-bold text-green-700 bg-[var(--bg-secondary)]"></div>
+                                    <div class="flex justify-between"><span>Lucro</span><span id="orc-result-lucro" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between"><span>Custo Unidade</span><span id="orc-result-custo-unidade" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between"><span>Venda Unidade</span><span id="orc-result-venda-unidade" class="font-semibold">R$ 0,00</span></div>
+                                    <div class="flex justify-between"><span>Lucro Unidade</span><span id="orc-result-lucro-unidade" class="font-semibold text-green-600">R$ 0,00</span></div>
+                                    <div class="flex justify-between"><span>Markup %</span><span id="orc-result-markup" class="font-semibold">0.00%</span></div>
+                                    <div class="flex justify-between"><span>Margem Lucro %</span><span id="orc-result-margem" class="font-semibold">0.00%</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-1 space-y-4">
+                        <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-lg font-bold"><i class="fas fa-save text-green-700 mr-2"></i> Salvar</h3>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <button id="salvar-orcamento-btn" class="w-full bg-[var(--primary-600)] text-white py-3 rounded-lg font-bold hover:bg-[var(--primary-700)]"><i class="fas fa-save"></i> Salvar Orçamento</button>
+                                <button data-modal-id="modal-rascunhos" class="open-modal-btn w-full border-2 border-yellow-600 text-yellow-600 py-2 rounded-lg hover:bg-yellow-600 hover:text-white text-sm"><i class="fas fa-file-pen"></i> Rascunhos</button>
+                                <div id="auto-save-indicator" class="text-xs text-center text-yellow-600 mt-1 hidden"><i class="fas fa-spinner fa-spin"></i> Salvando rascunho...</div>
+                                <button id="imprimir-orcamento-btn" class="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700"><i class="fas fa-print"></i> Imprimir</button>
+                                <button data-modal-id="modal-historico-orcamentos" class="open-modal-btn w-full border-2 border-[var(--primary-600)] text-[var(--primary-600)] py-2 rounded-lg hover:bg-[var(--primary-600)] hover:text-white"><i class="fas fa-history"></i> Histórico</button>
+                                <button id="limpar-orcamento-btn" class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"><i class="fas fa-eraser"></i> Novo Orçamento</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="maquinas-view" class="hidden">
+                <header class="mb-3">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-cogs text-blue-600 mr-2"></i> Gerenciar Máquinas</h1>
+                    <p class="text-[var(--text-secondary)] text-sm">Cadastre as máquinas usadas na produção com seus custos por hora.</p>
+                </header>
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md mb-3">
+                    <form id="add-maquina-form-view" class="space-y-2">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <input type="text" name="maquinaNome" placeholder="Nome da Máquina" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="maquinaPotencia" placeholder="Potência (W)" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="maquinaPrecoLuz" placeholder="Preço Luz (kWh R$)" step="0.01" value="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="maquinaValor" placeholder="Valor da Máquina (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <input type="number" name="maquinaAnos" placeholder="Anos de Uso" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="maquinaHorasDia" placeholder="Horas por Dia" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="maquinaDepreciacao" placeholder="Depreciação (horas)" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                            <button type="submit" class="bg-[var(--primary-600)] text-white px-4 py-2 rounded hover:bg-[var(--primary-700)]">Adicionar Máquina</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                    <h3 class="text-base font-bold mb-2">Máquinas Cadastradas</h3>
+                    <div id="maquinas-list-view" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+            <div id="insumos-view" class="hidden">
+                <header class="mb-3">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-boxes text-green-600 mr-2"></i> Catálogo de Insumos</h1>
+                    <p class="text-[var(--text-secondary)] text-sm">Cadastre os materiais/insumos usados nos orçamentos com seus custos.</p>
+                </header>
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md mb-3">
+                    <form id="add-insumo-form-view" class="space-y-2">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <input type="text" name="insumoNome" placeholder="Nome do Insumo" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="insumoPrecoPacote" placeholder="Preço do Pacote/Kit (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="insumoQtdPacote" placeholder="Quantidade no Pacote" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Adicionar Insumo</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                    <h3 class="text-base font-bold mb-2">Insumos Cadastrados</h3>
+                    <div id="insumos-list-view" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+            <div id="filamentos-view" class="hidden">
+                <header class="mb-3">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-spool text-purple-600 mr-2"></i> Gerenciar Filamentos</h1>
+                    <p class="text-[var(--text-secondary)] text-sm">Cadastre os tipos de filamento usados na impressão 3D com seus preços por kg.</p>
+                </header>
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md mb-3">
+                    <form id="add-filamento-form-view" class="space-y-2">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <input type="text" name="filamentoNome" placeholder="Nome do Filamento" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <input type="number" name="filamentoPreco" placeholder="Preço por kg (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                            <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Adicionar Filamento</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                    <h3 class="text-base font-bold mb-2">Filamentos Cadastrados</h3>
+                    <div id="filamentos-list-view" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <div id="modal-relatorios" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-[95%] max-w-6xl h-[90vh] flex flex-col rounded-lg shadow-xl p-4 sm:p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4 flex-shrink-0">
+                <h3 class="text-xl sm:text-2xl font-bold">Relatórios</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto pr-2">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b mb-4 pb-2 gap-2">
+                    <div id="report-period-buttons" class="flex flex-wrap gap-2">
+                        <button class="period-button text-xs sm:text-sm py-2 px-3 rounded-md" data-period="daily">Diário</button>
+                        <button class="period-button text-xs sm:text-sm py-2 px-3 rounded-md" data-period="weekly">Semanal</button>
+                        <button class="period-button text-xs sm:text-sm py-2 px-3 rounded-md" data-period="monthly">Mensal</button>
+                        <button class="period-button text-xs sm:text-sm py-2 px-3 rounded-md" data-period="annual">Anual</button>
+                    </div>
+                    <div id="month-year-selector" class="hidden flex items-center gap-2">
+                         <select id="report-month-select" class="border rounded-md p-2 bg-[var(--bg-tertiary)] text-sm"></select>
+                         <select id="report-year-select" class="border rounded-md p-2 bg-[var(--bg-tertiary)] text-sm"></select>
+                    </div>
+                </div>
+
+                <div class="mb-4 border-b flex flex-wrap">
+                    <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="vendas">Vendas</button>
+                    <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="recebimentos">Recebimentos</button>
+                    <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="vendas-cliente">Por Cliente</button>
+                    <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="desempenho-produtos">Produtos</button>
+                    <button class="tab-button text-sm sm:text-base py-2 px-4 border-b-2" data-tab="vendas-produto">Vendas por Produto</button>
+                </div>
+
+                <div id="tab-vendas" class="tab-content space-y-6">
+                    <div id="sales-summary" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-center"></div>
+                    <div class="relative h-64 sm:h-96 w-full mb-4">
+                        <canvas id="salesChart"></canvas>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <div id="transactions-list" class="min-w-[600px]"></div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <div id="annual-summary-table" class="min-w-[600px] hidden"></div>
+                    </div>
+                </div>
+
+                <div id="tab-recebimentos" class="tab-content hidden space-y-4">
+                </div>
+
+                <div id="tab-vendas-cliente" class="tab-content hidden overflow-x-auto">
+                    <div id="sales-by-customer-container" class="min-w-[600px]"></div>
+                </div>
+
+                <div id="tab-desempenho-produtos" class="tab-content hidden overflow-x-auto">
+                       <div class="min-w-[600px]"></div>
+                </div>
+                
+                <div id="tab-vendas-produto" class="tab-content hidden">
+                    <h3 class="text-lg font-semibold mb-4">Relatório Detalhado de Vendas por Produto</h3>
+                    <div class="mb-4">
+                        <label for="sales-report-product-select" class="block text-sm font-medium mb-1">Selecione um Produto</label>
+                        <select id="sales-report-product-select" class="w-full max-w-md border rounded p-2 bg-[var(--bg-tertiary)]"></select>
+                    </div>
+                       <div class="mb-4 relative">
+                        <input type="text" id="sales-report-customer-search" placeholder="Procurar por cliente..." class="w-full max-w-md p-2 pl-10 border rounded-lg bg-[var(--bg-primary)] border-[var(--border-color)]" disabled>
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
+                    </div>
+                    <div id="sales-report-details-container" class="mt-4">
+                        <p class="text-center text-gray-500">Selecione um produto para ver os detalhes das vendas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Adicionar Novo Produto</h3>
+            <form id="add-product-form" class="space-y-4">
+                <input type="text" name="productName" placeholder="Nome do Produto" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <input type="text" name="productBarcode" placeholder="Código de Barras (Opcional)" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                <div>
+                    <label for="add-product-category" class="block text-sm font-medium">Categoria</label>
+                    <select id="add-product-category" name="productCategory" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]"></select>
+                </div>
+                <div>
+                    <label for="add-product-modo-calculo" class="block text-sm font-medium">Modo de Cálculo</label>
+                    <select id="add-product-modo-calculo" name="productModoCalculo" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option value="grafica">Gráfica</option>
+                        <option value="impressao3d">Impressão 3D</option>
+                        <option value="misto">Misto</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-edit-product-list" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold">Editar Produtos</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div class="mb-4 relative">
+                <input type="text" id="search-edit-product" placeholder="Pesquisar produto por nome..." class="w-full p-2 pl-10 border rounded bg-[var(--bg-primary)]">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"></i>
+            </div>
+            <div id="edit-product-list-container" class="max-h-96 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="modal-edit-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Produto</h3>
+            <form id="edit-product-form" class="space-y-4">
+                <input type="hidden" name="productId">
+                <input type="text" name="productName" placeholder="Nome do Produto" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="number" name="productPrice" placeholder="Preço (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="productCost" placeholder="Custo (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <input type="text" name="productBarcode" placeholder="Código de Barras (Opcional)" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                <div>
+                    <label for="edit-product-category" class="block text-sm font-medium">Categoria</label>
+                    <select id="edit-product-category" name="editProductCategory" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]"></select>
+                </div>
+                <div>
+                    <label for="edit-product-modo-calculo" class="block text-sm font-medium">Modo de Cálculo</label>
+                    <select id="edit-product-modo-calculo" name="editProductModoCalculo" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option value="grafica">Gráfica</option>
+                        <option value="impressao3d">Impressão 3D</option>
+                        <option value="misto">Misto</option>
+                    </select>
+                </div>
+                <div class="flex justify-between gap-3 mt-4">
+                    <button type="button" id="delete-product-btn" class="px-4 py-2 rounded bg-[var(--danger-500)] text-white">Excluir</button>
+                    <div>
+                        <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar Alterações</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-categorias" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Gerenciar Categorias</h3>
+            <div id="categories-list" class="space-y-2 mb-4 max-h-60 overflow-y-auto"></div>
+            <form id="add-category-form" class="flex gap-2 border-t pt-4">
+                <input type="text" name="categoryName" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" placeholder="Nome da nova categoria" required>
+                <button type="submit" class="bg-[var(--primary-600)] text-white px-4 py-2 rounded">Adicionar</button>
+            </form>
+            <button type="button" class="close-modal-btn mt-4 w-full px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+        </div>
+    </div>
+    
+    <div id="modal-edit-categoria" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Categoria</h3>
+            <form id="edit-category-form" class="space-y-3">
+                <input type="hidden" name="categoryId">
+                <input type="text" name="categoryName" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-4xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Gerenciar Estoque de Insumos</h3>
+            <div id="raw-materials-list" class="max-h-80 overflow-y-auto"></div>
+            <form id="add-raw-material-form" class="mt-4 border-t pt-4 space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" name="rawMaterialName" placeholder="Nome do Insumo" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    <input type="date" name="rawMaterialReceiptDate" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                     <input type="number" name="rawMaterialStock" placeholder="Quantidade" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                     <input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: kg, un, m)" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                     <input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="flex justify-end gap-3">
+                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+                     <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Adicionar ao Estoque</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-edit-materiaprima" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-4xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+             <h3 class="text-xl font-bold mb-4">Editar Item de Estoque</h3>
+             <form id="edit-raw-material-form" class="space-y-3">
+                <input type="hidden" name="rawMaterialId">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" name="rawMaterialName" placeholder="Nome do Insumo" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="text" name="rawMaterialSupplier" placeholder="Fornecedor" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    <input type="date" name="rawMaterialReceiptDate" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                     <input type="number" name="rawMaterialStock" placeholder="Quantidade" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                     <input type="text" name="rawMaterialUnit" placeholder="Unidade (ex: kg, un, m)" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                     <input type="number" name="rawMaterialTotalCost" placeholder="Custo Total (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="flex justify-end gap-3">
+                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                     <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-clientes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-xl font-bold">Gerenciar Clientes</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div class="mt-4">
+                <div id="customers-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+            </div>
+            <div class="mt-6 border-t pt-4">
+                <h4 class="font-semibold mb-2">Adicionar Novo Cliente</h4>
+                <form id="add-customer-form" class="flex gap-2">
+                    <input type="text" name="customerName" placeholder="Nome do Cliente" class="flex-grow border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="text" name="customerContact" placeholder="Contato (Telefone/Email)" class="flex-grow border rounded p-2 bg-[var(--bg-secondary)]">
+                    <button type="submit" class="bg-[var(--primary-600)] text-white px-4 py-2 rounded">Adicionar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-edit-cliente" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Cliente</h3>
+            <form id="edit-customer-form" class="space-y-3">
+                <input type="hidden" name="customerId">
+                <input type="text" name="customerName" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                <input type="text" name="customerContact" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-settings" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Configurações</h3>
+            <div class="space-y-4">
+                <div>
+                    <h4 class="font-semibold">Tema Visual</h4>
+                    <div id="theme-selector" class="flex gap-3 mt-2">
+                        <button class="theme-button w-10 h-10 rounded-full bg-gray-200" data-theme="light"></button>
+                        <button class="theme-button w-10 h-10 rounded-full bg-gray-800" data-theme="dark"></button>
+                        <button class="theme-button w-10 h-10 rounded-full bg-blue-200" data-theme="ocean"></button>
+                        <button class="theme-button w-10 h-10 rounded-full bg-green-200" data-theme="forest"></button>
+                    </div>
+                </div>
+                <div class="border-t pt-4">
+                       <h4 class="font-semibold">Backup e Restauração</h4>
+                       <div class="flex gap-3 mt-2">
+                           <button id="export-data-btn" class="px-4 py-2 bg-green-600 text-white rounded">Exportar Backup (JSON)</button>
+                           <label class="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer">
+                               Importar Backup (JSON)
+                               <input type="file" id="import-file-input" class="hidden" accept=".json">
+                           </label>
+                       </div>
+                 </div>
+                 <div class="border-t pt-4">
+                        <h4 class="font-semibold">Sincronizar Orçamentos</h4>
+                        <div class="flex gap-3 mt-2">
+                            <button id="sync-data-btn" class="px-4 py-2 bg-purple-600 text-white rounded"><i class="fas fa-sync mr-1"></i> Sincronizar Máquinas, Insumos e Orçamentos</button>
+                        </div>
+                        <p class="text-xs text-[var(--text-tertiary)] mt-1">Envia os dados de orçamento (máquinas, insumos, orçamentos) para o Supabase.</p>
+                 </div>
+                <div class="border-t pt-4">
+                       <h4 class="font-semibold text-[var(--danger-600)]">Área de Risco</h4>
+                       <button id="reset-system-btn" class="mt-2 px-4 py-2 bg-[var(--danger-500)] text-white rounded">Zerar Todo o Sistema</button>
+                </div>
+            </div>
+             <div class="flex justify-end mt-6">
+                <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-confirm" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-sm rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 id="confirm-title" class="text-xl font-bold mb-2">Título</h3>
+            <p id="confirm-message" class="mb-6">Mensagem</p>
+            <div class="flex justify-end gap-3">
+                <button id="confirm-cancel-btn" class="px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                <button id="confirm-confirm-btn" class="px-4 py-2 rounded bg-[var(--danger-500)] text-white">Confirmar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="receipt-modal" class="fixed inset-0 z-50 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-sm rounded-lg shadow-xl p-6 bg-white text-black">
+            <h3 class="text-xl font-bold text-center mb-4">Recibo</h3>
+            <div id="customer-receipt-content" class="text-sm space-y-1 mb-2"></div>
+            <div id="receipt-details" class="text-sm space-y-1"></div>
+            <p id="receipt-total" class="text-lg font-bold text-center my-4"></p>
+            <p id="receipt-date" class="text-xs text-center text-gray-600"></p>
+            <div class="flex justify-around mt-6 no-print">
+                <button id="print-receipt-btn" class="px-4 py-2 bg-blue-600 text-white rounded">Imprimir</button>
+                <button class="close-modal-btn px-4 py-2 bg-gray-300 text-gray-800 rounded">Fechar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-payment" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+         <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-2">Finalizar Venda</h3>
+            <p class="text-center text-4xl font-bold my-4" id="payment-total">R$ 0,00</p>
+            <form id="payment-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Formas de Pagamento</label>
+                    <div id="payment-methods-container" class="space-y-2"></div>
+                    <button type="button" id="add-payment-method-btn" class="mt-2 text-sm text-blue-600 hover:text-blue-800"><i class="fas fa-plus-circle"></i> Adicionar forma de pagamento</button>
+                </div>
+                <div class="text-sm text-gray-500 flex justify-between">
+                    <span>Total a pagar:</span>
+                    <span id="payment-methods-total" class="font-semibold">R$ 0,00</span>
+                </div>
+                 <div class="flex items-center justify-between border-t pt-4">
+                    <label for="retroactive-sale-toggle">É uma venda antiga?</label>
+                    <input type="checkbox" id="retroactive-sale-toggle" name="retroactiveSale">
+                </div>
+                <div id="retroactive-date-group" class="hidden">
+                    <label for="payment-retroactive-date">Data da Venda</label>
+                    <input type="datetime-local" id="payment-retroactive-date" name="retroactiveDate" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                </div>
+                <div class="flex flex-col gap-2 mt-4">
+                    <button type="submit" class="w-full px-4 py-3 rounded bg-green-600 text-white font-bold">Confirmar Pagamento</button>
+                    <button type="button" id="process-unpaid-sale-btn" class="w-full px-4 py-2 rounded bg-orange-500 text-white">Salvar como Não Pago</button>
+                    <button type="button" class="close-modal-btn w-full px-4 py-2 rounded bg-gray-300 text-gray-800">Voltar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-contas-receber" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Contas a Receber</h3>
+            <div id="unpaid-sales-list" class="max-h-96 overflow-y-auto"></div>
+            <div class="flex justify-end mt-4">
+                 <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-receber-pagamento" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-2">Receber Pagamento</h3>
+            <p class="text-center text-3xl font-bold my-4" id="receive-payment-total">R$ 0,00</p>
+               <form id="receive-payment-form" class="space-y-4">
+                <input type="hidden" name="transactionId">
+                <div>
+                    <label for="receive-payment-amount">Valor a Receber</label>
+                    <input type="number" id="receive-payment-amount" name="paymentAmount" min="0.01" step="0.01" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)] font-bold text-lg">
+                </div>
+                <div>
+                    <label for="receive-payment-method">Forma de Pagamento</label>
+                    <select id="receive-payment-method" name="paymentMethod" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option>Dinheiro</option>
+                        <option>Pix</option>
+                        <option>Cartão de Crédito</option>
+                    </select>
+                </div>
+                <div id="receive-installments-group" class="hidden">
+                    <label for="receive-payment-installments">Parcelas</label>
+                    <input type="number" id="receive-payment-installments" name="paymentInstallments" value="1" min="1" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                </div>
+                <p class="text-xs text-[var(--text-tertiary)]">Se o valor for menor que o total, o saldo restante continuará como <strong>Não Pago</strong>.</p>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Confirmar Recebimento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-venda-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-[95%] max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Detalhes da Venda</h3>
+            
+            <div id="sale-details-content" class="space-y-2">
+            </div>
+
+            <div class="flex justify-end mt-4 no-print">
+                <button id="print-details-btn" class="px-4 py-2 rounded bg-blue-600 text-white mr-2">Imprimir</button>
+                <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-cliente-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-4xl h-[80vh] flex flex-col rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Histórico de <span id="details-customer-name"></span></h3>
+            <div id="details-customer-sales-list" class="flex-grow overflow-y-auto"></div>
+               <div class="flex justify-end mt-4">
+                <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modal-edit-venda" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-2">Editar Venda</h3>
+            <p class="text-center text-3xl font-bold my-4" id="edit-sale-total">R$ 0,00</p>
+               <form id="edit-sale-form" class="space-y-4">
+                <input type="hidden" name="transactionId">
+                <div>
+                    <label>Status</label>
+                    <select name="saleStatus" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option value="Pago">Pago</option>
+                        <option value="Não Pago">Não Pago</option>
+                    </select>
+                </div>
+                 <div>
+                    <label for="edit-sale-method">Forma de Pagamento</label>
+                    <select id="edit-sale-method" name="paymentMethod" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option>A Prazo</option>
+                        <option>Dinheiro</option>
+                        <option>Pix</option>
+                        <option>Cartão de Crédito</option>
+                    </select>
+                </div>
+                <div id="edit-installments-group" class="hidden">
+                    <label for="edit-payment-installments">Parcelas</label>
+                    <input type="number" id="edit-payment-installments" name="paymentInstallments" value="1" min="1" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-desconto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+         <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 id="discount-modal-title" class="text-xl font-bold mb-4">Aplicar Desconto</h3>
+            <form id="discount-form" class="space-y-4">
+                <input type="hidden" name="itemIndex">
+                <div>
+                    <label>Tipo de Desconto</label>
+                    <select name="discountType" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                        <option value="fixed">Valor Fixo (R$)</option>
+                        <option value="percentage">Porcentagem (%)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Valor</label>
+                    <input type="number" name="discountValue" step="0.01" class="w-full border rounded p-2 mt-1 bg-[var(--bg-secondary)]">
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Aplicar Desconto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="modal-importar-vendas" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Importar Vendas de CSV</h3>
+            <form id="import-sales-form">
+                <input type="file" id="csv-file-input" accept=".csv">
+                <button type="submit">Importar</button>
+            </form>
+            <div id="import-log" class="mt-4 text-sm max-h-40 overflow-y-auto"></div>
+        </div>
+    </div>
+    
+    <div id="modal-backup-reminder" class="fixed inset-0 hidden items-center justify-center modal-backdrop z-[150]">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Lembrete de Backup</h3>
+            <p class="text-[var(--text-secondary)] mb-6">
+                Já faz um tempo desde o seu último backup. Recomendamos salvar uma cópia de segurança dos seus dados agora para evitar perdas.
+            </p>
+            <div class="flex justify-end gap-3">
+                <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Lembrar Mais Tarde</button>
+                <button type="button" id="execute-backup-btn" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Fazer Backup Agora</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-maquinas" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-4xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold"><i class="fas fa-cogs text-blue-600 mr-2"></i> Gerenciar Máquinas</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div id="maquinas-list" class="max-h-60 overflow-y-auto mb-4"></div>
+            <form id="add-maquina-form" class="border-t pt-4 space-y-3">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <input type="text" name="maquinaNome" placeholder="Nome da Máquina" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaPotencia" placeholder="Potência (W)" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaPrecoLuz" placeholder="Preço Luz (kWh)" step="0.01" value="1" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaValor" placeholder="Valor da Máquina (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <input type="number" name="maquinaAnos" placeholder="Anos de Uso" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaHorasDia" placeholder="Horas por Dia" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaDepreciacao" placeholder="Depreciação (horas)" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    <div class="flex items-end gap-2">
+                        <button type="submit" class="bg-[var(--primary-600)] text-white px-4 py-2 rounded w-full">Adicionar</button>
+                    </div>
+                </div>
+            </form>
+            <div class="flex justify-end mt-4">
+                <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-edit-maquina" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Máquina</h3>
+            <form id="edit-maquina-form" class="space-y-3">
+                <input type="hidden" name="maquinaId">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <input type="text" name="maquinaNome" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaPotencia" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaPrecoLuz" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaValor" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <input type="number" name="maquinaAnos" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaHorasDia" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="maquinaDepreciacao" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    <div class="flex gap-2">
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Salvar</button>
+                    </div>
+                </div>
+            </form>
+            <div class="flex justify-end mt-4">
+                <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-insumos" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-4xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold"><i class="fas fa-boxes text-green-600 mr-2"></i> Catálogo de Insumos</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div id="insumos-list" class="max-h-60 overflow-y-auto mb-4"></div>
+            <form id="add-insumo-form" class="border-t pt-4 space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <input type="text" name="insumoNome" placeholder="Nome do Insumo" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="insumoPrecoPacote" placeholder="Preço do Pacote/Kit (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="insumoQtdPacote" placeholder="Quantidade no Pacote" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Adicionar</button>
+                </div>
+            </form>
+            <div class="flex justify-end mt-4">
+                <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-edit-insumo" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Insumo</h3>
+            <form id="edit-insumo-form" class="space-y-3">
+                <input type="hidden" name="insumoId">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" name="insumoNome" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="insumoPrecoPacote" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" name="insumoQtdPacote" step="any" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-edit-filamento" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Filamento</h3>
+            <form id="edit-filamento-form" class="space-y-3">
+                <input type="hidden" id="edit-filamento-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input type="text" id="edit-filamento-nome" placeholder="Nome do Filamento" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    <input type="number" id="edit-filamento-preco" placeholder="Preço por kg (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-purple-600 text-white">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-historico-orcamentos" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-6xl h-[90vh] flex flex-col rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4 flex-shrink-0">
+                <h3 class="text-xl font-bold"><i class="fas fa-history mr-2"></i> Histórico de Orçamentos</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+                <label class="text-sm font-medium">Filtrar por Mês:</label>
+                <select id="historico-mes-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm"></select>
+                <select id="historico-ano-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm"></select>
+                <select id="historico-modo-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm">
+                    <option value="">Todos os modos</option>
+                    <option value="grafica">Gráfica</option>
+                    <option value="impressao3d">Impressão 3D</option>
+                    <option value="misto">Misto</option>
+                    <option value="grafica_marketplace">Gráfica + Marketplace</option>
+                    <option value="impressao3d_marketplace">3D + Marketplace</option>
+                    <option value="misto_marketplace">Misto + Marketplace</option>
+                </select>
+                <button id="historico-filtrar-btn" class="bg-[var(--primary-600)] text-white px-4 py-2 rounded text-sm hover:bg-[var(--primary-700)]">Filtrar</button>
+                <button id="historico-todos-btn" class="border border-[var(--border-color)] px-4 py-2 rounded text-sm hover:bg-[var(--bg-tertiary)]">Todos</button>
+                <input type="text" id="historico-search-input" placeholder="Pesquisar..." class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm flex-1 min-w-[150px]">
+            </div>
+            <div id="historico-orcamentos-summary" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
+            <div id="historico-orcamentos-list" class="flex-grow overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="modal-orcamento-detalhes" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-2xl rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Detalhes do Orçamento</h3>
+            <div id="orcamento-detalhes-content" class="space-y-2 text-sm max-h-[70vh] overflow-y-auto"></div>
+            <div class="flex justify-end gap-3 mt-4 no-print">
+                <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+                <button id="imprimir-orcamento-detalhes-btn" class="px-4 py-2 rounded bg-blue-600 text-white">Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-custos-fixos" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold"><i class="fas fa-cog text-orange-500 mr-2"></i> Custos Fixos</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center">
+                    <label class="font-medium">Aluguel (R$)</label>
+                    <input type="number" id="orc-aluguel" value="600" step="0.01" class="w-36 border rounded p-2 text-right bg-[var(--bg-tertiary)]">
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="font-medium">Internet (R$)</label>
+                    <input type="number" id="orc-internet" value="141" step="0.01" class="w-36 border rounded p-2 text-right bg-[var(--bg-tertiary)]">
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="font-medium">MEI (R$)</label>
+                    <input type="number" id="orc-mei" value="87" step="0.01" class="w-36 border rounded p-2 text-right bg-[var(--bg-tertiary)]">
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="font-medium">Outros (R$)</label>
+                    <input type="number" id="orc-outros" value="300" step="0.01" class="w-36 border rounded p-2 text-right bg-[var(--bg-tertiary)]">
+                </div>
+                <div class="flex justify-between font-bold border-t pt-2 mt-2">
+                    <span>Total/mês</span>
+                    <span id="modal-total-custos-fixos" class="text-orange-600">R$ 1.128,00</span>
+                </div>
+                <div class="flex justify-between items-center mt-4">
+                    <label class="font-medium">Horas/Dia</label>
+                    <input type="number" id="orc-horas-dia" value="12" min="1" step="0.5" class="w-20 border rounded p-2 text-right bg-[var(--bg-tertiary)]">
+                </div>
+                <div class="flex justify-between items-center">
+                    <label class="font-medium">Dias/Mês</label>
+                    <input type="number" id="orc-dias-mes" value="22" min="1" class="w-20 border rounded p-2 text-right bg-[var(--bg-tertiary)]">
+                </div>
+                <div class="flex justify-between font-semibold text-blue-600 border-t pt-2 mt-2">
+                    <span>Custo Fixo/h</span>
+                    <span id="modal-custo-fixo-hora" class="font-bold">R$ 4,27</span>
+                </div>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button class="close-modal-btn px-6 py-2 rounded bg-[var(--primary-600)] text-white">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-orcamento-select" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4" id="orcamento-select-title">Selecionar</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Pesquisar</label>
+                    <input type="text" id="orcamento-select-search" placeholder="Digite para pesquisar..." class="w-full border rounded p-2 bg-[var(--bg-tertiary)]">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1" id="orcamento-select-label">Item</label>
+                    <div id="orcamento-select-list" class="max-h-48 overflow-y-auto border rounded bg-[var(--bg-tertiary)]"></div>
+                </div>
+                <div id="orcamento-qty-group" class="hidden">
+                    <label class="block text-sm font-medium mb-1" id="orcamento-select-qty-label">Quantidade</label>
+                    <input type="number" id="orcamento-select-qty" value="1" min="0.01" step="any" class="w-full border rounded p-2 bg-[var(--bg-tertiary)]">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                <button id="orcamento-select-confirm" class="px-4 py-2 rounded bg-gray-400 text-white cursor-not-allowed" disabled>Adicionar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-selecionar-produto" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold"><i class="fas fa-box text-green-600 mr-2"></i> Vincular Produto</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div class="mb-4">
+                <input type="text" id="select-product-search" placeholder="Pesquisar produto..." oninput="renderSelectProductList(this.value)" class="w-full border rounded p-2 bg-[var(--bg-tertiary)]">
+            </div>
+            <div id="select-product-list-container" class="max-h-80 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="modal-rascunhos" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-3xl h-[80vh] flex flex-col rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <div class="flex justify-between items-center border-b pb-3 mb-4 flex-shrink-0">
+                <h3 class="text-xl font-bold"><i class="fas fa-pen-fancy text-green-600 mr-2"></i> Rascunhos</h3>
+                <button class="close-modal-btn text-2xl">&times;</button>
+            </div>
+            <div id="rascunhos-list" class="flex-grow overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg opacity-0 translate-y-10 transition-all duration-300 z-[200]">
+        <span>Mensagem aqui</span>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>
+</body>
+</html>

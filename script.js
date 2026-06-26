@@ -3540,6 +3540,8 @@ function addEventListeners() {
         displayProductSalesReport(selectedProductId, e.target.value);
     });
 
+    safeAddListener('insumo-search-input', 'input', (e) => renderOrcamentoSuppliesList(e.target.value));
+
     document.body.addEventListener('click', e => {
         const target = e.target.closest('button, tr, div.sidebar-item');
         if (!target) return;
@@ -4314,7 +4316,7 @@ function renderOrcamentoMachinesList() {
     });
 }
 
-function renderOrcamentoSuppliesList() {
+function renderOrcamentoSuppliesList(filter = '') {
     const containers = ['insumos-list', 'insumos-list-view'];
     containers.forEach(id => {
         const list = document.getElementById(id);
@@ -4324,11 +4326,13 @@ function renderOrcamentoSuppliesList() {
             list.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum insumo cadastrado.</p>';
             return;
         }
+        const sorted = [...supplyCatalog].sort((a, b) => a.name.localeCompare(b.name));
+        const filtered = filter ? sorted.filter(s => s.name.toLowerCase().includes(filter.toLowerCase())) : sorted;
         let html = `<table class="w-full text-left text-sm"><thead><tr class="border-b">
             <th class="p-2">Insumo</th><th class="p-2 text-right">Preço Pacote</th>
             <th class="p-2 text-right">Qtd Pacote</th><th class="p-2 text-right">Custo Unit.</th>
             <th class="p-2 text-center">Ações</th></tr></thead><tbody>`;
-        supplyCatalog.forEach(s => {
+        filtered.forEach(s => {
             html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
                 <td class="p-2 font-medium">${s.name}</td>
                 <td class="p-2 text-right">${formatCurrency(s.packagePrice)}</td>

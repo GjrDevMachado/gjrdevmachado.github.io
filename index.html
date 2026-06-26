@@ -628,7 +628,10 @@
                     </form>
                 </div>
                 <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
-                    <h3 class="text-base font-bold mb-2">Insumos Cadastrados</h3>
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                        <h3 class="text-base font-bold">Insumos Cadastrados</h3>
+                        <input type="text" id="insumo-search-input" placeholder="Pesquisar insumo..." class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm flex-1 min-w-[150px]">
+                    </div>
                     <div id="insumos-list-view" class="overflow-x-auto"></div>
                 </div>
             </div>

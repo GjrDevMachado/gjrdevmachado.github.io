@@ -1849,15 +1849,20 @@ function addPaymentMethodRow(method, amount) {
             <input type="text" inputmode="decimal" class="pm-amount w-24 border rounded p-2 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2)}">
             <button type="button" class="pm-remove text-red-500 hover:text-red-700 p-2" title="Remover"><i class="fas fa-times"></i></button>
         </div>
-        <div class="pm-extras hidden flex items-center gap-4 ml-1 text-sm">
-            <label class="flex items-center gap-1">
-                <span class="text-[var(--text-secondary)]">Parcelas:</span>
-                <input type="number" class="pm-installments w-14 border rounded p-1 bg-[var(--bg-secondary)] text-sm" value="1" min="1">
-            </label>
-            <label class="flex items-center gap-1">
-                <span class="text-[var(--text-secondary)]">Recebido R$:</span>
-                <input type="text" inputmode="decimal" class="pm-received w-20 border rounded p-1 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2).replace('.', ',')}">
-            </label>
+        <div class="pm-extras hidden flex flex-col gap-1 ml-1 text-sm">
+            <div class="flex items-center gap-3 flex-wrap">
+                <label class="flex items-center gap-1">
+                    <span class="text-[var(--text-secondary)]">Parcelas:</span>
+                    <input type="number" class="pm-installments w-14 border rounded p-1 bg-[var(--bg-secondary)] text-sm" value="1" min="1">
+                </label>
+                <label class="flex items-center gap-1">
+                    <span class="text-[var(--text-secondary)]">Recebido R$:</span>
+                    <input type="text" inputmode="decimal" class="pm-received w-24 border rounded p-1 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2).replace('.', ',')}">
+                </label>
+            </div>
+            <div class="pm-fee-display text-red-500 text-xs hidden">
+                Taxa: -R$ 0,00
+            </div>
         </div>
     `;
     const select = row.querySelector('.pm-method');
@@ -1865,32 +1870,45 @@ function addPaymentMethodRow(method, amount) {
     const extras = row.querySelector('.pm-extras');
     const installmentsInput = row.querySelector('.pm-installments');
     const receivedInput = row.querySelector('.pm-received');
+    const feeDisplay = row.querySelector('.pm-fee-display');
+
+    const updateFeeDisplay = () => {
+        const amt = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
+        const received = parseFloat(receivedInput.value.replace(',', '.')) || 0;
+        const taxa = Math.max(0, amt - received);
+        if (taxa > 0) {
+            feeDisplay.classList.remove('hidden');
+            feeDisplay.textContent = `Taxa: -${formatCurrency(taxa)}`;
+        } else {
+            feeDisplay.classList.add('hidden');
+        }
+    };
+
     const toggleExtras = () => {
         const isCredit = select.value === 'Cartão de Crédito';
         extras.classList.toggle('hidden', !isCredit);
         if (isCredit && !installmentsInput.value) installmentsInput.value = '1';
-        if (!isCredit) receivedInput.value = '0,00';
-    };
-    const updateReceivedDefault = () => {
-        const amt = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
-        if (select.value === 'Cartão de Crédito' && !receivedInput.dataset.userEdited) {
-            receivedInput.value = amt.toFixed(2).replace('.', ',');
+        if (!isCredit) {
+            receivedInput.value = '0,00';
+            feeDisplay.classList.add('hidden');
         }
     };
+
     row.querySelector('.pm-amount').addEventListener('input', () => {
         updatePaymentMethodsTotal();
-        updateReceivedDefault();
+        updateFeeDisplay();
     });
+
     receivedInput.addEventListener('input', () => {
-        receivedInput.dataset.userEdited = 'true';
+        updateFeeDisplay();
+        updatePaymentMethodsTotal();
     });
+
     select.addEventListener('change', () => {
         toggleExtras();
-        if (select.value === 'Cartão de Crédito') {
-            receivedInput.dataset.userEdited = '';
-            updateReceivedDefault();
-        }
+        updatePaymentMethodsTotal();
     });
+
     toggleExtras();
     row.querySelector('.pm-installments').addEventListener('input', updatePaymentMethodsTotal);
     row.querySelector('.pm-remove').addEventListener('click', function() {
@@ -1932,7 +1950,8 @@ function collectPaymentMethods() {
         if (amount > 0) {
             const received = method === 'Cartão de Crédito' ? parseFloat(row.querySelector('.pm-received').value.replace(',', '.')) || amount : amount;
             const fee = method === 'Cartão de Crédito' ? Math.max(0, amount - received) : 0;
-            methods.push({ method, amount, installments, received, fee });
+            const feePct = amount > 0 ? ((fee / amount) * 100) : 0;
+            methods.push({ method, amount, installments, received, fee, feePct });
             totalCalculated += amount;
         }
     });
@@ -2345,7 +2364,8 @@ function openSaleDetailsModal(transactionId) {
                             const value = methods.length > 1 ? m.amount : sale.amount;
                             html += `<div class="flex justify-between"><span>${label}:</span><span>${formatCurrency(value)}</span></div>`;
                             if (m.method === 'Cartão de Crédito' && m.received !== undefined && m.received !== null && m.received < value) {
-                                html += `<div class="flex justify-between text-xs text-[var(--text-secondary)] pl-4"><span>Taxa máquina:</span><span class="text-red-500">-${formatCurrency(value - m.received)}</span></div>`;
+                                const feePct = m.feePct || (((value - m.received) / value) * 100).toFixed(1);
+                                html += `<div class="flex justify-between text-xs text-[var(--text-secondary)] pl-4"><span>Taxa máquina (${feePct}%):</span><span class="text-red-500">-${formatCurrency(value - m.received)}</span></div>`;
                                 html += `<div class="flex justify-between text-xs text-green-600 pl-4"><span>Líquido recebido:</span><span>${formatCurrency(m.received)}</span></div>`;
                             }
                         });

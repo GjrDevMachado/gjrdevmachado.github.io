@@ -1361,15 +1361,11 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium mb-1">Pesquisar</label>
-                    <input type="text" id="orcamento-select-search" placeholder="Digite para pesquisar..." class="w-full border rounded p-2 bg-[var(--bg-tertiary)]">
+                    <input type="text" id="orcamento-select-search" placeholder="Digite para pesquisar... (Enter para confirmar)" class="w-full border rounded p-2 bg-[var(--bg-tertiary)]">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium mb-1" id="orcamento-select-label">Item</label>
-                    <div id="orcamento-select-list" class="max-h-48 overflow-y-auto border rounded bg-[var(--bg-tertiary)]"></div>
-                </div>
-                <div id="orcamento-qty-group" class="hidden">
-                    <label class="block text-sm font-medium mb-1" id="orcamento-select-qty-label">Quantidade</label>
-                    <input type="number" id="orcamento-select-qty" value="1" min="0.01" step="any" class="w-full border rounded p-2 bg-[var(--bg-tertiary)]">
+                    <label class="block text-sm font-medium mb-1" id="orcamento-select-label">Selecione os itens</label>
+                    <div id="orcamento-select-list" class="max-h-64 overflow-y-auto border rounded bg-[var(--bg-tertiary)]"></div>
                 </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">

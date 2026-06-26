@@ -4361,10 +4361,11 @@ function renderOrcamentoMaterials() {
     currentBudgetMaterials.forEach((mat, i) => {
         const subtotal = mat.quantity * mat.unitCost;
         total += subtotal;
-        tbody.innerHTML += `<tr>
+        const zeroClass = (!mat.quantity || mat.quantity === 0) ? 'bg-red-100 dark:bg-red-900/20' : '';
+        tbody.innerHTML += `<tr class="${zeroClass}">
             <td class="p-2">${mat.name}</td>
             <td class="p-2 text-center">
-                <input type="number" value="${mat.quantity}" min="0.01" step="any"
+                <input type="number" value="${mat.quantity}" min="0" step="any"
                     data-index="${i}" data-type="material"
                     class="orc-qty-input w-16 text-center border rounded p-1 bg-[var(--bg-secondary)]">
             </td>
@@ -4391,10 +4392,11 @@ function renderOrcamentoMachines() {
     currentBudgetMachines.forEach((mac, i) => {
         const cost = (mac.timeMinutes / 60) * mac.costPerHour;
         total += cost;
-        tbody.innerHTML += `<tr>
+        const zeroClass = (!mac.timeMinutes || mac.timeMinutes === 0) ? 'bg-red-100 dark:bg-red-900/20' : '';
+        tbody.innerHTML += `<tr class="${zeroClass}">
             <td class="p-2">${mac.name}</td>
             <td class="p-2 text-center">
-                <input type="number" value="${mac.timeMinutes}" min="0.01" step="any"
+                <input type="number" value="${mac.timeMinutes}" min="0" step="any"
                     data-index="${i}" data-type="machine"
                     class="orc-qty-input w-16 text-center border rounded p-1 bg-[var(--bg-secondary)]">
             </td>
@@ -4422,10 +4424,11 @@ function renderOrcamentoFilamentos() {
     currentBudgetFilaments.forEach((fil, i) => {
         const subtotal = (fil.weight / 1000) * fil.priceKg;
         total += subtotal;
-        tbody.innerHTML += `<tr>
+        const zeroClass = (!fil.weight || fil.weight === 0) ? 'bg-red-100 dark:bg-red-900/20' : '';
+        tbody.innerHTML += `<tr class="${zeroClass}">
             <td class="p-2">${fil.name}</td>
             <td class="p-2 text-center">
-                <input type="number" value="${fil.weight}" min="0.1" step="0.1"
+                <input type="number" value="${fil.weight}" min="0" step="0.1"
                     data-index="${i}" data-type="filamento"
                     class="orc-qty-input w-16 text-center border rounded p-1 bg-[var(--bg-secondary)]">
             </td>
@@ -4463,7 +4466,7 @@ function handleOrcamentoQtyChange(e) {
     const type = input.dataset.type;
     const val = parseFloat(input.value);
 
-    if (isNaN(val) || val <= 0) return;
+    if (isNaN(val) || val < 0) return;
 
     const row = input.closest('tr');
     if (!row) return;
@@ -4484,6 +4487,13 @@ function handleOrcamentoQtyChange(e) {
         const subtotalCell = row.querySelector('.orc-subtotal');
         if (subtotalCell) subtotalCell.textContent = formatCurrency(subtotal);
     }
+
+    if (val > 0) {
+        row.classList.remove('bg-red-100', 'dark:bg-red-900/20');
+    } else {
+        row.classList.add('bg-red-100', 'dark:bg-red-900/20');
+    }
+
     updateOrcamentoTotals();
     calculateBudget();
 }
@@ -4669,53 +4679,55 @@ function renderOrcamentoSelectList(filter) {
     filtered.forEach(item => {
         const originalIdx = items.indexOf(item);
         const div = document.createElement('div');
-        div.className = 'orcamento-select-item px-3 py-2 cursor-pointer border-b border-[var(--border-color)] hover:bg-[var(--bg-secondary)]';
+        div.className = 'orcamento-select-item flex items-center gap-2 px-3 py-2 border-b border-[var(--border-color)] hover:bg-[var(--bg-secondary)]';
         div.dataset.index = originalIdx;
 
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'orcamento-select-checkbox w-4 h-4 cursor-pointer';
+        checkbox.dataset.index = originalIdx;
+
+        const label = document.createElement('span');
+        label.className = 'flex-1 cursor-pointer';
         if (orcamentoSelectType === 'material') {
-            div.textContent = `${item.name} (${formatCurrency(item.unitCost)}/un)`;
+            label.textContent = `${item.name} (${formatCurrency(item.unitCost)}/un)`;
         } else if (orcamentoSelectType === 'filamento') {
-            div.textContent = `${item.name} (${formatCurrency(item.priceKg)}/kg)`;
+            label.textContent = `${item.name} (${formatCurrency(item.priceKg)}/kg)`;
         } else {
-            div.textContent = `${item.name} (${formatCurrency(item.costPerHour)}/h)`;
+            label.textContent = `${item.name} (${formatCurrency(item.costPerHour)}/h)`;
         }
 
-        if (orcamentoSelectData && orcamentoSelectData.index === originalIdx) {
-            div.style.backgroundColor = 'var(--primary-500)';
-            div.style.color = 'white';
-        }
+        div.appendChild(checkbox);
+        div.appendChild(label);
 
-        div.addEventListener('click', function() {
-            document.querySelectorAll('.orcamento-select-item').forEach(el => {
-                el.style.backgroundColor = '';
-                el.style.color = '';
-            });
-            this.style.backgroundColor = 'var(--primary-500)';
-            this.style.color = 'white';
-            orcamentoSelectData = {
-                index: parseInt(this.dataset.index),
-                item: items[parseInt(this.dataset.index)]
-            };
-            const qtyGroup = document.getElementById('orcamento-qty-group');
-            const confirmBtn = document.getElementById('orcamento-select-confirm');
-            if (qtyGroup) qtyGroup.classList.remove('hidden');
-            if (confirmBtn) {
-                confirmBtn.disabled = false;
-                confirmBtn.className = 'px-4 py-2 rounded bg-[var(--primary-600)] text-white';
-            }
-            const qtyInput = document.getElementById('orcamento-select-qty');
-            if (qtyInput) setTimeout(() => qtyInput.focus(), 100);
+        label.addEventListener('click', function() {
+            checkbox.checked = !checkbox.checked;
+            updateOrcamentoSelectConfirm();
         });
+        checkbox.addEventListener('change', updateOrcamentoSelectConfirm);
 
         list.appendChild(div);
     });
+
+    updateOrcamentoSelectConfirm();
+}
+
+function updateOrcamentoSelectConfirm() {
+    const checked = document.querySelectorAll('.orcamento-select-checkbox:checked');
+    const confirmBtn = document.getElementById('orcamento-select-confirm');
+    if (!confirmBtn) return;
+    if (checked.length > 0) {
+        confirmBtn.disabled = false;
+        confirmBtn.className = 'px-4 py-2 rounded bg-[var(--primary-600)] text-white';
+    } else {
+        confirmBtn.disabled = true;
+        confirmBtn.className = 'px-4 py-2 rounded bg-gray-400 text-white cursor-not-allowed';
+    }
 }
 
 function openOrcamentoSelectModal(type) {
     const title = document.getElementById('orcamento-select-title');
     const label = document.getElementById('orcamento-select-label');
-    const qtyLabel = document.getElementById('orcamento-select-qty-label');
-    const qtyInput = document.getElementById('orcamento-select-qty');
     const searchInput = document.getElementById('orcamento-select-search');
 
     orcamentoSelectType = type;
@@ -4735,28 +4747,22 @@ function openOrcamentoSelectModal(type) {
             showToast('Cadastre insumos primeiro!', 'error');
             return;
         }
-        title.textContent = 'Adicionar Material';
-        label.textContent = 'Insumo';
-        qtyLabel.textContent = 'Quantidade';
-        qtyInput.value = '1';
+        title.textContent = 'Adicionar Material(is)';
+        label.textContent = 'Selecione os insumos';
     } else if (type === 'machine') {
         if (machines.length === 0) {
             showToast('Cadastre máquinas primeiro!', 'error');
             return;
         }
-        title.textContent = 'Adicionar Máquina';
-        label.textContent = 'Máquina';
-        qtyLabel.textContent = 'Tempo (minutos)';
-        qtyInput.value = '30';
+        title.textContent = 'Adicionar Máquina(s)';
+        label.textContent = 'Selecione as máquinas';
     } else if (type === 'filamento') {
         if (filamentCatalog.length === 0) {
             showToast('Cadastre filamentos primeiro!', 'error');
             return;
         }
-        title.textContent = 'Adicionar Filamento';
-        label.textContent = 'Filamento';
-        qtyLabel.textContent = 'Peso (g)';
-        qtyInput.value = '100';
+        title.textContent = 'Adicionar Filamento(s)';
+        label.textContent = 'Selecione os filamentos';
     }
 
     renderOrcamentoSelectList('');
@@ -4764,50 +4770,55 @@ function openOrcamentoSelectModal(type) {
 }
 
 document.getElementById('orcamento-select-confirm').addEventListener('click', function() {
-    const qtyInput = document.getElementById('orcamento-select-qty');
-    const qty = parseFloat(qtyInput.value);
+    const checked = document.querySelectorAll('.orcamento-select-checkbox:checked');
+    const items = orcamentoSelectType === 'material' ? supplyCatalog : (orcamentoSelectType === 'filamento' ? filamentCatalog : machines);
 
-    if (!orcamentoSelectData || isNaN(qty) || qty <= 0) {
-        showToast('Selecione um item e informe a quantidade!', 'error');
+    if (checked.length === 0) {
+        showToast('Selecione ao menos um item!', 'error');
         return;
     }
 
-    const idx = orcamentoSelectData.index;
-    const item = orcamentoSelectData.item;
+    let count = 0;
+    checked.forEach(cb => {
+        const idx = parseInt(cb.dataset.index);
+        const item = items[idx];
+        if (!item) return;
 
-    if (orcamentoSelectType === 'material') {
-        currentBudgetMaterials.push({
-            supplyIndex: idx,
-            name: item.name,
-            quantity: qty,
-            unitCost: item.unitCost,
-            subtotal: qty * item.unitCost
-        });
-        renderOrcamentoMaterials();
-        calculateBudget();
-    } else if (orcamentoSelectType === 'machine') {
-        currentBudgetMachines.push({
-            machineIndex: idx,
-            name: item.name,
-            timeMinutes: qty,
-            costPerHour: item.costPerHour,
-            costTotal: (qty / 60) * item.costPerHour
-        });
-        renderOrcamentoMachines();
-        calculateBudget();
-    } else if (orcamentoSelectType === 'filamento') {
-        currentBudgetFilaments.push({
-            filamentIndex: idx,
-            filamentId: item.id,
-            name: item.name,
-            weight: qty,
-            priceKg: item.priceKg
-        });
-        renderOrcamentoFilamentos();
-        calculateBudget();
-    }
+        if (orcamentoSelectType === 'material') {
+            currentBudgetMaterials.push({
+                supplyIndex: idx,
+                name: item.name,
+                quantity: 0,
+                unitCost: item.unitCost,
+                subtotal: 0
+            });
+        } else if (orcamentoSelectType === 'machine') {
+            currentBudgetMachines.push({
+                machineIndex: idx,
+                name: item.name,
+                timeMinutes: 0,
+                costPerHour: item.costPerHour,
+                costTotal: 0
+            });
+        } else if (orcamentoSelectType === 'filamento') {
+            currentBudgetFilaments.push({
+                filamentIndex: idx,
+                filamentId: item.id,
+                name: item.name,
+                weight: 0,
+                priceKg: item.priceKg
+            });
+        }
+        count++;
+    });
+
+    if (orcamentoSelectType === 'material') renderOrcamentoMaterials();
+    else if (orcamentoSelectType === 'machine') renderOrcamentoMachines();
+    else if (orcamentoSelectType === 'filamento') renderOrcamentoFilamentos();
+    calculateBudget();
 
     closeModal('modal-orcamento-select');
+    showToast(`${count} item(ns) adicionado(s)!`, 'success');
 });
 
 let isSavingBudget = false;
@@ -4816,6 +4827,18 @@ async function saveBudget() {
     if (isSavingBudget) { showToast('Já está salvando...', 'warning'); return; }
     const produtoCheck = document.getElementById('orc-produto')?.value.trim();
     if (!produtoCheck) { showToast('Informe o nome do produto/serviço!', 'error'); return; }
+
+    const zeroMaterials = currentBudgetMaterials.filter(m => !m.quantity || m.quantity === 0);
+    const zeroMachines = currentBudgetMachines.filter(m => !m.timeMinutes || m.timeMinutes === 0);
+    const zeroFilamentos = currentBudgetFilaments.filter(f => !f.weight || f.weight === 0);
+    const zeroItems = [];
+    zeroMaterials.forEach(m => zeroItems.push(`"${m.name}" (Material)`));
+    zeroMachines.forEach(m => zeroItems.push(`"${m.name}" (Máquina)`));
+    zeroFilamentos.forEach(f => zeroItems.push(`"${f.name}" (Filamento)`));
+    if (zeroItems.length > 0) {
+        showToast('ATENÇÃO: Itens com quantidade zero: ' + zeroItems.join(', '), 'warning');
+    }
+
     isSavingBudget = true;
     const btn = document.getElementById('salvar-orcamento-btn');
     if (btn) btn.disabled = true;
@@ -5965,6 +5988,12 @@ function addOrcamentoEventListeners() {
 
     o('orcamento-select-search', 'input', function() {
         renderOrcamentoSelectList(this.value);
+    });
+    o('orcamento-select-search', 'keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('orcamento-select-confirm')?.click();
+        }
     });
 
     // Auto-save on any input change (debounced 2s)

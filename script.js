@@ -5564,12 +5564,25 @@ function renderHistoricoOrcamentos() {
 
     populateHistoricoMonthYear();
 
+    const clienteSelect = document.getElementById('historico-cliente-select');
+    if (clienteSelect && clienteSelect.options.length <= 1) {
+        clienteSelect.innerHTML = '<option value="">Todos os clientes</option>';
+        const uniqueClients = [...new Set(savedBudgets.map(b => b.clienteName).filter(Boolean))].sort();
+        uniqueClients.forEach(name => {
+            clienteSelect.innerHTML += `<option value="${name.replace(/"/g, '&quot;')}">${name}</option>`;
+        });
+    }
+
+    const clienteFilter = clienteSelect?.value || '';
     const mes = parseInt(document.getElementById('historico-mes-select').value);
     const ano = parseInt(document.getElementById('historico-ano-select').value);
     const modoFilter = document.getElementById('historico-modo-select').value;
     const searchTerm = (document.getElementById('historico-search-input')?.value || '').toLowerCase().trim();
 
     let filtered = [...savedBudgets];
+    if (clienteFilter) {
+        filtered = filtered.filter(b => b.clienteName === clienteFilter);
+    }
     if (modoFilter) {
         filtered = filtered.filter(b => (b.modoCalculo || 'grafica') === modoFilter);
     }
@@ -6033,8 +6046,13 @@ function addOrcamentoEventListeners() {
     o('limpar-orcamento-btn', 'click', resetBudgetForm);
     o('imprimir-orcamento-btn', 'click', printBudget);
     o('imprimir-orcamento-detalhes-btn', 'click', () => window.print());
-    o('historico-filtrar-btn', 'click', renderHistoricoOrcamentos);
+    o('historico-search-input', 'input', renderHistoricoOrcamentos);
+    o('historico-cliente-select', 'change', renderHistoricoOrcamentos);
+    o('historico-mes-select', 'change', renderHistoricoOrcamentos);
+    o('historico-ano-select', 'change', renderHistoricoOrcamentos);
+    o('historico-modo-select', 'change', renderHistoricoOrcamentos);
     o('historico-todos-btn', 'click', () => {
+        document.getElementById('historico-cliente-select').value = '';
         document.getElementById('historico-mes-select').value = '-1';
         document.getElementById('historico-ano-select').value = new Date().getFullYear();
         document.getElementById('historico-modo-select').value = '';

@@ -1277,7 +1277,10 @@
                 <button class="close-modal-btn text-2xl">&times;</button>
             </div>
             <div class="flex flex-wrap items-center gap-3 mb-4">
-                <label class="text-sm font-medium">Filtrar por Mês:</label>
+                <label class="text-sm font-medium">Filtrar:</label>
+                <select id="historico-cliente-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm">
+                    <option value="">Todos os clientes</option>
+                </select>
                 <select id="historico-mes-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm"></select>
                 <select id="historico-ano-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm"></select>
                 <select id="historico-modo-select" class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm">
@@ -1289,7 +1292,6 @@
                     <option value="impressao3d_marketplace">3D + Marketplace</option>
                     <option value="misto_marketplace">Misto + Marketplace</option>
                 </select>
-                <button id="historico-filtrar-btn" class="bg-[var(--primary-600)] text-white px-4 py-2 rounded text-sm hover:bg-[var(--primary-700)]">Filtrar</button>
                 <button id="historico-todos-btn" class="border border-[var(--border-color)] px-4 py-2 rounded text-sm hover:bg-[var(--bg-tertiary)]">Todos</button>
                 <input type="text" id="historico-search-input" placeholder="Pesquisar..." class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm flex-1 min-w-[150px]">
             </div>

@@ -58,7 +58,10 @@ async function loadOrcamentoDataFromSupabase() {
                 custoTotal: parseFloat(b.custo_total), precoSugerido: parseFloat(b.preco_sugerido),
                 precoFinal: parseFloat(b.preco_final), lucro: parseFloat(b.lucro),
                 margem: parseFloat(b.margem), taxa: parseFloat(b.taxa_plataforma),
-                taxaFixa: parseFloat(b.taxa_fixa), tempoGasto: parseFloat(b.tempo_gasto),
+                taxaFixa: parseFloat(b.taxa_fixa),
+                custoMarketplace: b.custo_marketplace ? parseFloat(b.custo_marketplace) : null,
+                valorRecebido: b.valor_recebido ? parseFloat(b.valor_recebido) : null,
+                tempoGasto: parseFloat(b.tempo_gasto),
                 valorHora: parseFloat(b.valor_hora),
                 materials: b.materiais_json ? JSON.parse(b.materiais_json) : [],
                 machines: b.maquinas_json ? JSON.parse(b.maquinas_json) : [],
@@ -406,11 +409,15 @@ function addByBarcode(barcode) {
 // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
 function formatCurrency(value) { return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 
-function getLocalDateAsString(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
+function localISOString(date) {
+    const d = date || new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function localDateString(date) {
+    const d = date || new Date();
+    return d.toLocaleDateString('en-CA');
 }
 
 function toggleLoading(isLoading) { document.getElementById('loading-overlay').classList.toggle('hidden', !isLoading); }
@@ -827,12 +834,12 @@ function renderReports(period = currentReportPeriod, month, year) {
             loopDate.setHours(0,0,0,0);
 
             while(loopDate <= endDateForLoop) {
-                   salesByDate[loopDate.toISOString().split('T')[0]] = { paid: 0, unpaid: 0 };
+                   salesByDate[loopDate.toLocaleDateString('en-CA')] = { paid: 0, unpaid: 0 };
                    loopDate.setDate(loopDate.getDate() + 1);
             }
 
             salesTransactions.forEach(t => {
-                const key = new Date(t.date).toISOString().split('T')[0];
+                const key = new Date(t.date).toLocaleDateString('en-CA');
                 const effectiveAmount = saleEffectiveAmount(t);
                 if(salesByDate[key]) {
                     if (t.status === 'Não Pago') salesByDate[key].unpaid += effectiveAmount;
@@ -1435,7 +1442,7 @@ async function processSale(paymentDetails) {
 
         const customerId = document.getElementById('customer-select').value || 1;
 
-        const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? new Date(paymentDetails.date).toISOString() : new Date().toISOString();
+        const saleDate = paymentDetails.isRetroactive && paymentDetails.date ? localISOString(new Date(paymentDetails.date)) : localISOString();
         const transacaoId = Date.now(); 
 
         const itensParaDescricao = cart.items.map(item => ({
@@ -1685,7 +1692,7 @@ function cancelSale(transactionId) {
                 valor_total: -sale.amount,
                 descricao: `Estorno da venda #${sale.id}`,
                 status: 'Pago',
-                data_venda: new Date().toISOString()
+                data_venda: localISOString()
             }]);
 
             if (sale.status !== 'Não Pago') cashBalance -= sale.amount;
@@ -2218,7 +2225,7 @@ async function handleReceivedPayment(e) {
                 parcelas: novasParcelas,
                 status: 'Pago',
                 descricao: `Recebimento da venda #${sale.id}${isQuitado ? '' : ' (parcial)'}`,
-                data_venda: new Date().toISOString()
+                data_venda: localISOString()
             }]);
         if (insertError) throw insertError;
 
@@ -2700,7 +2707,7 @@ async function importAllData(event) {
                                 valor_total: t.amount, custo_total: t.cost || 0, desconto_geral: t.discount || 0,
                                 descricao: t.type === 'venda' ? descricaoItens : t.description || null,
                                 metodo_pagamento: t.method || null, parcelas: t.installments || 1, status: t.status || 'Pago',
-                                data_venda: new Date(t.date).toISOString()
+                                data_venda: localISOString(new Date(t.date))
                             });
                             
                             if (t.items && t.items.length > 0) {
@@ -3692,7 +3699,8 @@ function addEventListeners() {
                     const isKit = b.isKit || b.produto?.startsWith('KIT - ');
                     const qtd = isKit ? 1 : (b.quantidade || 1);
                     const precoProd = isKit ? b.precoFinal : (b.precoFinal / qtd);
-                    const custoProd = isKit ? b.custoTotal : (b.custoTotal / qtd);
+                    const custoComTaxaTotal = b.custoTotal + (b.custoMarketplace ?? (isMarketplaceMode(b.modoCalculo) ? (b.precoFinal * (b.taxa || 0) / 100 + (b.taxaFixa || 0)) : 0));
+                    const custoProd = isKit ? custoComTaxaTotal : (custoComTaxaTotal / qtd);
                     await addProduct(b.produto, precoProd, custoProd, 1, '', b.modoCalculo);
                     const novo = products.find(p => p.name.toLowerCase() === b.produto.toLowerCase());
                     if (novo) {
@@ -3715,8 +3723,8 @@ function addEventListeners() {
                             custoMO: b.custoMO,
                             custoFixo: b.custoFixo,
                             custoTotal: b.custoTotal,
-                            custoMarketplace: b.custoMarketplace || 0,
-                            valorRecebido: b.valorRecebido || b.precoFinal,
+                            custoMarketplace: b.custoMarketplace != null ? b.custoMarketplace : (isMarketplaceMode(b.modoCalculo) ? (b.precoFinal * (b.taxa || 0) / 100 + (b.taxaFixa || 0)) : 0),
+                            valorRecebido: b.valorRecebido ?? (isMarketplaceMode(b.modoCalculo) ? (b.precoFinal - (b.custoMarketplace != null ? b.custoMarketplace : 0)) : b.precoFinal),
                             quantidade: b.quantidade,
                             modoCalculo: b.modoCalculo,
                             peso: b.peso,
@@ -4192,7 +4200,7 @@ function initOrcamentoModule() {
     }
     const dataInput = document.getElementById('orc-data');
     if (dataInput && !dataInput.value) {
-        dataInput.value = new Date().toISOString().split('T')[0];
+        dataInput.value = localDateString();
     }
     renderOrcamentoMaterials();
     renderOrcamentoMachines();
@@ -4681,10 +4689,9 @@ function calculateBudget() {
     const custoUnidade = custoComTaxa / qtd;
     const vendaUnidade = precoFinal / qtd;
     const lucroUnidade = lucro / qtd;
-    const baseVenda = isMp ? (valorRecebido / qtd) : vendaUnidade;
-    const baseCusto = isMp ? (custoTotal / qtd) : custoUnidade;
-    const markupFator = baseCusto > 0 ? ((baseVenda - baseCusto) / baseCusto) * 100 : 0;
-    const margemLucro = baseVenda > 0 ? ((baseVenda - baseCusto) / baseVenda) * 100 : 0;
+    const precoExibido = precoFinal > 0 ? precoFinal : precoSugerido;
+    const markupFator = custoComTaxa > 0 ? (lucro / custoComTaxa) * 100 : 0;
+    const margemLucro = precoExibido > 0 ? (lucro / precoExibido) * 100 : 0;
 
     document.getElementById('orc-result-materiais').textContent = formatCurrency(custoMateriais);
     document.getElementById('orc-result-maquinas').textContent = formatCurrency(custoMaquinas);
@@ -4896,7 +4903,7 @@ async function saveBudget() {
     const finalProduto = isKit ? 'KIT - ' + produto : produto;
 
     const qtd = parseFloat(document.getElementById('orc-quantidade').value) || 1;
-    const data = document.getElementById('orc-data').value || new Date().toISOString().split('T')[0];
+    const data = document.getElementById('orc-data').value || localDateString();
     const tempoGasto = parseFloat(document.getElementById('orc-tempo-gasto').value) || 0;
     const valorHora = parseFloat(document.getElementById('orc-valor-hora').value) || 0;
     const margem = parseFloat(document.getElementById('orc-margem').value) || 0;
@@ -4998,7 +5005,10 @@ async function saveBudget() {
     const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
     const precoFinalCalc = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
     const precoFinal = isKit ? precoKit : precoFinalCalc;
-    const lucro = precoFinal - custoTotal;
+    const isMp = isMarketplaceMode(modo);
+    const precoBaseMp = precoFinal > 0 ? precoFinal : precoSugerido;
+    const custoMarketplace = isMp ? (precoBaseMp * taxa / 100 + taxaFixa) : 0;
+    const lucro = isMp ? (precoBaseMp - custoMarketplace - custoTotal) : (precoFinal - custoTotal);
 
     const tempoImpressaoFinal = getTempoImpressaoMin();
     let tempoGastoFinal = tempoGasto;
@@ -5084,6 +5094,45 @@ async function saveBudget() {
     } catch (e) {
         sbError = e;
     }
+    // Fallback: se as colunas custo_marketplace/valor_recebido nao existirem, tenta sem elas
+    if (sbError && (sbError.message?.includes('custo_marketplace') || sbError.message?.includes('valor_recebido'))) {
+        try {
+            const { error } = await supabaseClient.from('orcamentos').upsert([{
+                id: budget.id, data: budget.date, cliente_nome: budget.clienteName,
+                cliente_id: budget.clienteId ? parseInt(budget.clienteId) : null,
+                produto: budget.produto, quantidade: budget.quantidade,
+                custo_total: budget.custoTotal, preco_sugerido: budget.precoSugerido,
+                preco_final: budget.precoFinal, lucro: budget.lucro, margem: budget.margem,
+                taxa_plataforma: budget.taxa, taxa_fixa: budget.taxaFixa || 0,
+                tempo_gasto: budget.tempoGasto, valor_hora: budget.valorHora,
+                materiais_json: JSON.stringify(budget.materials || []),
+                maquinas_json: JSON.stringify(budget.machines || []),
+                filamentos_json: JSON.stringify(budget.filamentos || []),
+                custos_fixos_json: JSON.stringify({
+                    aluguel: budget.aluguel, internet: budget.internet, mei: budget.mei, outros: budget.outros,
+                    horas_dia: budget.horasDia, dias_mes: budget.diasMes,
+                    custo_fixo_3d: budget.custoFixo3D || 0, preco_luz: budget.precoLuz || 0,
+                    horas_dia_3d: budget.horasDia3d || 8, dias_mes_3d: budget.diasMes3d || 22
+                }),
+                modo_calculo: budget.modoCalculo || 'grafica',
+                peso: budget.peso || 0, filamento_id: budget.filamentoId || null,
+                tempo_impressao: budget.tempoImpressao || 0,
+                falhas: budget.falhas || 10, acabamento: budget.acabamento || 10,
+                fixacao: budget.fixacao || 0.10, roi_meses: budget.roiMeses || 12,
+                maquinas_ativas: budget.maquinasAtivas || 1,
+                custo_materiais: budget.custoMateriais, custo_maquinas: budget.custoMaquinas,
+                custo_mo: budget.custoMO, custo_fixo: budget.custoFixo || 0,
+                status: budget.status,
+                is_kit: budget.isKit || false,
+                preco_kit: budget.precoKit || 0,
+                produto_id: budget.produtoId || null,
+                created_at: budget.createdAt || new Date().toISOString()
+            }]);
+            sbError = error;
+        } catch (e2) {
+            sbError = e2;
+        }
+    }
     if (sbError) {
         console.error('Erro ao salvar orçamento no Supabase:', sbError);
         console.error('Detalhes completos:', JSON.stringify(sbError, null, 2));
@@ -5096,8 +5145,8 @@ async function saveBudget() {
         const isKit = budget.isKit;
         const qtd = isKit ? 1 : (budget.quantidade || 1);
         const precoProd = parseFloat((budget.precoFinal / qtd).toFixed(2));
-        const valorRecebido = (budget.valorRecebido || budget.precoFinal) / qtd;
-        const custoProd = parseFloat(valorRecebido.toFixed(2));
+        const custoComTaxa = budget.custoTotal + (budget.custoMarketplace || 0);
+        const custoProd = parseFloat((custoComTaxa / qtd).toFixed(2));
         try {
             const { error } = await supabaseClient.from('produtos').update({ preco: precoProd, custo: custoProd, modo_calculo: budget.modoCalculo }).eq('id', budget.produtoId);
             if (error) throw error;
@@ -5191,7 +5240,7 @@ function resetBudgetForm() {
     document.getElementById('orc-kit-check').checked = false;
     document.getElementById('orc-cliente').value = '';
     const dataInput = document.getElementById('orc-data');
-    if (dataInput) dataInput.value = new Date().toISOString().split('T')[0];
+    if (dataInput) dataInput.value = localDateString();
     document.getElementById('orc-tempo-impressao-h').value = '0';
     document.getElementById('orc-tempo-impressao-min').value = '30';
     document.getElementById('orc-modo-calculo').value = 'grafica';
@@ -5254,8 +5303,10 @@ function getFormState() {
     return parts.join('|');
 }
 
+let isAutoSaving = false;
+
 async function autoSaveDraft() {
-    if (isSavingBudget) return;
+    if (isSavingBudget || isAutoSaving) return;
     const produto = document.getElementById('orc-produto')?.value.trim();
     if (!produto) return;
 
@@ -5273,7 +5324,7 @@ async function autoSaveDraft() {
     const clienteSelect = document.getElementById('orc-cliente');
     const clienteName = clienteSelect.value ? clienteSelect.options[clienteSelect.selectedIndex]?.text : 'Sem cliente';
     const qtd = parseFloat(document.getElementById('orc-quantidade').value) || 1;
-    const data = document.getElementById('orc-data').value || new Date().toISOString().split('T')[0];
+    const data = document.getElementById('orc-data').value || localDateString();
     const tempoGasto = parseFloat(document.getElementById('orc-tempo-gasto').value) || 0;
     const valorHora = parseFloat(document.getElementById('orc-valor-hora').value) || 0;
     const margem = parseFloat(document.getElementById('orc-margem').value) || 0;
@@ -5288,8 +5339,9 @@ async function autoSaveDraft() {
     const modo = document.getElementById('orc-modo-calculo').value;
 
     const produtoId = parseInt(document.getElementById('orc-produto-id').value) || null;
+    if (!editingBudgetId) editingBudgetId = Date.now();
     const budget = {
-        id: editingBudgetId || Date.now(),
+        id: editingBudgetId,
         date: data, clienteId: clienteSelect.value || '', clienteName, produto: finalProduto, produtoId, isKit, precoKit, quantidade: qtd,
         tempoGasto, valorHora, margem, taxa, taxaFixa,
         aluguel, internet, mei, outros, horasDia, diasMes,
@@ -5315,6 +5367,7 @@ async function autoSaveDraft() {
         createdAt: editingBudgetId ? (rascunhos.find(r => r.id === editingBudgetId)?.createdAt || savedBudgets.find(b => b.id === editingBudgetId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
     };
 
+    isAutoSaving = true;
     try {
         await supabaseClient.from('rascunhos').upsert([{
             id: budget.id, data: budget.date, cliente_nome: budget.clienteName,
@@ -5351,7 +5404,6 @@ async function autoSaveDraft() {
     }
     // Always update in-memory array regardless of DB result
     lastAutoSaveState = state;
-    if (!editingBudgetId) editingBudgetId = budget.id;
     const idx = rascunhos.findIndex(r => r.id === budget.id);
     if (idx !== -1) {
         rascunhos[idx] = budget;
@@ -5359,6 +5411,7 @@ async function autoSaveDraft() {
         rascunhos.push(budget);
     }
     saveOrcamentoData();
+    isAutoSaving = false;
 
     if (indicator) indicator.classList.add('hidden');
 }
@@ -5666,7 +5719,7 @@ function renderHistoricoOrcamentos() {
         return;
     }
 
-    const totalCusto = filtered.reduce((s, b) => s + b.custoTotal, 0);
+    const totalCusto = filtered.reduce((s, b) => s + b.custoTotal + ((b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0)), 0);
     const totalVenda = filtered.reduce((s, b) => s + b.precoFinal, 0);
     const totalLucro = filtered.reduce((s, b) => s + b.lucro, 0);
 
@@ -5690,12 +5743,12 @@ function renderHistoricoOrcamentos() {
 
     filtered.forEach(b => {
         const qtd = b.quantidade || 1;
-        const custoUnit = b.custoTotal / qtd;
-        const vendaUnit = b.precoFinal / qtd;
+        const custoMarketplace = (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0);
+        const custoComTaxa = b.custoTotal + custoMarketplace;
         const lucroUnit = b.lucro / qtd;
-        const markupPct = custoUnit > 0 ? ((vendaUnit - custoUnit) / custoUnit) * 100 : 0;
-        const margemPct = vendaUnit > 0 ? ((vendaUnit - custoUnit) / vendaUnit) * 100 : 0;
-        const taxaTotal = (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0);
+        const markupPct = custoComTaxa > 0 ? (b.lucro / custoComTaxa) * 100 : 0;
+        const margemPct = b.precoFinal > 0 ? (b.lucro / b.precoFinal) * 100 : 0;
+        const taxaTotal = custoMarketplace;
         const lucroClass = b.lucro >= 0 ? 'text-green-600' : 'text-red-600';
 
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
@@ -5703,11 +5756,11 @@ function renderHistoricoOrcamentos() {
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
             <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.isKit ? ' <span class="text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded font-bold">KIT</span>' : ''}${b.produtoId ? ' <span class="text-xs bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded font-bold"><i class="fas fa-link"></i></span>' : ''}</td>
             <td class="p-2 text-center">${modoBadge(b.modoCalculo)}</td>
-            <td class="p-2 text-right text-red-600">${formatCurrency(b.custoTotal)}</td>
+            <td class="p-2 text-right text-red-600">${formatCurrency(custoComTaxa)}</td>
             <td class="p-2 text-right text-green-600 font-semibold">${formatCurrency(b.precoFinal)}</td>
             <td class="p-2 text-right ${lucroClass} font-semibold">${formatCurrency(b.lucro)}</td>
-            <td class="p-2 text-right">${formatCurrency(custoUnit)}</td>
-            <td class="p-2 text-right">${formatCurrency(vendaUnit)}</td>
+            <td class="p-2 text-right">${formatCurrency(custoComTaxa / qtd)}</td>
+            <td class="p-2 text-right">${formatCurrency(b.precoFinal / qtd)}</td>
             <td class="p-2 text-right ${lucroClass}">${formatCurrency(lucroUnit)}</td>
             <td class="p-2 text-right">${markupPct.toFixed(2)}%</td>
             <td class="p-2 text-right">${margemPct.toFixed(2)}%</td>
@@ -5800,6 +5853,10 @@ function viewOrcamentoDetails(id) {
             <div class="flex justify-between"><span>Tempo Impressão:</span><span>${hrs}h${mins}min</span></div>
         </div>`;
     }
+    const custoMpDetail = (b.precoFinal * (b.taxa||0) / 100) + (b.taxaFixa||0);
+    const custoComTaxaDetail = b.custoTotal + custoMpDetail;
+    const markupDetail = custoComTaxaDetail > 0 ? (b.lucro / custoComTaxaDetail) * 100 : 0;
+    const margemDetail = b.precoFinal > 0 ? (b.lucro / b.precoFinal) * 100 : 0;
     html += `
         <div class="border-t pt-3 mt-3 space-y-1">
             <div class="flex justify-between"><span>Custo Materiais:</span><span>${formatCurrency(b.custoMateriais)}</span></div>
@@ -5809,15 +5866,15 @@ function viewOrcamentoDetails(id) {
     }
     html += `
             <div class="flex justify-between"><span>Custo Fixo:</span><span>${formatCurrency(b.custoFixo)}</span></div>
-            <div class="flex justify-between"><span>Custo Marketplace:</span><span>${formatCurrency((b.precoFinal * (b.taxa||0) / 100) + (b.taxaFixa||0))}</span></div>
-            <div class="flex justify-between font-bold"><span>Custo Total:</span><span class="text-red-600">${formatCurrency(b.custoTotal)}</span></div>
+            <div class="flex justify-between"><span>Custo Marketplace:</span><span>${formatCurrency(custoMpDetail)}</span></div>
+            <div class="flex justify-between font-bold"><span>Custo Total (c/ taxa):</span><span class="text-red-600">${formatCurrency(custoComTaxaDetail)}</span></div>
             <div class="flex justify-between font-bold text-lg text-green-600 border-t pt-2 mt-2"><span>PREÇO FINAL:</span><span>${formatCurrency(b.precoFinal)}</span></div>
+            <div class="flex justify-between text-green-700"><span>Valor Recebido:</span><span>${formatCurrency(b.valorRecebido ?? (b.precoFinal - custoMpDetail))}</span></div>
             <div class="flex justify-between text-green-600"><span>Lucro:</span><span>${formatCurrency(b.lucro)}</span></div>
-            <div class="flex justify-between border-t pt-2 mt-2"><span>Custo Unitário:</span><span>${formatCurrency(b.custoTotal / b.quantidade)}</span></div>
+            <div class="flex justify-between border-t pt-2 mt-2"><span>Custo Unitário:</span><span>${formatCurrency(custoComTaxaDetail / b.quantidade)}</span></div>
             <div class="flex justify-between"><span>Lucro Unitário:</span><span class="text-green-600">${formatCurrency(b.lucro / b.quantidade)}</span></div>
-            <div class="flex justify-between"><span>Margem Unitária:</span><span>${b.precoFinal > 0 ? ((b.lucro / b.precoFinal) * 100).toFixed(2) + '%' : '0%'}</span></div>
-            <div class="flex justify-between"><span>Markup:</span><span>${b.custoTotal > 0 ? ((b.lucro / b.custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
-            <div class="flex justify-between"><span>Venda Unidade:</span><span>${formatCurrency(b.precoFinal/b.quantidade)}</span></div>
+            <div class="flex justify-between"><span>Margem:</span><span>${margemDetail.toFixed(2)}%</span></div>
+            <div class="flex justify-between"><span>Markup:</span><span>${markupDetail.toFixed(2)}%</span></div>
         </div>`;
     content.innerHTML = html;
     document.querySelector('#modal-orcamento-detalhes h3').textContent = 'Detalhes do Orçamento';
@@ -5879,6 +5936,8 @@ function showProductBudgetDetails(p) {
                 custoMO: last.custoMO,
                 custoFixo: last.custoFixo,
                 custoTotal: last.custoTotal,
+                custoMarketplace: last.custoMarketplace ?? (isMarketplaceMode(last.modoCalculo) ? (last.precoFinal * (last.taxa || 0) / 100 + (last.taxaFixa || 0)) : 0),
+                valorRecebido: last.valorRecebido ?? (isMarketplaceMode(last.modoCalculo) ? (last.precoFinal - (last.custoMarketplace ?? 0)) : last.precoFinal),
                 quantidade: last.quantidade,
                 modoCalculo: last.modoCalculo,
                 peso: last.peso || 0,
@@ -5941,9 +6000,9 @@ function showProductBudgetDetails(p) {
     const isMpDetail = isMarketplaceMode(modo);
     const taxaDetail = d.taxa || 0;
     const taxaFixaDetail = d.taxaFixa || 0;
-    const custoMp = d.custoMarketplace !== undefined ? d.custoMarketplace : (isMpDetail ? (precoFinal * taxaDetail / 100 + taxaFixaDetail) : 0);
-    const valorRecebidoDetail = d.valorRecebido !== undefined ? d.valorRecebido : (isMpDetail ? (precoFinal - custoMp) : precoFinal);
-    const lucroTotal = d.lucro !== undefined ? d.lucro : (isMpDetail ? (valorRecebidoDetail - custoTotal) : (precoFinal - custoTotal));
+    const custoMp = isMpDetail ? (precoFinal * taxaDetail / 100 + taxaFixaDetail) : (d.custoMarketplace || 0);
+    const valorRecebidoDetail = isMpDetail ? (precoFinal - custoMp) : (d.valorRecebido ?? precoFinal);
+    const lucroTotal = d.lucro != null ? d.lucro : (precoFinal - custoTotal - (isMpDetail ? custoMp : 0));
     const custoComTaxaDetail = custoTotal + custoMp;
     if (baseModoDetail === 'impressao3d' || baseModoDetail === 'misto') {
         const hrs = Math.floor((d.tempoImpressao || 0) / 60);
@@ -5971,14 +6030,13 @@ function showProductBudgetDetails(p) {
             <div class="flex justify-between"><span>Custo Fixo:</span><span>${formatCurrency(d.custoFixo || 0)}</span></div>
             <div class="flex justify-between"><span>Custo Marketplace:</span><span>${formatCurrency(custoMp)}</span></div>
             <div class="flex justify-between font-bold"><span>Custo Total:</span><span class="text-red-600">${formatCurrency(custoComTaxaDetail)}</span></div>
-            <div class="flex justify-between"><span>Markup:</span><span>${d.margem || 0}%</span></div>
             <div class="flex justify-between font-bold text-green-600 border-t pt-2 mt-2"><span>PREÇO FINAL:</span><span>${formatCurrency(precoFinal)}</span></div>
             <div class="flex justify-between font-bold text-green-700"><span>Valor Recebido:</span><span>${formatCurrency(valorRecebidoDetail)}</span></div>
             <div class="flex justify-between text-green-600"><span>Lucro:</span><span>${formatCurrency(lucroTotal)}</span></div>
             <div class="flex justify-between border-t pt-2 mt-2"><span>Custo Unitário:</span><span>${formatCurrency(custoComTaxaDetail / qtd)}</span></div>
             <div class="flex justify-between"><span>Lucro Unitário:</span><span class="text-green-600">${formatCurrency(lucroTotal / qtd)}</span></div>
-            <div class="flex justify-between"><span>Margem Unitária:</span><span>${valorRecebidoDetail > 0 ? ((lucroTotal / valorRecebidoDetail) * 100).toFixed(2) + '%' : '0%'}</span></div>
-            <div class="flex justify-between"><span>Markup:</span><span>${custoTotal > 0 ? ((lucroTotal / custoTotal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Margem:</span><span>${precoFinal > 0 ? ((lucroTotal / precoFinal) * 100).toFixed(2) + '%' : '0%'}</span></div>
+            <div class="flex justify-between"><span>Markup:</span><span>${custoComTaxaDetail > 0 ? ((lucroTotal / custoComTaxaDetail) * 100).toFixed(2) + '%' : '0%'}</span></div>
         </div>`;
     const linked = savedBudgets.filter(b => b.produtoId === p.id);
     if (linked.length > 0) {

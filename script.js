@@ -4580,7 +4580,7 @@ function calculateBudget() {
         custoMateriais = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
         custoMO = (tempoGasto / 60) * valorHora;
         custoFixo = custoFixoHora * (tempoGasto / 60);
-        return custoMateriais + custoMaquinas + custoMO;
+        return custoMateriais + custoMaquinas + custoMO + custoFixo;
     }
 
     function calc3d() {
@@ -4999,7 +4999,7 @@ async function saveBudget() {
         custoMaquinas = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
         custoMO = (tempoGasto / 60) * valorHora;
         custoFixo = custoFixoHora * (tempoGasto / 60);
-        custoTotal = custoMateriais + custoMaquinas + custoMO;
+        custoTotal = custoMateriais + custoMaquinas + custoMO + custoFixo;
         precoSugerido = taxa >= 100 ? 0 : (custoTotal * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
     }
     const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
@@ -5719,7 +5719,7 @@ function renderHistoricoOrcamentos() {
         return;
     }
 
-    const totalCusto = filtered.reduce((s, b) => s + b.custoTotal + ((b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0)), 0);
+    const totalCusto = filtered.reduce((s, b) => s + b.custoTotal + (isMarketplaceMode(b.modoCalculo) ? ((b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0)) : 0), 0);
     const totalVenda = filtered.reduce((s, b) => s + b.precoFinal, 0);
     const totalLucro = filtered.reduce((s, b) => s + b.lucro, 0);
 
@@ -5743,7 +5743,7 @@ function renderHistoricoOrcamentos() {
 
     filtered.forEach(b => {
         const qtd = b.quantidade || 1;
-        const custoMarketplace = (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0);
+        const custoMarketplace = isMarketplaceMode(b.modoCalculo) ? ((b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0)) : 0;
         const custoComTaxa = b.custoTotal + custoMarketplace;
         const lucroUnit = b.lucro / qtd;
         const markupPct = custoComTaxa > 0 ? (b.lucro / custoComTaxa) * 100 : 0;
@@ -5774,7 +5774,7 @@ function renderHistoricoOrcamentos() {
     });
 
     // Summary row at the bottom
-    const totalTaxa = filtered.reduce((s, b) => s + (b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0), 0);
+    const totalTaxa = filtered.reduce((s, b) => s + (isMarketplaceMode(b.modoCalculo) ? ((b.precoFinal * (b.taxa || 0) / 100) + (b.taxaFixa || 0)) : 0), 0);
     const margemTotal = totalVenda > 0 ? ((totalVenda - totalCusto) / totalVenda) * 100 : 0;
     html += `</tbody>
         <tfoot>
@@ -5853,7 +5853,7 @@ function viewOrcamentoDetails(id) {
             <div class="flex justify-between"><span>Tempo Impressão:</span><span>${hrs}h${mins}min</span></div>
         </div>`;
     }
-    const custoMpDetail = (b.precoFinal * (b.taxa||0) / 100) + (b.taxaFixa||0);
+    const custoMpDetail = isMarketplaceMode(b.modoCalculo) ? ((b.precoFinal * (b.taxa||0) / 100) + (b.taxaFixa||0)) : (b.custoMarketplace || 0);
     const custoComTaxaDetail = b.custoTotal + custoMpDetail;
     const markupDetail = custoComTaxaDetail > 0 ? (b.lucro / custoComTaxaDetail) * 100 : 0;
     const margemDetail = b.precoFinal > 0 ? (b.lucro / b.precoFinal) * 100 : 0;

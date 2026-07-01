@@ -3789,18 +3789,26 @@ function addEventListeners() {
 // ===================================================================================
 let machines = [];
 let supplyCatalog = [];
+function getDefaultTimeOptions() {
+    return [
+        { label: 'Rápido', minutes: 120 },
+        { label: 'Normal', minutes: 240 },
+        { label: 'Qualidade', minutes: 420 }
+    ];
+}
+
 let filamentCatalog = [
-    { id: 1, name: 'PLA', priceKg: 125 },
-    { id: 2, name: 'PETG', priceKg: 75 },
-    { id: 3, name: 'ABS', priceKg: 90 },
-    { id: 4, name: 'ABS Comum', priceKg: 60 },
-    { id: 5, name: 'ABS Barato', priceKg: 45 },
-    { id: 6, name: 'Nylon', priceKg: 150 },
-    { id: 7, name: 'ABS Wood', priceKg: 110 },
-    { id: 8, name: 'PLA Silk', priceKg: 150 },
-    { id: 9, name: 'TPU', priceKg: 160 },
-    { id: 10, name: 'PC', priceKg: 180 },
-    { id: 11, name: 'Outro...', priceKg: 0 }
+    { id: 1, name: 'PLA', priceKg: 125, timeOptions: getDefaultTimeOptions() },
+    { id: 2, name: 'PETG', priceKg: 75, timeOptions: getDefaultTimeOptions() },
+    { id: 3, name: 'ABS', priceKg: 90, timeOptions: getDefaultTimeOptions() },
+    { id: 4, name: 'ABS Comum', priceKg: 60, timeOptions: getDefaultTimeOptions() },
+    { id: 5, name: 'ABS Barato', priceKg: 45, timeOptions: getDefaultTimeOptions() },
+    { id: 6, name: 'Nylon', priceKg: 150, timeOptions: getDefaultTimeOptions() },
+    { id: 7, name: 'ABS Wood', priceKg: 110, timeOptions: getDefaultTimeOptions() },
+    { id: 8, name: 'PLA Silk', priceKg: 150, timeOptions: getDefaultTimeOptions() },
+    { id: 9, name: 'TPU', priceKg: 160, timeOptions: getDefaultTimeOptions() },
+    { id: 10, name: 'PC', priceKg: 180, timeOptions: getDefaultTimeOptions() },
+    { id: 11, name: 'Outro...', priceKg: 0, timeOptions: getDefaultTimeOptions() }
 ];
 let savedBudgets = [];
 let currentBudgetMaterials = [];
@@ -3905,23 +3913,21 @@ function populateFilamentoSelect() {}
 
 
 function getTempoImpressaoMin() {
-    const h = parseFloat(document.getElementById('orc-tempo-impressao-h').value) || 0;
-    const min = parseFloat(document.getElementById('orc-tempo-impressao-min').value) || 0;
-    return h * 60 + min;
+    return currentBudgetFilaments.reduce((sum, f) => sum + (f.selectedTimeMinutes || 0), 0);
 }
 
-function addFilamento(name, priceKg) {
+function addFilamento(name, priceKg, timeOptions) {
     if (!name || !priceKg) return;
     const maxId = filamentCatalog.reduce((max, f) => Math.max(max, f.id), 0);
-    filamentCatalog.push({ id: maxId + 1, name, priceKg: parseFloat(priceKg) });
+    filamentCatalog.push({ id: maxId + 1, name, priceKg: parseFloat(priceKg), timeOptions: timeOptions || [] });
     saveOrcamentoFilaments();
     populateFilamentoSelect();
 }
 
-function editFilamento(id, name, priceKg) {
+function editFilamento(id, name, priceKg, timeOptions) {
     const idx = filamentCatalog.findIndex(f => f.id === id);
     if (idx === -1) return;
-    filamentCatalog[idx] = { id, name, priceKg: parseFloat(priceKg) };
+    filamentCatalog[idx] = { id, name, priceKg: parseFloat(priceKg), timeOptions: timeOptions || [] };
     saveOrcamentoFilaments();
     populateFilamentoSelect();
 }
@@ -4455,12 +4461,21 @@ function renderOrcamentoMachines() {
     attachOrcamentoQtyListeners();
 }
 
+function getFilamentTimeOptions(fil) {
+    if (fil.timeOptions && fil.timeOptions.length > 0) return fil.timeOptions;
+    if (fil.filamentIndex !== undefined) {
+        const catFil = filamentCatalog[fil.filamentIndex];
+        if (catFil && catFil.timeOptions && catFil.timeOptions.length > 0) return catFil.timeOptions;
+    }
+    return null;
+}
+
 function renderOrcamentoFilamentos() {
     const tbody = document.getElementById('orc-filamentos-body');
     if (!tbody) return;
     tbody.innerHTML = '';
     if (currentBudgetFilaments.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">Nenhum filamento adicionado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">Nenhum filamento adicionado.</td></tr>';
         const totalEl = document.getElementById('orc-total-filamentos');
         if (totalEl) totalEl.textContent = formatCurrency(0);
         return;
@@ -4470,6 +4485,32 @@ function renderOrcamentoFilamentos() {
         const subtotal = (fil.weight / 1000) * fil.priceKg;
         total += subtotal;
         const zeroClass = (!fil.weight || fil.weight === 0) ? 'bg-red-100 dark:bg-red-900/20' : '';
+        const totalMin = fil.selectedTimeMinutes || 0;
+        const hours = Math.floor(totalMin / 60);
+        const mins = totalMin % 60;
+        const timeOptions = getFilamentTimeOptions(fil);
+        let presetsHtml = '';
+        if (timeOptions) {
+            presetsHtml = `<select data-index="${i}" data-type="filamento-tempo-preset"
+                class="orc-tempo-preset w-16 text-center border rounded p-1 bg-[var(--bg-secondary)] text-xs ml-1"
+                title="Selecionar preset">
+                <option value="">--</option>`;
+            timeOptions.forEach(opt => {
+                const h = Math.floor(opt.minutes / 60);
+                const m = opt.minutes % 60;
+                presetsHtml += `<option value="${opt.minutes}">${opt.label} (${h}h${m > 0 ? m + 'min' : ''})</option>`;
+            });
+            presetsHtml += `</select>`;
+        }
+        const timeHtml =
+            `<input type="number" value="${hours}" min="0" step="1"
+                data-index="${i}" data-type="filamento-tempo-h"
+                class="orc-tempo-h w-12 text-center border rounded p-1 bg-[var(--bg-secondary)]" placeholder="h">
+            <span class="text-xs mx-0.5">h</span>
+            <input type="number" value="${mins}" min="0" max="59" step="1"
+                data-index="${i}" data-type="filamento-tempo-min"
+                class="orc-tempo-min w-12 text-center border rounded p-1 bg-[var(--bg-secondary)]" placeholder="min">
+            <span class="text-xs mx-0.5">min</span>${presetsHtml}`;
         tbody.innerHTML += `<tr class="${zeroClass}">
             <td class="p-2">${fil.name}</td>
             <td class="p-2 text-center">
@@ -4477,6 +4518,7 @@ function renderOrcamentoFilamentos() {
                     data-index="${i}" data-type="filamento"
                     class="orc-qty-input w-16 text-center border rounded p-1 bg-[var(--bg-secondary)]">
             </td>
+            <td class="p-2 text-center whitespace-nowrap">${timeHtml}</td>
             <td class="p-2 text-right">${formatCurrency(fil.priceKg)}</td>
             <td class="p-2 text-right font-semibold orc-subtotal">${formatCurrency(subtotal)}</td>
             <td class="p-2 text-center">
@@ -4486,6 +4528,7 @@ function renderOrcamentoFilamentos() {
     const totalEl = document.getElementById('orc-total-filamentos');
     if (totalEl) totalEl.textContent = formatCurrency(total);
     attachOrcamentoQtyListeners();
+    attachOrcamentoTempoListeners();
 }
 
 function updateOrcamentoTotals() {
@@ -4503,6 +4546,54 @@ function attachOrcamentoQtyListeners() {
         input.removeEventListener('input', handleOrcamentoQtyChange);
         input.addEventListener('input', handleOrcamentoQtyChange);
     });
+}
+
+function attachOrcamentoTempoListeners() {
+    document.querySelectorAll('.orc-tempo-h').forEach(input => {
+        input.removeEventListener('input', handleOrcamentoTempoChange);
+        input.addEventListener('input', handleOrcamentoTempoChange);
+    });
+    document.querySelectorAll('.orc-tempo-min').forEach(input => {
+        input.removeEventListener('input', handleOrcamentoTempoChange);
+        input.addEventListener('input', handleOrcamentoTempoChange);
+    });
+    document.querySelectorAll('.orc-tempo-preset').forEach(sel => {
+        sel.removeEventListener('change', handleOrcamentoTempoPreset);
+        sel.addEventListener('change', handleOrcamentoTempoPreset);
+    });
+}
+
+function handleOrcamentoTempoPreset(e) {
+    const sel = e.target;
+    const idx = parseInt(sel.dataset.index);
+    const minutes = parseInt(sel.value) || 0;
+    sel.value = '';
+    if (currentBudgetFilaments[idx] === undefined || minutes === 0) return;
+    currentBudgetFilaments[idx].selectedTimeMinutes = minutes;
+    const row = sel.closest('tr');
+    if (row) {
+        const hEl = row.querySelector('.orc-tempo-h');
+        const minEl = row.querySelector('.orc-tempo-min');
+        if (hEl) hEl.value = Math.floor(minutes / 60);
+        if (minEl) minEl.value = minutes % 60;
+    }
+    updateOrcamentoTotals();
+    calculateBudget();
+}
+
+function handleOrcamentoTempoChange(e) {
+    const el = e.target;
+    const idx = parseInt(el.dataset.index);
+    if (currentBudgetFilaments[idx] === undefined) return;
+    const row = el.closest('tr');
+    if (!row) return;
+    const hEl = row.querySelector('.orc-tempo-h');
+    const minEl = row.querySelector('.orc-tempo-min');
+    const h = hEl ? parseInt(hEl.value) || 0 : 0;
+    const m = minEl ? parseInt(minEl.value) || 0 : 0;
+    currentBudgetFilaments[idx].selectedTimeMinutes = h * 60 + m;
+    updateOrcamentoTotals();
+    calculateBudget();
 }
 
 function handleOrcamentoQtyChange(e) {
@@ -4850,12 +4941,15 @@ document.getElementById('orcamento-select-confirm').addEventListener('click', fu
                 costTotal: 0
             });
         } else if (orcamentoSelectType === 'filamento') {
+            const firstTime = (item.timeOptions && item.timeOptions.length > 0) ? item.timeOptions[0].minutes : 0;
             currentBudgetFilaments.push({
                 filamentIndex: idx,
                 filamentId: item.id,
                 name: item.name,
                 weight: 0,
-                priceKg: item.priceKg
+                priceKg: item.priceKg,
+                selectedTimeMinutes: firstTime,
+                timeOptions: item.timeOptions ? JSON.parse(JSON.stringify(item.timeOptions)) : []
             });
         }
         count++;
@@ -5241,8 +5335,6 @@ function resetBudgetForm() {
     document.getElementById('orc-cliente').value = '';
     const dataInput = document.getElementById('orc-data');
     if (dataInput) dataInput.value = localDateString();
-    document.getElementById('orc-tempo-impressao-h').value = '0';
-    document.getElementById('orc-tempo-impressao-min').value = '30';
     document.getElementById('orc-modo-calculo').value = 'grafica';
     const mpCheck = document.getElementById('orc-marketplace-check');
     if (mpCheck) mpCheck.checked = false;
@@ -5293,8 +5385,6 @@ function getFormState() {
         JSON.stringify(currentBudgetMaterials),
         JSON.stringify(currentBudgetMachines),
         JSON.stringify(currentBudgetFilaments),
-        document.getElementById('orc-tempo-impressao-h')?.value || '',
-        document.getElementById('orc-tempo-impressao-min')?.value || '',
         document.getElementById('orc-falhas')?.value || '',
         document.getElementById('orc-acabamento')?.value || '',
         document.getElementById('orc-fixacao')?.value || '',
@@ -5540,9 +5630,6 @@ function loadBudget(id) {
     document.getElementById('orc-dias-mes').value = budget.diasMes;
     const savedMode = budget.modoCalculo === 'geral' ? 'grafica' : (budget.modoCalculo || 'grafica');
     document.getElementById('orc-modo-calculo').value = savedMode;
-    const totalMin = budget.tempoImpressao || 0;
-    document.getElementById('orc-tempo-impressao-h').value = Math.floor(totalMin / 60);
-    document.getElementById('orc-tempo-impressao-min').value = Math.round(totalMin % 60);
     document.getElementById('orc-falhas').value = budget.falhas || 10;
     document.getElementById('orc-acabamento').value = budget.acabamento || 10;
     document.getElementById('orc-fixacao').value = budget.fixacao || 0.10;
@@ -5562,7 +5649,9 @@ function loadBudget(id) {
             filamentId: budget.filamentoId,
             name: fil ? fil.name : 'Desconhecido',
             weight: budget.peso || 0,
-            priceKg: fil ? fil.priceKg : 0
+            priceKg: fil ? fil.priceKg : 0,
+            selectedTimeMinutes: 0,
+            timeOptions: fil && fil.timeOptions ? JSON.parse(JSON.stringify(fil.timeOptions)) : []
         }];
     } else {
         currentBudgetFilaments = [];
@@ -6109,8 +6198,6 @@ function addOrcamentoEventListeners() {
         toggleOrcamentoMode();
     });
     o('orc-modo-calculo', 'change', toggleOrcamentoMode);
-    o('orc-tempo-impressao-h', 'input', calculateBudget);
-    o('orc-tempo-impressao-min', 'input', calculateBudget);
     o('orc-falhas', 'input', calculateBudget);
     o('orc-acabamento', 'input', calculateBudget);
     o('orc-fixacao', 'input', calculateBudget);
@@ -6278,9 +6365,17 @@ function addOrcamentoEventListeners() {
     if (addFilamentoFormView) {
         addFilamentoFormView.addEventListener('submit', function(e) {
             e.preventDefault();
+            const timeOptions = [];
+            document.querySelectorAll('#add-tempo-opcoes-container .add-tempo-label').forEach((input, i) => {
+                const label = input.value.trim();
+                const minInput = document.querySelectorAll('#add-tempo-opcoes-container .add-tempo-min')[i];
+                const minutes = minInput ? parseInt(minInput.value) : 0;
+                if (label && minutes > 0) timeOptions.push({ label, minutes });
+            });
             addFilamento(
                 this.elements.filamentoNome.value,
-                this.elements.filamentoPreco.value
+                this.elements.filamentoPreco.value,
+                timeOptions.length > 0 ? timeOptions : undefined
             );
             this.reset();
             renderFilamentosList();
@@ -6294,7 +6389,13 @@ function addOrcamentoEventListeners() {
             const id = parseInt(document.getElementById('edit-filamento-id').value);
             const nome = document.getElementById('edit-filamento-nome').value;
             const preco = document.getElementById('edit-filamento-preco').value;
-            editFilamento(id, nome, preco);
+            const timeOptions = [];
+            document.querySelectorAll('#tempo-opcoes-list .tempo-opcao-row').forEach(row => {
+                const label = row.querySelector('.tempo-opcao-label').value.trim();
+                const minutes = parseInt(row.querySelector('.tempo-opcao-minutos').value);
+                if (label && minutes > 0) timeOptions.push({ label, minutes });
+            });
+            editFilamento(id, nome, preco, timeOptions);
             closeModal('modal-edit-filamento');
             renderFilamentosList();
         });
@@ -6330,8 +6431,10 @@ function renderFilamentosList() {
             <th class="p-2">Filamento</th><th class="p-2 text-right">Preço/kg</th>
             <th class="p-2 text-center">Ações</th></tr></thead><tbody>`;
         filamentCatalog.forEach(f => {
+            const timeCount = f.timeOptions ? f.timeOptions.length : 0;
+            const timeBadge = timeCount > 0 ? `<span class="text-xs text-gray-500 ml-1">(${timeCount} tempos)</span>` : '';
             html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
-                <td class="p-2 font-medium">${f.name}</td>
+                <td class="p-2 font-medium">${f.name}${timeBadge}</td>
                 <td class="p-2 text-right font-semibold text-purple-600">${formatCurrency(f.priceKg)}</td>
                 <td class="p-2 text-center">
                     <button data-id="${f.id}" class="edit-filamento-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button>
@@ -6342,6 +6445,56 @@ function renderFilamentosList() {
         list.innerHTML = html;
     });
 
+    function populateTempoOpcoesList(opcoes) {
+        const list = document.getElementById('tempo-opcoes-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!opcoes || opcoes.length === 0) {
+            list.innerHTML = '<p class="text-xs text-gray-500 py-2">Nenhuma opção de tempo cadastrada.</p>';
+            return;
+        }
+        opcoes.forEach(opt => {
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 items-center tempo-opcao-row';
+            row.innerHTML = `
+                <input type="text" value="${opt.label}" placeholder="Rótulo" class="tempo-opcao-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
+                <input type="number" value="${opt.minutes}" placeholder="Minutos" min="1" class="tempo-opcao-minutos w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
+                <button type="button" class="remove-tempo-opcao-btn text-red-500 hover:text-red-700 text-xs p-1"><i class="fas fa-times"></i></button>`;
+            list.appendChild(row);
+        });
+        attachTempoOpcaoRemoveListeners();
+    }
+
+    function attachTempoOpcaoRemoveListeners() {
+        document.querySelectorAll('.remove-tempo-opcao-btn').forEach(btn => {
+            btn.removeEventListener('click', handleRemoveTempoOpcao);
+            btn.addEventListener('click', handleRemoveTempoOpcao);
+        });
+    }
+
+    function handleRemoveTempoOpcao(e) {
+        const row = e.target.closest('.tempo-opcao-row');
+        if (row) row.remove();
+    }
+
+    const addTempoOpcaoBtn = document.getElementById('add-tempo-opcao-btn');
+    if (addTempoOpcaoBtn) {
+        addTempoOpcaoBtn.addEventListener('click', function() {
+            const list = document.getElementById('tempo-opcoes-list');
+            if (!list) return;
+            const emptyMsg = list.querySelector('p.text-gray-500');
+            if (emptyMsg) emptyMsg.remove();
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 items-center tempo-opcao-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Rótulo" class="tempo-opcao-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
+                <input type="number" placeholder="Minutos" min="1" class="tempo-opcao-minutos w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
+                <button type="button" class="remove-tempo-opcao-btn text-red-500 hover:text-red-700 text-xs p-1"><i class="fas fa-times"></i></button>`;
+            list.appendChild(row);
+            attachTempoOpcaoRemoveListeners();
+        });
+    }
+
     document.querySelectorAll('.edit-filamento-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const id = parseInt(this.dataset.id);
@@ -6350,6 +6503,7 @@ function renderFilamentosList() {
             document.getElementById('edit-filamento-id').value = f.id;
             document.getElementById('edit-filamento-nome').value = f.name;
             document.getElementById('edit-filamento-preco').value = f.priceKg;
+            populateTempoOpcoesList(f.timeOptions || []);
             openModal('modal-edit-filamento');
         });
     });

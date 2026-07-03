@@ -986,6 +986,7 @@
             <p id="receipt-date" class="text-xs text-center text-gray-600"></p>
             <div class="flex justify-around mt-6 no-print">
                 <button id="print-receipt-btn" class="px-4 py-2 bg-blue-600 text-white rounded">Imprimir</button>
+                <button id="generate-img-btn" class="px-4 py-2 bg-green-600 text-white rounded">Comprovante</button>
                 <button class="close-modal-btn px-4 py-2 bg-gray-300 text-gray-800 rounded">Fechar</button>
             </div>
         </div>
@@ -1071,7 +1072,7 @@
             </div>
 
             <div class="flex justify-end mt-4 no-print">
-                <button id="print-details-btn" class="px-4 py-2 rounded bg-blue-600 text-white mr-2">Imprimir</button>
+                <button id="generate-details-img-btn" class="px-4 py-2 rounded bg-green-600 text-white mr-2">Comprovante</button>
                 <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
             </div>
         </div>
@@ -1428,6 +1429,7 @@
         <span>Mensagem aqui</span>
     </div>
 
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
 </body>

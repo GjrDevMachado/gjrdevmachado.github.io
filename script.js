@@ -24,6 +24,7 @@ let confirmCallback = null;
 let areEventListenersAdded = false;
 let productSalesReportData = null;
 
+let currentSaleDetails = null;
 let rascunhos = [];
 let backupInterval = null;
 const BACKUP_INTERVAL_MINUTES = 60;
@@ -2001,6 +2002,7 @@ function showToast(message, type = 'success') {
 }
 
 function showReceipt(transaction) {
+    currentSaleDetails = transaction;
     const receiptDetails = document.getElementById('receipt-details');
     receiptDetails.innerHTML = '';
     let subtotal = 0;
@@ -2023,38 +2025,99 @@ function showReceipt(transaction) {
 }
 
 function generateReceiptImage() {
-    const capture = document.getElementById('receipt-capture');
-    if (!capture) { showToast('Nenhum comprovante disponível.', 'error'); return; }
+    const sale = currentSaleDetails;
+    if (!sale) { showToast('Nenhuma venda selecionada.', 'error'); return; }
+    captureReceiptAsPNG(sale, 'comprovante-venda');
+}
 
-    const parent = document.getElementById('customer-receipt-content');
-    const wasHidden = parent.classList.contains('hidden');
+function generateSaleDetailsImage() {
+    const sale = currentSaleDetails;
+    if (!sale) { showToast('Nenhuma venda selecionada.', 'error'); return; }
+    captureReceiptAsPNG(sale, 'detalhes-venda');
+}
 
+function captureReceiptAsPNG(sale, prefix) {
     toggleLoading(true);
-    if (wasHidden) parent.classList.remove('hidden');
 
-    setTimeout(() => {
-        html2canvas(capture, {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            allowTaint: false,
-            logging: false
-        }).then(canvas => {
-            const link = document.createElement('a');
-            link.download = `comprovante-venda-${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast('Imagem gerada com sucesso!', 'success');
-        }).catch(err => {
-            console.error('Erro ao gerar imagem:', err);
-            showToast('Erro ao gerar imagem.', 'error');
-        }).finally(() => {
-            if (wasHidden) parent.classList.add('hidden');
-            toggleLoading(false);
-        });
-    }, 100);
+    const logoImg = localStorage.getItem('companyLogo');
+    const subtotal = sale.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const discountValue = subtotal - sale.amount;
+    const methods = parsePaymentMethods(sale.method);
+    const methodStr = methods.map(m => m.method).join(' | ') || (sale.method || 'N/A');
+
+    const receiptHTML = `
+        <div style="width:380px;padding:24px;background:#fff;font-family:Arial,sans-serif;color:#000;">
+            <div style="text-align:center;margin-bottom:12px;">
+                ${logoImg ? `<img src="${logoImg}" style="max-width:120px;max-height:60px;margin:0 auto 8px;display:block;">` : ''}
+                <h2 style="font-size:16px;font-weight:700;margin:0;">COMPROVANTE DE VENDA</h2>
+                <p style="font-size:12px;color:#666;margin:4px 0;">${new Date(sale.date).toLocaleString('pt-BR')}</p>
+                <p style="font-size:11px;color:#999;">#${sale.id}</p>
+            </div>
+            <p style="font-size:13px;margin:4px 0;"><strong>Cliente:</strong> ${customers.find(c => c.id == sale.customerId)?.name || 'Não identificado'}</p>
+            <hr style="border:none;border-top:1px dashed #ccc;margin:8px 0;">
+            <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                <thead>
+                    <tr style="border-bottom:2px solid #333;">
+                        <th style="text-align:left;padding:4px 0;">Item</th>
+                        <th style="text-align:center;padding:4px 0;">Qtd</th>
+                        <th style="text-align:right;padding:4px 0;">Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sale.items.map(item => `
+                        <tr style="border-bottom:1px solid #eee;">
+                            <td style="padding:4px 0;">${item.name}</td>
+                            <td style="text-align:center;padding:4px 0;">${item.quantity}</td>
+                            <td style="text-align:right;padding:4px 0;">${formatCurrency(item.price * item.quantity)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <hr style="border:none;border-top:1px dashed #ccc;margin:8px 0;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span>Subtotal:</span><span>${formatCurrency(subtotal)}</span>
+            </div>
+            ${discountValue > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#dc2626;">
+                <span>Descontos:</span><span>-${formatCurrency(discountValue)}</span>
+            </div>` : ''}
+            <hr style="border:none;border-top:1px solid #333;margin:8px 0;">
+            <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:bold;">
+                <span>TOTAL:</span><span>${formatCurrency(sale.amount)}</span>
+            </div>
+            <hr style="border:none;border-top:1px dashed #ccc;margin:12px 0;">
+            <div style="text-align:center;font-size:11px;color:#999;">
+                Obrigado pela preferência!<br>
+                MOLDART 3D
+            </div>
+        </div>
+    `;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;';
+    tempDiv.innerHTML = receiptHTML;
+    document.body.appendChild(tempDiv);
+
+    html2canvas(tempDiv.firstElementChild, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: false,
+        logging: false
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `${prefix}-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Imagem gerada com sucesso!', 'success');
+    }).catch(err => {
+        console.error('Erro ao gerar imagem:', err);
+        showToast('Erro ao gerar imagem.', 'error');
+    }).finally(() => {
+        document.body.removeChild(tempDiv);
+        toggleLoading(false);
+    });
 }
 
 function applyTheme(themeName) {
@@ -2306,6 +2369,7 @@ function openSaleDetailsModal(transactionId) {
         showToast("Venda não encontrada.", "error");
         return;
     }
+    currentSaleDetails = sale;
 
     const contentDiv = document.getElementById('sale-details-content');
     if (!contentDiv) {
@@ -2414,10 +2478,7 @@ function openSaleDetailsModal(transactionId) {
     const receiptDiv = document.getElementById('customer-receipt-content');
     const logoImg = localStorage.getItem('companyLogo');
     const methods = parsePaymentMethods(sale.method);
-    const methodStr = methods.map(m => {
-        const label = m.method === 'Cartão de Crédito' ? 'Cartão de Crédito' + (m.installments > 1 ? ` (${m.installments}x)` : '') : m.method;
-        return `${label}: ${formatCurrency(methods.length > 1 ? m.amount : sale.amount)}`;
-    }).join('\n') || (sale.method || 'N/A');
+    const methodStr = methods.map(m => m.method).join('\n') || (sale.method || 'N/A');
 
     receiptDiv.innerHTML = `
         <div class="receipt-image" id="receipt-capture">
@@ -2454,9 +2515,6 @@ function openSaleDetailsModal(transactionId) {
             <div class="divider"></div>
             <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:bold;">
                 <span>TOTAL:</span><span>${formatCurrency(sale.amount)}</span>
-            </div>
-            <div style="margin-top:8px;font-size:11px;">
-                <strong>Pagamento:</strong> ${methodStr}
             </div>
             <div class="footer">
                 Obrigado pela preferência!<br>
@@ -3562,6 +3620,7 @@ function addEventListeners() {
     safeAddListener('print-receipt-btn', 'click', window.print);
     safeAddListener('print-details-btn', 'click', window.print);
     safeAddListener('generate-img-btn', 'click', generateReceiptImage);
+    safeAddListener('generate-details-img-btn', 'click', generateSaleDetailsImage);
     
     const handleMonthYearChange = () => {
         setReportPeriod(currentReportPeriod);
@@ -4461,15 +4520,6 @@ function renderOrcamentoMachines() {
     attachOrcamentoQtyListeners();
 }
 
-function getFilamentTimeOptions(fil) {
-    if (fil.timeOptions && fil.timeOptions.length > 0) return fil.timeOptions;
-    if (fil.filamentIndex !== undefined) {
-        const catFil = filamentCatalog[fil.filamentIndex];
-        if (catFil && catFil.timeOptions && catFil.timeOptions.length > 0) return catFil.timeOptions;
-    }
-    return null;
-}
-
 function renderOrcamentoFilamentos() {
     const tbody = document.getElementById('orc-filamentos-body');
     if (!tbody) return;
@@ -4488,20 +4538,6 @@ function renderOrcamentoFilamentos() {
         const totalMin = fil.selectedTimeMinutes || 0;
         const hours = Math.floor(totalMin / 60);
         const mins = totalMin % 60;
-        const timeOptions = getFilamentTimeOptions(fil);
-        let presetsHtml = '';
-        if (timeOptions) {
-            presetsHtml = `<select data-index="${i}" data-type="filamento-tempo-preset"
-                class="orc-tempo-preset w-16 text-center border rounded p-1 bg-[var(--bg-secondary)] text-xs ml-1"
-                title="Selecionar preset">
-                <option value="">--</option>`;
-            timeOptions.forEach(opt => {
-                const h = Math.floor(opt.minutes / 60);
-                const m = opt.minutes % 60;
-                presetsHtml += `<option value="${opt.minutes}">${opt.label} (${h}h${m > 0 ? m + 'min' : ''})</option>`;
-            });
-            presetsHtml += `</select>`;
-        }
         const timeHtml =
             `<input type="number" value="${hours}" min="0" step="1"
                 data-index="${i}" data-type="filamento-tempo-h"
@@ -4510,7 +4546,7 @@ function renderOrcamentoFilamentos() {
             <input type="number" value="${mins}" min="0" max="59" step="1"
                 data-index="${i}" data-type="filamento-tempo-min"
                 class="orc-tempo-min w-12 text-center border rounded p-1 bg-[var(--bg-secondary)]" placeholder="min">
-            <span class="text-xs mx-0.5">min</span>${presetsHtml}`;
+            <span class="text-xs mx-0.5">min</span>`;
         tbody.innerHTML += `<tr class="${zeroClass}">
             <td class="p-2">${fil.name}</td>
             <td class="p-2 text-center">
@@ -4557,28 +4593,7 @@ function attachOrcamentoTempoListeners() {
         input.removeEventListener('input', handleOrcamentoTempoChange);
         input.addEventListener('input', handleOrcamentoTempoChange);
     });
-    document.querySelectorAll('.orc-tempo-preset').forEach(sel => {
-        sel.removeEventListener('change', handleOrcamentoTempoPreset);
-        sel.addEventListener('change', handleOrcamentoTempoPreset);
-    });
-}
 
-function handleOrcamentoTempoPreset(e) {
-    const sel = e.target;
-    const idx = parseInt(sel.dataset.index);
-    const minutes = parseInt(sel.value) || 0;
-    sel.value = '';
-    if (currentBudgetFilaments[idx] === undefined || minutes === 0) return;
-    currentBudgetFilaments[idx].selectedTimeMinutes = minutes;
-    const row = sel.closest('tr');
-    if (row) {
-        const hEl = row.querySelector('.orc-tempo-h');
-        const minEl = row.querySelector('.orc-tempo-min');
-        if (hEl) hEl.value = Math.floor(minutes / 60);
-        if (minEl) minEl.value = minutes % 60;
-    }
-    updateOrcamentoTotals();
-    calculateBudget();
 }
 
 function handleOrcamentoTempoChange(e) {
@@ -4941,14 +4956,13 @@ document.getElementById('orcamento-select-confirm').addEventListener('click', fu
                 costTotal: 0
             });
         } else if (orcamentoSelectType === 'filamento') {
-            const firstTime = (item.timeOptions && item.timeOptions.length > 0) ? item.timeOptions[0].minutes : 0;
             currentBudgetFilaments.push({
                 filamentIndex: idx,
                 filamentId: item.id,
                 name: item.name,
                 weight: 0,
                 priceKg: item.priceKg,
-                selectedTimeMinutes: firstTime,
+                selectedTimeMinutes: 0,
                 timeOptions: item.timeOptions ? JSON.parse(JSON.stringify(item.timeOptions)) : []
             });
         }

@@ -1771,9 +1771,20 @@ function openModal(modalId) {
     } else if (modalId === 'modal-insumos') {
         renderOrcamentoSuppliesList();
     } else if (modalId === 'modal-historico-orcamentos') {
+        selectedOrcamentos.clear();
+        updateSelectedOrcamentosCount();
         renderHistoricoOrcamentos();
     } else if (modalId === 'modal-rascunhos') {
         renderRascunhos();
+    } else if (modalId === 'modal-selecionar-cliente-orcamento') {
+        const select = document.getElementById('select-cliente-comprovante');
+        if (select) {
+            select.innerHTML = '<option value="">Selecione um cliente...</option>';
+            const sorted = [...customers].sort((a, b) => a.name.localeCompare(b.name));
+            sorted.forEach(c => {
+                select.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+            });
+        }
     }
 }
 
@@ -3877,6 +3888,7 @@ let currentBudgetFilaments = [];
 let orcamentoSelectType = '';
 let orcamentoSelectData = null;
 let orcPrecoFinalChanged = false;
+let selectedOrcamentos = new Set();
 
 function loadOrcamentoData() {
     try {
@@ -5774,6 +5786,8 @@ function renderHistoricoOrcamentos() {
     const container = document.getElementById('historico-orcamentos-list');
     const summaryDiv = document.getElementById('historico-orcamentos-summary');
     if (!container) return;
+    selectedOrcamentos.clear();
+    updateSelectedOrcamentosCount();
 
     populateHistoricoMonthYear();
 
@@ -5828,6 +5842,7 @@ function renderHistoricoOrcamentos() {
 
     let html = `<table class="w-full text-left text-sm">
         <thead class="sticky top-0 bg-[var(--bg-primary)] z-10"><tr class="border-b text-[var(--text-secondary)]">
+            <th class="p-2 text-center whitespace-nowrap w-10"><input type="checkbox" id="select-all-page-orcamentos" class="w-4 h-4 text-[var(--primary-600)] border-gray-300 rounded focus:ring-[var(--primary-500)]"></th>
             <th class="p-2 whitespace-nowrap">Data</th>
             <th class="p-2 whitespace-nowrap">Cliente</th>
             <th class="p-2 whitespace-nowrap">Produto</th>
@@ -5853,8 +5868,10 @@ function renderHistoricoOrcamentos() {
         const margemPct = b.precoFinal > 0 ? (b.lucro / b.precoFinal) * 100 : 0;
         const taxaTotal = custoMarketplace;
         const lucroClass = b.lucro >= 0 ? 'text-green-600' : 'text-red-600';
+        const checked = selectedOrcamentos.has(b.id) ? 'checked' : '';
 
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2 text-center"><input type="checkbox" data-orc-id="${b.id}" class="select-orcamento-row w-4 h-4 text-[var(--primary-600)] border-gray-300 rounded focus:ring-[var(--primary-500)]" ${checked}></td>
             <td class="p-2 whitespace-nowrap">${new Date(b.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
             <td class="p-2 whitespace-nowrap">${b.clienteName}</td>
             <td class="p-2 font-medium whitespace-nowrap">${b.produto}${b.isKit ? ' <span class="text-xs bg-yellow-200 text-yellow-800 px-1.5 py-0.5 rounded font-bold">KIT</span>' : ''}${b.produtoId ? ' <span class="text-xs bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded font-bold"><i class="fas fa-link"></i></span>' : ''}</td>
@@ -5882,6 +5899,7 @@ function renderHistoricoOrcamentos() {
     html += `</tbody>
         <tfoot>
             <tr class="border-t-2 border-[var(--text-secondary)] font-bold">
+                <td class="p-2"></td>
                 <td class="p-2" colspan="3">Total (${filtered.length} orçamentos)</td>
                 <td class="p-2 text-right text-red-600">${formatCurrency(totalCusto)}</td>
                 <td class="p-2 text-right text-green-600">${formatCurrency(totalVenda)}</td>
@@ -6269,6 +6287,53 @@ function addOrcamentoEventListeners() {
     o('limpar-orcamento-btn', 'click', resetBudgetForm);
     o('imprimir-orcamento-btn', 'click', printBudget);
     o('imprimir-orcamento-detalhes-btn', 'click', () => window.print());
+
+    // Budget multi-select change handlers
+    document.getElementById('modal-historico-orcamentos')?.addEventListener('change', function(e) {
+        const target = e.target;
+        if (target.classList.contains('select-orcamento-row')) {
+            const id = parseInt(target.dataset.orcId);
+            if (target.checked) {
+                selectedOrcamentos.add(id);
+            } else {
+                selectedOrcamentos.delete(id);
+            }
+            updateSelectedOrcamentosCount();
+        } else if (target.id === 'select-all-page-orcamentos') {
+            const checkboxes = document.querySelectorAll('#historico-orcamentos-list .select-orcamento-row');
+            checkboxes.forEach(cb => {
+                cb.checked = target.checked;
+                const id = parseInt(cb.dataset.orcId);
+                if (target.checked) {
+                    selectedOrcamentos.add(id);
+                } else {
+                    selectedOrcamentos.delete(id);
+                }
+            });
+            updateSelectedOrcamentosCount();
+        }
+    });
+
+    o('select-all-orcamentos', 'change', function() {
+        const checked = this.checked;
+        const pageCheckbox = document.getElementById('select-all-page-orcamentos');
+        if (pageCheckbox) pageCheckbox.checked = checked;
+        const checkboxes = document.querySelectorAll('#historico-orcamentos-list .select-orcamento-row');
+        checkboxes.forEach(cb => {
+            cb.checked = checked;
+            const id = parseInt(cb.dataset.orcId);
+            if (checked) {
+                selectedOrcamentos.add(id);
+            } else {
+                selectedOrcamentos.delete(id);
+            }
+        });
+        updateSelectedOrcamentosCount();
+    });
+
+    o('gerar-comprovante-orcamentos-btn', 'click', generateBudgetComprovante);
+    o('confirmar-cliente-comprovante-btn', 'click', confirmarClienteEProceed);
+
     o('historico-search-input', 'input', renderHistoricoOrcamentos);
     o('historico-cliente-select', 'change', renderHistoricoOrcamentos);
     o('historico-mes-select', 'change', renderHistoricoOrcamentos);
@@ -6530,5 +6595,111 @@ function renderFilamentosList() {
                 renderFilamentosList();
             });
         });
+    });
+}
+
+function updateSelectedOrcamentosCount() {
+    const count = selectedOrcamentos.size;
+    const countEl = document.getElementById('selected-count-orcamentos');
+    const btn = document.getElementById('gerar-comprovante-orcamentos-btn');
+    if (countEl) countEl.textContent = `${count} selecionado${count !== 1 ? 's' : ''}`;
+    if (btn) btn.disabled = count === 0;
+}
+
+let _budgetComprovanteList = [];
+
+function generateBudgetComprovante() {
+    if (selectedOrcamentos.size === 0) {
+        showToast('Selecione pelo menos um orçamento.', 'error');
+        return;
+    }
+    const selected = savedBudgets.filter(b => selectedOrcamentos.has(b.id));
+    if (selected.length === 0) {
+        showToast('Orçamentos selecionados não encontrados.', 'error');
+        return;
+    }
+    _budgetComprovanteList = selected;
+    openModal('modal-selecionar-cliente-orcamento');
+}
+
+function confirmarClienteEProceed() {
+    const select = document.getElementById('select-cliente-comprovante');
+    const clienteName = select?.value || '';
+    if (!clienteName) {
+        showToast('Selecione um cliente.', 'error');
+        return;
+    }
+    closeModal('modal-selecionar-cliente-orcamento');
+    toggleLoading(true);
+
+    const logoImg = localStorage.getItem('companyLogo');
+    const itemsHtml = _budgetComprovanteList.map(b => `
+        <div style="display:flex;justify-content:space-between;font-size:14px;padding:8px 0;border-bottom:1px solid #eee;">
+            <span>${b.produto}</span>
+            <span style="font-weight:600;">${formatCurrency(b.precoFinal)}</span>
+        </div>
+    `).join('');
+
+    const totalGeral = _budgetComprovanteList.reduce((s, b) => s + b.precoFinal, 0);
+
+    const receiptHTML = `
+        <div style="width:380px;padding:32px 24px;background:#fff;font-family:Arial,sans-serif;color:#000;">
+            ${logoImg ? `<div style="text-align:center;"><img src="${logoImg}" style="max-width:140px;max-height:70px;margin:0 auto 20px;display:block;"></div>` : ''}
+            <div style="text-align:center;font-size:16px;font-weight:700;margin-bottom:20px;border-bottom:2px dashed #ccc;padding-bottom:12px;">COMPROVANTE DE ORÇAMENTO</div>
+            <p style="font-size:13px;margin:4px 0 16px;"><strong>Cliente:</strong> ${clienteName}</p>
+            ${itemsHtml}
+            <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:700;margin-top:16px;padding-top:12px;border-top:2px solid #333;">
+                <span>TOTAL</span>
+                <span>${formatCurrency(totalGeral)}</span>
+            </div>
+            <div style="text-align:center;font-size:11px;color:#999;margin-top:24px;border-top:1px dashed #ccc;padding-top:16px;">
+                Obrigado pela preferência!
+            </div>
+        </div>
+    `;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;top:0;left:-9999px;z-index:99999;';
+    tempDiv.innerHTML = receiptHTML;
+    document.body.appendChild(tempDiv);
+
+    const img = tempDiv.querySelector('img');
+    if (img) {
+        let done = false;
+        const start = () => {
+            if (done) return;
+            done = true;
+            renderComprovanteUnico(tempDiv);
+        };
+        img.onload = start;
+        img.onerror = start;
+        if (img.complete) start();
+    } else {
+        renderComprovanteUnico(tempDiv);
+    }
+}
+
+function renderComprovanteUnico(tempDiv) {
+    html2canvas(tempDiv.firstElementChild, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        allowTaint: true,
+        logging: false
+    }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `orcamentos-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Comprovante gerado com sucesso!', 'success');
+    }).catch(err => {
+        console.error('Erro ao gerar imagem:', err);
+        showToast('Erro ao gerar imagem.', 'error');
+    }).finally(() => {
+        document.body.removeChild(tempDiv);
+        toggleLoading(false);
     });
 }

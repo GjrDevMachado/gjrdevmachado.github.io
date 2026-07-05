@@ -1320,6 +1320,16 @@
                 <button id="historico-todos-btn" class="border border-[var(--border-color)] px-4 py-2 rounded text-sm hover:bg-[var(--bg-tertiary)]">Todos</button>
                 <input type="text" id="historico-search-input" placeholder="Pesquisar..." class="border rounded p-2 bg-[var(--bg-tertiary)] text-sm flex-1 min-w-[150px]">
             </div>
+            <div class="flex items-center gap-3 mb-3 flex-shrink-0">
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" id="select-all-orcamentos" class="w-4 h-4 text-[var(--primary-600)] border-gray-300 rounded focus:ring-[var(--primary-500)]">
+                    <span class="font-medium">Selecionar Todos</span>
+                </label>
+                <span id="selected-count-orcamentos" class="text-sm text-[var(--text-tertiary)]">0 selecionados</span>
+                <button id="gerar-comprovante-orcamentos-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fas fa-file-image mr-1"></i> Gerar Comprovante(s) PNG
+                </button>
+            </div>
             <div id="historico-orcamentos-summary" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
             <div id="historico-orcamentos-list" class="flex-grow overflow-y-auto"></div>
         </div>
@@ -1332,6 +1342,18 @@
             <div class="flex justify-end gap-3 mt-4 no-print">
                 <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
                 <button id="imprimir-orcamento-detalhes-btn" class="px-4 py-2 rounded bg-blue-600 text-white">Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-selecionar-cliente-orcamento" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-sm rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Selecionar Cliente</h3>
+            <p class="text-sm text-[var(--text-secondary)] mb-3">Escolha o cliente para o comprovante de orçamento:</p>
+            <select id="select-cliente-comprovante" class="w-full border rounded p-2 bg-[var(--bg-secondary)] mb-4"></select>
+            <div class="flex justify-end gap-3">
+                <button class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                <button id="confirmar-cliente-comprovante-btn" class="px-4 py-2 rounded bg-green-600 text-white font-bold hover:bg-green-700">Confirmar</button>
             </div>
         </div>
     </div>

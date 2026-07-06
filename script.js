@@ -4234,6 +4234,12 @@ function getBaseMode(modo) {
     return modo;
 }
 
+function calcPrecoSugerido(custo, margem, taxa, taxaFixa, isMp) {
+    const markupPct = margem / 100;
+    if (taxa >= 100) return 0;
+    return (custo * (1 + markupPct) + taxaFixa) / (1 - taxa / 100);
+}
+
 function updateMarketplaceUI() {
     const modo = document.getElementById('orc-modo-calculo');
     const marketplaceCheck = document.getElementById('orc-marketplace-check');
@@ -4281,7 +4287,6 @@ function toggleOrcamentoMode() {
         if (tempoGastoGroup) tempoGastoGroup.style.display = 'none';
         if (valorHoraGroup) valorHoraGroup.style.display = 'none';
         document.getElementById('orc-tempo-gasto').value = '0';
-        document.getElementById('orc-valor-hora').value = '0';
     } else {
         if (tempoGastoGroup) tempoGastoGroup.style.display = '';
         if (valorHoraGroup) valorHoraGroup.style.display = '';
@@ -4773,7 +4778,7 @@ function calculateBudget() {
     if (baseModoCalc === 'impressao3d') {
         const total3d = calc3d();
         custoTotal = total3d;
-        precoSugerido = taxa >= 100 ? 0 : (total3d * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
+        precoSugerido = calcPrecoSugerido(total3d, margem, taxa, taxaFixa, isMp);
     } else if (baseModoCalc === 'misto') {
         const custoMateriaisGrafica = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
         const custoMOGrafica = (tempoGasto / 60) * valorHora;
@@ -4816,11 +4821,11 @@ function calculateBudget() {
         custoFixo = custoFixoGrafica + custoFixoImpressao;
         const totalMisto = custoMateriaisGrafica + custoMOGrafica + custoFilamento + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
         custoTotal = totalMisto;
-        precoSugerido = taxa >= 100 ? 0 : (totalMisto * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
+        precoSugerido = calcPrecoSugerido(totalMisto, margem, taxa, taxaFixa, isMp);
     } else {
         const totalGrafica = calcGrafica();
         custoTotal = totalGrafica;
-        precoSugerido = taxa >= 100 ? 0 : (totalGrafica * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
+        precoSugerido = calcPrecoSugerido(totalGrafica, margem, taxa, taxaFixa, isMp);
     }
 
     const precoFinalInput = document.getElementById('orc-result-preco-final');
@@ -4835,13 +4840,13 @@ function calculateBudget() {
     const custoMarketplace = isMp ? (precoBaseMp * taxa / 100 + taxaFixa) : 0;
     const custoComTaxa = custoTotal + custoMarketplace;
     const valorRecebido = precoBaseMp - custoMarketplace;
-    const lucro = isMp ? (valorRecebido - custoTotal) : (precoFinal - custoTotal);
-    const custoUnidade = custoComTaxa / qtd;
+    const lucro = valorRecebido - custoTotal;
+    const custoUnidade = custoTotal / qtd;
     const vendaUnidade = precoFinal / qtd;
     const lucroUnidade = lucro / qtd;
     const precoExibido = precoFinal > 0 ? precoFinal : precoSugerido;
-    const markupFator = custoComTaxa > 0 ? (lucro / custoComTaxa) * 100 : 0;
-    const margemLucro = precoExibido > 0 ? (lucro / precoExibido) * 100 : 0;
+    const markupFator = custoTotal > 0 ? (lucro / custoTotal) * 100 : 0;
+    const margemLucro = valorRecebido > 0 ? (lucro / valorRecebido) * 100 : 0;
 
     document.getElementById('orc-result-materiais').textContent = formatCurrency(custoMateriais);
     document.getElementById('orc-result-maquinas').textContent = formatCurrency(custoMaquinas);
@@ -5080,6 +5085,7 @@ async function saveBudget() {
     const custoFixoHora = totalFixos / (horasDia * diasMes);
     const modo = document.getElementById('orc-modo-calculo').value;
     const baseModoCalc2 = getBaseMode(modo);
+    const isMp = isMarketplaceMode(modo);
     let custoMateriais, custoMaquinas, custoMO, custoFixo, custoTotal, precoSugerido;
     if (baseModoCalc2 === 'impressao3d') {
         const custoMaquinasLoc = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
@@ -5153,29 +5159,29 @@ async function saveBudget() {
         custoMO = custoMOGrafica;
         custoFixo = custoFixoGrafica + custoFixoImpressao;
         custoTotal = custoMateriaisGrafica + custoMOGrafica + custoFilamento + custoMaquinas + custoFalhas + custoAcabamento + custoFixacaoTotal + custoROI + custoFixo;
-        precoSugerido = taxa >= 100 ? 0 : (custoTotal * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
+        precoSugerido = calcPrecoSugerido(custoTotal, margem, taxa, taxaFixa, isMp);
     } else {
         custoMateriais = currentBudgetMaterials.reduce((sum, m) => sum + m.quantity * m.unitCost, 0);
         custoMaquinas = currentBudgetMachines.reduce((sum, m) => sum + (m.timeMinutes / 60) * m.costPerHour, 0);
         custoMO = (tempoGasto / 60) * valorHora;
         custoFixo = custoFixoHora * (tempoGasto / 60);
         custoTotal = custoMateriais + custoMaquinas + custoMO + custoFixo;
-        precoSugerido = taxa >= 100 ? 0 : (custoTotal * (1 + margem / 100) + taxaFixa) / (1 - taxa / 100);
+        precoSugerido = calcPrecoSugerido(custoTotal, margem, taxa, taxaFixa, isMp);
     }
     const rawVal = precoFinalInput ? precoFinalInput.value.replace(',', '.') : '';
     const precoFinalCalc = precoFinalInput && rawVal !== '' && !isNaN(parseFloat(rawVal)) ? parseFloat(rawVal) : precoSugerido;
     const precoFinal = isKit ? precoKit : precoFinalCalc;
-    const isMp = isMarketplaceMode(modo);
     const precoBaseMp = precoFinal > 0 ? precoFinal : precoSugerido;
     const custoMarketplace = isMp ? (precoBaseMp * taxa / 100 + taxaFixa) : 0;
-    const lucro = isMp ? (precoBaseMp - custoMarketplace - custoTotal) : (precoFinal - custoTotal);
+    const valorRecebido = precoBaseMp - custoMarketplace;
+    const lucro = valorRecebido - custoTotal;
 
     const tempoImpressaoFinal = getTempoImpressaoMin();
     let tempoGastoFinal = tempoGasto;
     let valorHoraFinal = valorHora;
     if (baseModoCalc2 === 'impressao3d') {
         tempoGastoFinal = tempoImpressaoFinal;
-        valorHoraFinal = 0;
+        valorHoraFinal = valorHora;
     }
     const budgetId = editingBudgetId || Date.now();
     const produtoId = parseInt(document.getElementById('orc-produto-id').value) || null;
@@ -5297,6 +5303,18 @@ async function saveBudget() {
         console.error('Erro ao salvar orçamento no Supabase:', sbError);
         console.error('Detalhes completos:', JSON.stringify(sbError, null, 2));
         showToast('Erro ao salvar no banco: ' + (sbError.message || sbError.details || sbError.code || 'erro desconhecido'), 'error');
+        // salva localmente mesmo com erro no banco
+        if (editingBudgetId) {
+            const idx = savedBudgets.findIndex(b => b.id === editingBudgetId);
+            if (idx !== -1) savedBudgets[idx] = budget;
+            else savedBudgets.push(budget);
+        } else {
+            savedBudgets.push(budget);
+        }
+        saveOrcamentoData();
+        editingBudgetId = null;
+        document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
+        resetBudgetForm();
         return;
     }
 

@@ -641,23 +641,7 @@
                             <input type="number" name="filamentoPreco" placeholder="Preço por kg (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
                             <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Adicionar Filamento</button>
                         </div>
-                        <details class="text-sm">
-                            <summary class="cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs"><i class="fas fa-clock mr-1"></i> Opções de Tempo de Impressão</summary>
-                            <div class="mt-2 space-y-2" id="add-tempo-opcoes-container">
-                                <div class="flex gap-2 items-center">
-                                    <input type="text" name="tempoLabel0" placeholder="Rótulo" class="add-tempo-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                                    <input type="number" name="tempoMin0" placeholder="Minutos" min="1" class="add-tempo-min w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                                </div>
-                                <div class="flex gap-2 items-center">
-                                    <input type="text" name="tempoLabel1" placeholder="Rótulo" class="add-tempo-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                                    <input type="number" name="tempoMin1" placeholder="Minutos" min="1" class="add-tempo-min w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                                </div>
-                                <div class="flex gap-2 items-center">
-                                    <input type="text" name="tempoLabel2" placeholder="Rótulo" class="add-tempo-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                                    <input type="number" name="tempoMin2" placeholder="Minutos" min="1" class="add-tempo-min w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                                </div>
-                            </div>
-                        </details>
+
                     </form>
                 </div>
                 <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
@@ -1273,20 +1257,7 @@
                     <input type="text" id="edit-filamento-nome" placeholder="Nome do Filamento" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
                     <input type="number" id="edit-filamento-preco" placeholder="Preço por kg (R$)" step="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
                 </div>
-                <div class="border-t pt-3 mt-3">
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="text-sm font-medium">Opções de Tempo de Impressão</label>
-                        <button type="button" id="add-tempo-opcao-btn" class="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"><i class="fas fa-plus"></i> Adicionar</button>
-                    </div>
-                    <div id="tempo-opcoes-list" class="space-y-2 max-h-40 overflow-y-auto">
-                        <div class="flex gap-2 items-center tempo-opcao-row">
-                            <input type="text" placeholder="Rótulo" class="tempo-opcao-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                            <input type="number" placeholder="Minutos" min="1" class="tempo-opcao-minutos w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                            <button type="button" class="remove-tempo-opcao-btn text-red-500 hover:text-red-700 text-xs p-1"><i class="fas fa-times"></i></button>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">Defina opções de tempo para seleção rápida no orçamento.</p>
-                </div>
+
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
                     <button type="submit" class="px-4 py-2 rounded bg-purple-600 text-white">Salvar</button>

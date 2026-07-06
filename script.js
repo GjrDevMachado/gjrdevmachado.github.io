@@ -50,6 +50,18 @@ async function loadOrcamentoDataFromSupabase() {
             }));
         }
 
+        const { data: filamentosData } = await supabaseClient.from('filamentos').select('*');
+        if (filamentosData && filamentosData.length > 0) {
+            filamentCatalog = filamentosData.map(f => ({
+                id: f.id, name: f.nome, priceKg: parseFloat(f.preco_kg)
+            }));
+        } else {
+            const saved = localStorage.getItem('orcamentoFilaments');
+            if (saved) {
+                try { filamentCatalog = JSON.parse(saved); } catch (e) {}
+            }
+        }
+
         const { data: orcamentosData } = await supabaseClient.from('orcamentos').select('*');
         if (orcamentosData && orcamentosData.length > 0) {
             savedBudgets = orcamentosData.map(b => ({
@@ -3859,26 +3871,18 @@ function addEventListeners() {
 // ===================================================================================
 let machines = [];
 let supplyCatalog = [];
-function getDefaultTimeOptions() {
-    return [
-        { label: 'Rápido', minutes: 120 },
-        { label: 'Normal', minutes: 240 },
-        { label: 'Qualidade', minutes: 420 }
-    ];
-}
-
 let filamentCatalog = [
-    { id: 1, name: 'PLA', priceKg: 125, timeOptions: getDefaultTimeOptions() },
-    { id: 2, name: 'PETG', priceKg: 75, timeOptions: getDefaultTimeOptions() },
-    { id: 3, name: 'ABS', priceKg: 90, timeOptions: getDefaultTimeOptions() },
-    { id: 4, name: 'ABS Comum', priceKg: 60, timeOptions: getDefaultTimeOptions() },
-    { id: 5, name: 'ABS Barato', priceKg: 45, timeOptions: getDefaultTimeOptions() },
-    { id: 6, name: 'Nylon', priceKg: 150, timeOptions: getDefaultTimeOptions() },
-    { id: 7, name: 'ABS Wood', priceKg: 110, timeOptions: getDefaultTimeOptions() },
-    { id: 8, name: 'PLA Silk', priceKg: 150, timeOptions: getDefaultTimeOptions() },
-    { id: 9, name: 'TPU', priceKg: 160, timeOptions: getDefaultTimeOptions() },
-    { id: 10, name: 'PC', priceKg: 180, timeOptions: getDefaultTimeOptions() },
-    { id: 11, name: 'Outro...', priceKg: 0, timeOptions: getDefaultTimeOptions() }
+    { id: 1, name: 'PLA', priceKg: 125 },
+    { id: 2, name: 'PETG', priceKg: 75 },
+    { id: 3, name: 'ABS', priceKg: 90 },
+    { id: 4, name: 'ABS Comum', priceKg: 60 },
+    { id: 5, name: 'ABS Barato', priceKg: 45 },
+    { id: 6, name: 'Nylon', priceKg: 150 },
+    { id: 7, name: 'ABS Wood', priceKg: 110 },
+    { id: 8, name: 'PLA Silk', priceKg: 150 },
+    { id: 9, name: 'TPU', priceKg: 160 },
+    { id: 10, name: 'PC', priceKg: 180 },
+    { id: 11, name: 'Outro...', priceKg: 0 }
 ];
 let savedBudgets = [];
 let currentBudgetMaterials = [];
@@ -3889,6 +3893,7 @@ let orcamentoSelectType = '';
 let orcamentoSelectData = null;
 let orcPrecoFinalChanged = false;
 let selectedOrcamentos = new Set();
+let orcamentoSelectChecked = new Set();
 
 function loadOrcamentoData() {
     try {
@@ -3987,25 +3992,28 @@ function getTempoImpressaoMin() {
     return currentBudgetFilaments.reduce((sum, f) => sum + (f.selectedTimeMinutes || 0), 0);
 }
 
-function addFilamento(name, priceKg, timeOptions) {
+function addFilamento(name, priceKg) {
     if (!name || !priceKg) return;
     const maxId = filamentCatalog.reduce((max, f) => Math.max(max, f.id), 0);
-    filamentCatalog.push({ id: maxId + 1, name, priceKg: parseFloat(priceKg), timeOptions: timeOptions || [] });
+    filamentCatalog.push({ id: maxId + 1, name, priceKg: parseFloat(priceKg) });
     saveOrcamentoFilaments();
+    syncFilamentosToSupabase();
     populateFilamentoSelect();
 }
 
-function editFilamento(id, name, priceKg, timeOptions) {
+function editFilamento(id, name, priceKg) {
     const idx = filamentCatalog.findIndex(f => f.id === id);
     if (idx === -1) return;
-    filamentCatalog[idx] = { id, name, priceKg: parseFloat(priceKg), timeOptions: timeOptions || [] };
+    filamentCatalog[idx] = { id, name, priceKg: parseFloat(priceKg) };
     saveOrcamentoFilaments();
+    syncFilamentosToSupabase();
     populateFilamentoSelect();
 }
 
 function deleteFilamento(id) {
     filamentCatalog = filamentCatalog.filter(f => f.id !== id);
     saveOrcamentoFilaments();
+    syncFilamentosToSupabase();
     populateFilamentoSelect();
 }
 
@@ -4126,6 +4134,29 @@ async function syncSuppliesToSupabase() {
     }
 }
 
+async function syncFilamentosToSupabase() {
+    try {
+        const { error: delError } = await supabaseClient.from('filamentos').delete().neq('id', 0);
+        if (delError) {
+            console.error('Erro ao limpar filamentos no Supabase:', delError.message);
+            return false;
+        }
+        for (const f of filamentCatalog) {
+            const { error } = await supabaseClient.from('filamentos').insert([{
+                id: f.id, nome: f.name, preco_kg: f.priceKg
+            }]);
+            if (error) {
+                console.error('Erro ao inserir filamento no Supabase:', error.message);
+                return false;
+            }
+        }
+        return true;
+    } catch (e) {
+        console.error('Erro sync filamentos:', e.message);
+        return false;
+    }
+}
+
 async function syncRascunhosToSupabase() {
     try {
         const { error: delError } = await supabaseClient.from('rascunhos').delete().neq('id', 0);
@@ -4182,9 +4213,10 @@ async function syncAllToSupabase() {
     console.log('Rascunhos para sync:', rascunhos.length);
     const machinesOk = await syncMachinesToSupabase();
     const suppliesOk = await syncSuppliesToSupabase();
+    const filamentosOk = await syncFilamentosToSupabase();
     const budgetsOk = await syncBudgetsToSupabase();
     const rascunhosOk = await syncRascunhosToSupabase();
-    if (machinesOk && suppliesOk && budgetsOk && rascunhosOk) {
+    if (machinesOk && suppliesOk && filamentosOk && budgetsOk && rascunhosOk) {
         showToast('Dados sincronizados com a nuvem!', 'success');
     } else {
         showToast('Sincronização parcial. Execute o SQL no Supabase primeiro.', 'error');
@@ -4830,6 +4862,7 @@ function calculateBudget() {
 function renderOrcamentoSelectList(filter) {
     const list = document.getElementById('orcamento-select-list');
     if (!list) return;
+
     list.innerHTML = '';
 
     const items = orcamentoSelectType === 'material' ? supplyCatalog : (orcamentoSelectType === 'filamento' ? filamentCatalog : machines);
@@ -4853,6 +4886,7 @@ function renderOrcamentoSelectList(filter) {
         checkbox.type = 'checkbox';
         checkbox.className = 'orcamento-select-checkbox w-4 h-4 cursor-pointer';
         checkbox.dataset.index = originalIdx;
+        if (orcamentoSelectChecked.has(originalIdx)) checkbox.checked = true;
 
         const label = document.createElement('span');
         label.className = 'flex-1 cursor-pointer';
@@ -4864,14 +4898,23 @@ function renderOrcamentoSelectList(filter) {
             label.textContent = `${item.name} (${formatCurrency(item.costPerHour)}/h)`;
         }
 
+        const updateCheckedSet = () => {
+            if (checkbox.checked) orcamentoSelectChecked.add(originalIdx);
+            else orcamentoSelectChecked.delete(originalIdx);
+        };
+
         div.appendChild(checkbox);
         div.appendChild(label);
 
         label.addEventListener('click', function() {
             checkbox.checked = !checkbox.checked;
+            updateCheckedSet();
             updateOrcamentoSelectConfirm();
         });
-        checkbox.addEventListener('change', updateOrcamentoSelectConfirm);
+        checkbox.addEventListener('change', function() {
+            updateCheckedSet();
+            updateOrcamentoSelectConfirm();
+        });
 
         list.appendChild(div);
     });
@@ -4880,10 +4923,9 @@ function renderOrcamentoSelectList(filter) {
 }
 
 function updateOrcamentoSelectConfirm() {
-    const checked = document.querySelectorAll('.orcamento-select-checkbox:checked');
     const confirmBtn = document.getElementById('orcamento-select-confirm');
     if (!confirmBtn) return;
-    if (checked.length > 0) {
+    if (orcamentoSelectChecked.size > 0) {
         confirmBtn.disabled = false;
         confirmBtn.className = 'px-4 py-2 rounded bg-[var(--primary-600)] text-white';
     } else {
@@ -4899,6 +4941,7 @@ function openOrcamentoSelectModal(type) {
 
     orcamentoSelectType = type;
     orcamentoSelectData = null;
+    orcamentoSelectChecked.clear();
     if (searchInput) searchInput.value = '';
 
     const qtyGroup = document.getElementById('orcamento-qty-group');
@@ -4937,17 +4980,15 @@ function openOrcamentoSelectModal(type) {
 }
 
 document.getElementById('orcamento-select-confirm').addEventListener('click', function() {
-    const checked = document.querySelectorAll('.orcamento-select-checkbox:checked');
     const items = orcamentoSelectType === 'material' ? supplyCatalog : (orcamentoSelectType === 'filamento' ? filamentCatalog : machines);
 
-    if (checked.length === 0) {
+    if (orcamentoSelectChecked.size === 0) {
         showToast('Selecione ao menos um item!', 'error');
         return;
     }
 
     let count = 0;
-    checked.forEach(cb => {
-        const idx = parseInt(cb.dataset.index);
+    orcamentoSelectChecked.forEach(idx => {
         const item = items[idx];
         if (!item) return;
 
@@ -4974,8 +5015,7 @@ document.getElementById('orcamento-select-confirm').addEventListener('click', fu
                 name: item.name,
                 weight: 0,
                 priceKg: item.priceKg,
-                selectedTimeMinutes: 0,
-                timeOptions: item.timeOptions ? JSON.parse(JSON.stringify(item.timeOptions)) : []
+                selectedTimeMinutes: 0
             });
         }
         count++;
@@ -5676,8 +5716,7 @@ function loadBudget(id) {
             name: fil ? fil.name : 'Desconhecido',
             weight: budget.peso || 0,
             priceKg: fil ? fil.priceKg : 0,
-            selectedTimeMinutes: 0,
-            timeOptions: fil && fil.timeOptions ? JSON.parse(JSON.stringify(fil.timeOptions)) : []
+            selectedTimeMinutes: 0
         }];
     } else {
         currentBudgetFilaments = [];
@@ -6444,17 +6483,9 @@ function addOrcamentoEventListeners() {
     if (addFilamentoFormView) {
         addFilamentoFormView.addEventListener('submit', function(e) {
             e.preventDefault();
-            const timeOptions = [];
-            document.querySelectorAll('#add-tempo-opcoes-container .add-tempo-label').forEach((input, i) => {
-                const label = input.value.trim();
-                const minInput = document.querySelectorAll('#add-tempo-opcoes-container .add-tempo-min')[i];
-                const minutes = minInput ? parseInt(minInput.value) : 0;
-                if (label && minutes > 0) timeOptions.push({ label, minutes });
-            });
             addFilamento(
                 this.elements.filamentoNome.value,
-                this.elements.filamentoPreco.value,
-                timeOptions.length > 0 ? timeOptions : undefined
+                this.elements.filamentoPreco.value
             );
             this.reset();
             renderFilamentosList();
@@ -6468,13 +6499,7 @@ function addOrcamentoEventListeners() {
             const id = parseInt(document.getElementById('edit-filamento-id').value);
             const nome = document.getElementById('edit-filamento-nome').value;
             const preco = document.getElementById('edit-filamento-preco').value;
-            const timeOptions = [];
-            document.querySelectorAll('#tempo-opcoes-list .tempo-opcao-row').forEach(row => {
-                const label = row.querySelector('.tempo-opcao-label').value.trim();
-                const minutes = parseInt(row.querySelector('.tempo-opcao-minutos').value);
-                if (label && minutes > 0) timeOptions.push({ label, minutes });
-            });
-            editFilamento(id, nome, preco, timeOptions);
+            editFilamento(id, nome, preco);
             closeModal('modal-edit-filamento');
             renderFilamentosList();
         });
@@ -6510,10 +6535,8 @@ function renderFilamentosList() {
             <th class="p-2">Filamento</th><th class="p-2 text-right">Preço/kg</th>
             <th class="p-2 text-center">Ações</th></tr></thead><tbody>`;
         filamentCatalog.forEach(f => {
-            const timeCount = f.timeOptions ? f.timeOptions.length : 0;
-            const timeBadge = timeCount > 0 ? `<span class="text-xs text-gray-500 ml-1">(${timeCount} tempos)</span>` : '';
             html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
-                <td class="p-2 font-medium">${f.name}${timeBadge}</td>
+                <td class="p-2 font-medium">${f.name}</td>
                 <td class="p-2 text-right font-semibold text-purple-600">${formatCurrency(f.priceKg)}</td>
                 <td class="p-2 text-center">
                     <button data-id="${f.id}" class="edit-filamento-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button>
@@ -6524,56 +6547,6 @@ function renderFilamentosList() {
         list.innerHTML = html;
     });
 
-    function populateTempoOpcoesList(opcoes) {
-        const list = document.getElementById('tempo-opcoes-list');
-        if (!list) return;
-        list.innerHTML = '';
-        if (!opcoes || opcoes.length === 0) {
-            list.innerHTML = '<p class="text-xs text-gray-500 py-2">Nenhuma opção de tempo cadastrada.</p>';
-            return;
-        }
-        opcoes.forEach(opt => {
-            const row = document.createElement('div');
-            row.className = 'flex gap-2 items-center tempo-opcao-row';
-            row.innerHTML = `
-                <input type="text" value="${opt.label}" placeholder="Rótulo" class="tempo-opcao-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                <input type="number" value="${opt.minutes}" placeholder="Minutos" min="1" class="tempo-opcao-minutos w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                <button type="button" class="remove-tempo-opcao-btn text-red-500 hover:text-red-700 text-xs p-1"><i class="fas fa-times"></i></button>`;
-            list.appendChild(row);
-        });
-        attachTempoOpcaoRemoveListeners();
-    }
-
-    function attachTempoOpcaoRemoveListeners() {
-        document.querySelectorAll('.remove-tempo-opcao-btn').forEach(btn => {
-            btn.removeEventListener('click', handleRemoveTempoOpcao);
-            btn.addEventListener('click', handleRemoveTempoOpcao);
-        });
-    }
-
-    function handleRemoveTempoOpcao(e) {
-        const row = e.target.closest('.tempo-opcao-row');
-        if (row) row.remove();
-    }
-
-    const addTempoOpcaoBtn = document.getElementById('add-tempo-opcao-btn');
-    if (addTempoOpcaoBtn) {
-        addTempoOpcaoBtn.addEventListener('click', function() {
-            const list = document.getElementById('tempo-opcoes-list');
-            if (!list) return;
-            const emptyMsg = list.querySelector('p.text-gray-500');
-            if (emptyMsg) emptyMsg.remove();
-            const row = document.createElement('div');
-            row.className = 'flex gap-2 items-center tempo-opcao-row';
-            row.innerHTML = `
-                <input type="text" placeholder="Rótulo" class="tempo-opcao-label w-24 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                <input type="number" placeholder="Minutos" min="1" class="tempo-opcao-minutos w-20 text-xs border rounded p-1 bg-[var(--bg-secondary)]">
-                <button type="button" class="remove-tempo-opcao-btn text-red-500 hover:text-red-700 text-xs p-1"><i class="fas fa-times"></i></button>`;
-            list.appendChild(row);
-            attachTempoOpcaoRemoveListeners();
-        });
-    }
-
     document.querySelectorAll('.edit-filamento-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const id = parseInt(this.dataset.id);
@@ -6582,7 +6555,6 @@ function renderFilamentosList() {
             document.getElementById('edit-filamento-id').value = f.id;
             document.getElementById('edit-filamento-nome').value = f.name;
             document.getElementById('edit-filamento-preco').value = f.priceKg;
-            populateTempoOpcoesList(f.timeOptions || []);
             openModal('modal-edit-filamento');
         });
     });

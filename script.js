@@ -3761,6 +3761,8 @@ function addEventListeners() {
             loadBudget(parseInt(dataset.id));
             editingBudgetId = parseInt(dataset.id);
             document.getElementById('salvar-orcamento-btn').textContent = 'Atualizar Orçamento';
+        } else if (classList.contains('copy-orcamento-btn')) {
+            copyBudget(parseInt(dataset.id));
         } else if (classList.contains('view-orcamento-btn')) {
             viewOrcamentoDetails(parseInt(dataset.id));
         } else if (classList.contains('delete-orcamento-btn')) {
@@ -5754,6 +5756,74 @@ function loadBudget(id) {
     showToast('Orçamento carregado!');
 }
 
+function copyBudget(id) {
+    let budget = savedBudgets.find(b => b.id === id);
+    if (!budget) { showToast('Orçamento não encontrado!', 'error'); return; }
+    resetBudgetForm();
+    document.getElementById('orc-data').value = localDateString();
+    const clienteSelect = document.getElementById('orc-cliente');
+    if (clienteSelect) clienteSelect.value = budget.clienteId || '';
+    const kitCheck = document.getElementById('orc-kit-check');
+    if (budget.isKit) {
+        const originalProduto = budget.produto.startsWith('KIT - ') ? budget.produto.slice(5) : budget.produto;
+        document.getElementById('orc-produto').value = originalProduto;
+        kitCheck.checked = true;
+    } else {
+        document.getElementById('orc-produto').value = budget.produto;
+        kitCheck.checked = false;
+    }
+    document.getElementById('orc-produto-id').value = budget.produtoId || '';
+    updateVincularUI();
+    document.getElementById('orc-quantidade').value = budget.quantidade;
+    document.getElementById('orc-tempo-gasto').value = budget.tempoGasto;
+    document.getElementById('orc-valor-hora').value = budget.valorHora;
+    document.getElementById('orc-margem').value = budget.margem;
+    document.getElementById('orc-taxa-plataforma').value = budget.taxa;
+    document.getElementById('orc-taxa-fixa').value = budget.taxaFixa || 0;
+    document.getElementById('orc-aluguel').value = budget.aluguel;
+    document.getElementById('orc-internet').value = budget.internet;
+    document.getElementById('orc-mei').value = budget.mei;
+    document.getElementById('orc-outros').value = budget.outros;
+    document.getElementById('orc-horas-dia').value = budget.horasDia;
+    document.getElementById('orc-dias-mes').value = budget.diasMes;
+    const savedMode = budget.modoCalculo === 'geral' ? 'grafica' : (budget.modoCalculo || 'grafica');
+    document.getElementById('orc-modo-calculo').value = savedMode;
+    document.getElementById('orc-falhas').value = budget.falhas || 10;
+    document.getElementById('orc-acabamento').value = budget.acabamento || 10;
+    document.getElementById('orc-fixacao').value = budget.fixacao || 0.10;
+    document.getElementById('orc-roi-meses').value = budget.roiMeses || 12;
+    document.getElementById('orc-maquinas-ativas').value = budget.maquinasAtivas || 1;
+    if (budget.custoFixo3D !== undefined) document.getElementById('orc-custo-fixo-3d').value = budget.custoFixo3D;
+    if (budget.precoLuz !== undefined) document.getElementById('orc-preco-luz').value = budget.precoLuz;
+    if (budget.horasDia3d !== undefined) document.getElementById('orc-horas-dia-3d').value = budget.horasDia3d;
+    if (budget.diasMes3d !== undefined) document.getElementById('orc-dias-mes-3d').value = budget.diasMes3d;
+    currentBudgetMaterials = budget.materials ? JSON.parse(JSON.stringify(budget.materials)) : [];
+    currentBudgetMachines = budget.machines ? JSON.parse(JSON.stringify(budget.machines)) : [];
+    if (budget.filamentos && budget.filamentos.length > 0) {
+        currentBudgetFilaments = JSON.parse(JSON.stringify(budget.filamentos));
+    } else if (budget.peso && budget.filamentoId) {
+        const fil = filamentCatalog.find(f => f.id === budget.filamentoId);
+        currentBudgetFilaments = [{
+            filamentId: budget.filamentoId,
+            name: fil ? fil.name : 'Desconhecido',
+            weight: budget.peso || 0,
+            priceKg: fil ? fil.priceKg : 0,
+            selectedTimeMinutes: 0
+        }];
+    } else {
+        currentBudgetFilaments = [];
+    }
+    renderOrcamentoMaterials();
+    renderOrcamentoMachines();
+    renderOrcamentoFilamentos();
+    toggleOrcamentoMode();
+    calculateBudget();
+    editingBudgetId = null;
+    document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
+    closeModal('modal-historico-orcamentos');
+    showToast('Orçamento copiado! Edite e salve como novo.');
+}
+
 function deleteBudget(id) {
     openConfirmationModal('Excluir Orçamento', 'Tem certeza que deseja excluir este orçamento?', async () => {
         let sbError;
@@ -5944,6 +6014,7 @@ function renderHistoricoOrcamentos() {
             <td class="p-2 text-right text-purple-600">${formatCurrency(taxaTotal)}</td>
             <td class="p-2 text-center whitespace-nowrap">
                 <button data-id="${b.id}" class="edit-orcamento-btn text-blue-500 hover:text-blue-700 p-1" title="Editar"><i class="fas fa-edit"></i></button>
+                <button data-id="${b.id}" class="copy-orcamento-btn text-purple-500 hover:text-purple-700 p-1" title="Copiar"><i class="fas fa-copy"></i></button>
                 <button data-id="${b.id}" class="view-orcamento-btn text-green-500 hover:text-green-700 p-1" title="Detalhes"><i class="fas fa-eye"></i></button>
                 <button data-id="${b.id}" class="save-produto-btn text-yellow-600 hover:text-yellow-800 p-1" title="Salvar como Produto"><i class="fas fa-box"></i></button>
                 <button data-id="${b.id}" class="delete-orcamento-btn text-red-500 hover:text-red-700 p-1" title="Excluir"><i class="fas fa-trash"></i></button>

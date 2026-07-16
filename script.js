@@ -3957,28 +3957,34 @@ async function syncConfigToSupabase() {
     try {
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (!user) return;
-        const { data: existing } = await supabaseClient.from('user_settings').select('id').eq('user_id', user.id).maybeSingle();
-        if (existing) {
-            await supabaseClient.from('user_settings').update({ settings_json: config, updated_at: new Date().toISOString() }).eq('user_id', user.id);
-        } else {
-            await supabaseClient.from('user_settings').insert({ user_id: user.id, settings_json: config });
-        }
-    } catch (e) { console.error('Erro ao salvar config no Supabase:', e); }
+        const { error } = await supabaseClient.from('user_settings').upsert({
+            user_id: user.id,
+            settings_json: config,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+        if (error) throw error;
+    } catch (e) {
+        console.error('Erro ao salvar config no Supabase:', e);
+        showToast('Erro ao salvar configuracoes: ' + (e.message || e), 'error');
+    }
 }
 
 async function loadConfigFromSupabase() {
     try {
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (!user) return;
-        const { data } = await supabaseClient.from('user_settings').select('settings_json').eq('user_id', user.id).maybeSingle();
+        const { data, error } = await supabaseClient.from('user_settings').select('settings_json').eq('user_id', user.id).maybeSingle();
+        if (error) throw error;
         if (data && data.settings_json) {
-            const config = data.settings_json;
+            const config = typeof data.settings_json === 'string' ? JSON.parse(data.settings_json) : data.settings_json;
             ORC_CONFIG_KEYS.forEach(id => {
                 const el = document.getElementById(id);
                 if (el && config[id] !== undefined) el.value = config[id];
             });
         }
-    } catch (e) { console.error('Erro ao carregar config do Supabase:', e); }
+    } catch (e) {
+        console.error('Erro ao carregar config do Supabase:', e);
+    }
 }
 
 function saveOrcamentoFilaments() {

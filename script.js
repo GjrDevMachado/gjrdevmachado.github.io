@@ -40,6 +40,7 @@ async function loadOrcamentoDataFromSupabase() {
                 yearsOfUse: parseFloat(m.anos_uso), hoursPerDay: parseFloat(m.horas_dia),
                 depreciation: parseFloat(m.depreciacao) || 0, costPerHour: parseFloat(m.custo_hora)
             }));
+            orcamentoMachinesFromDB = true;
         }
 
         const { data: insumosData } = await supabaseClient.from('insumos_orcamento').select('*');
@@ -48,6 +49,7 @@ async function loadOrcamentoDataFromSupabase() {
                 id: s.id, name: s.nome, packagePrice: parseFloat(s.preco_pacote),
                 packageQuantity: parseFloat(s.qtd_pacote), unitCost: parseFloat(s.custo_unitario)
             }));
+            orcamentoSuppliesFromDB = true;
         }
 
         const { data: filamentosData } = await supabaseClient.from('filamentos').select('*');
@@ -55,6 +57,7 @@ async function loadOrcamentoDataFromSupabase() {
             filamentCatalog = filamentosData.map(f => ({
                 id: f.id, name: f.nome, priceKg: parseFloat(f.preco_kg)
             }));
+            orcamentoFilamentsFromDB = true;
         } else {
             const saved = localStorage.getItem('orcamentoFilaments');
             if (saved) {
@@ -113,6 +116,7 @@ async function loadOrcamentoDataFromSupabase() {
                 b.horasDia3d = parseFloat(f.horas_dia_3d) || 8;
                 b.diasMes3d = parseFloat(f.dias_mes_3d) || 22;
             });
+            orcamentoBudgetsFromDB = true;
         }
     } catch (error) {
         console.error("Erro ao carregar dados de orçamento do Supabase:", error);
@@ -181,6 +185,7 @@ async function loadRascunhosFromSupabase() {
                 if (f.horas_dia_3d !== undefined) r.horasDia3d = parseFloat(f.horas_dia_3d);
                 if (f.dias_mes_3d !== undefined) r.diasMes3d = parseFloat(f.dias_mes_3d);
             });
+            orcamentoRascunhosFromDB = true;
         }
     } catch (error) {
         console.error("Erro ao carregar rascunhos do Supabase:", error);
@@ -2885,6 +2890,12 @@ async function importAllData(event) {
 
                     if (importedData.filamentCatalog) {
                         localStorage.setItem('orcamentoFilaments', JSON.stringify(importedData.filamentCatalog));
+                        if (importedData.filamentCatalog.length > 0) {
+                            const fils = importedData.filamentCatalog.map(f => ({
+                                id: f.id, nome: f.name, preco_kg: f.priceKg
+                            }));
+                            await supabaseClient.from('filamentos').upsert(fils);
+                        }
                     }
                     if (importedData.machines) {
                         localStorage.setItem('orcamentoMachines', JSON.stringify(importedData.machines));
@@ -3886,6 +3897,11 @@ let filamentCatalog = [
     { id: 10, name: 'PC', priceKg: 180 },
     { id: 11, name: 'Outro...', priceKg: 0 }
 ];
+let orcamentoMachinesFromDB = false;
+let orcamentoSuppliesFromDB = false;
+let orcamentoFilamentsFromDB = false;
+let orcamentoBudgetsFromDB = false;
+let orcamentoRascunhosFromDB = false;
 let savedBudgets = [];
 let currentBudgetMaterials = [];
 let currentBudgetMachines = [];
@@ -3899,16 +3915,26 @@ let orcamentoSelectChecked = new Set();
 
 function loadOrcamentoData() {
     try {
-        const saved = localStorage.getItem('orcamentoMachines');
-        if (saved) machines = JSON.parse(saved);
-        const saved2 = localStorage.getItem('orcamentoSupplies');
-        if (saved2) supplyCatalog = JSON.parse(saved2);
-        const saved3 = localStorage.getItem('orcamentoFilaments');
-        if (saved3) filamentCatalog = JSON.parse(saved3);
-        const saved4 = localStorage.getItem('orcamentoBudgets');
-        if (saved4) savedBudgets = JSON.parse(saved4);
-        const saved5 = localStorage.getItem('orcamentoRascunhos');
-        if (saved5 && rascunhos.length === 0) rascunhos = JSON.parse(saved5);
+        if (!orcamentoMachinesFromDB) {
+            const saved = localStorage.getItem('orcamentoMachines');
+            if (saved) machines = JSON.parse(saved);
+        }
+        if (!orcamentoSuppliesFromDB) {
+            const saved2 = localStorage.getItem('orcamentoSupplies');
+            if (saved2) supplyCatalog = JSON.parse(saved2);
+        }
+        if (!orcamentoFilamentsFromDB) {
+            const saved3 = localStorage.getItem('orcamentoFilaments');
+            if (saved3) filamentCatalog = JSON.parse(saved3);
+        }
+        if (!orcamentoBudgetsFromDB) {
+            const saved4 = localStorage.getItem('orcamentoBudgets');
+            if (saved4) savedBudgets = JSON.parse(saved4);
+        }
+        if (!orcamentoRascunhosFromDB) {
+            const saved5 = localStorage.getItem('orcamentoRascunhos');
+            if (saved5 && rascunhos.length === 0) rascunhos = JSON.parse(saved5);
+        }
     } catch (e) { console.error(e); }
 }
 
@@ -4147,6 +4173,7 @@ async function syncFilamentosToSupabase() {
         const { error: delError } = await supabaseClient.from('filamentos').delete().neq('id', 0);
         if (delError) {
             console.error('Erro ao limpar filamentos no Supabase:', delError.message);
+            showToast('Erro SQL (filamentos): ' + delError.message, 'error');
             return false;
         }
         for (const f of filamentCatalog) {
@@ -4155,12 +4182,14 @@ async function syncFilamentosToSupabase() {
             }]);
             if (error) {
                 console.error('Erro ao inserir filamento no Supabase:', error.message);
+                showToast('Erro SQL (filamentos insert): ' + error.message, 'error');
                 return false;
             }
         }
         return true;
     } catch (e) {
         console.error('Erro sync filamentos:', e.message);
+        showToast('Erro sync filamentos: ' + e.message, 'error');
         return false;
     }
 }
@@ -5420,6 +5449,12 @@ async function saveBudget() {
 }
 
 function resetBudgetForm() {
+    stopAutoSave();
+    const oldId = editingBudgetId;
+    if (oldId) {
+        supabaseClient.from('rascunhos').delete().eq('id', oldId).catch(() => {});
+        rascunhos = rascunhos.filter(r => r.id !== oldId);
+    }
     document.getElementById('orc-produto').value = '';
     document.getElementById('orc-produto-id').value = '';
     updateVincularUI();
@@ -5436,7 +5471,7 @@ function resetBudgetForm() {
     if (taxaFixaInput) taxaFixaInput.disabled = true;
     currentBudgetMaterials = [];
     currentBudgetMachines = [];
-    currentBudgetFilamentos = [];
+    currentBudgetFilaments = [];
     renderOrcamentoMaterials();
     renderOrcamentoMachines();
     renderOrcamentoFilamentos();
@@ -5445,7 +5480,6 @@ function resetBudgetForm() {
     orcPrecoFinalChanged = false;
     editingBudgetId = null;
     lastAutoSaveState = '';
-    if (autoSaveTimeout) { clearTimeout(autoSaveTimeout); autoSaveTimeout = null; }
     document.getElementById('salvar-orcamento-btn').textContent = 'Salvar Orçamento';
     loadOrcamentoAdvancedConfig();
     toggleOrcamentoMode();

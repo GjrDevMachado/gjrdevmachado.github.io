@@ -1913,12 +1913,13 @@ function addPaymentMethodRow(method, amount) {
                     <input type="number" class="pm-installments w-14 border rounded p-1 bg-[var(--bg-secondary)] text-sm" value="1" min="1">
                 </label>
                 <label class="flex items-center gap-1">
-                    <span class="text-[var(--text-secondary)]">Recebido R$:</span>
+                    <span class="text-[var(--text-secondary)]">Valor Final R$:</span>
                     <input type="text" inputmode="decimal" class="pm-received w-24 border rounded p-1 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2).replace('.', ',')}">
                 </label>
-            </div>
-            <div class="pm-fee-display text-red-500 text-xs hidden">
-                Taxa: -R$ 0,00
+                <label class="flex items-center gap-1">
+                    <span class="text-[var(--text-secondary)]">Taxa R$:</span>
+                    <input type="text" inputmode="decimal" class="pm-fee-input w-20 border rounded p-1 bg-[var(--bg-secondary)] text-sm text-right" value="0,00">
+                </label>
             </div>
         </div>
     `;
@@ -1927,18 +1928,23 @@ function addPaymentMethodRow(method, amount) {
     const extras = row.querySelector('.pm-extras');
     const installmentsInput = row.querySelector('.pm-installments');
     const receivedInput = row.querySelector('.pm-received');
-    const feeDisplay = row.querySelector('.pm-fee-display');
+    const taxaInput = row.querySelector('.pm-fee-input');
 
-    const updateFeeDisplay = () => {
-        const amt = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
-        const received = parseFloat(receivedInput.value.replace(',', '.')) || 0;
-        const taxa = Math.max(0, amt - received);
-        if (taxa > 0) {
-            feeDisplay.classList.remove('hidden');
-            feeDisplay.textContent = `Taxa: -${formatCurrency(taxa)}`;
-        } else {
-            feeDisplay.classList.add('hidden');
-        }
+    const fmtVal = v => v.toFixed(2).replace('.', ',');
+    const parseVal = el => parseFloat(el.value.replace(',', '.')) || 0;
+
+    const syncFromReceived = () => {
+        const amt = parseVal(row.querySelector('.pm-amount'));
+        const received = parseVal(receivedInput);
+        taxaInput.value = fmtVal(Math.max(0, amt - received));
+        updatePaymentMethodsTotal();
+    };
+
+    const syncFromTaxa = () => {
+        const amt = parseVal(row.querySelector('.pm-amount'));
+        const taxa = Math.max(0, parseVal(taxaInput));
+        receivedInput.value = fmtVal(Math.max(0, amt - taxa));
+        updatePaymentMethodsTotal();
     };
 
     const toggleExtras = () => {
@@ -1947,19 +1953,15 @@ function addPaymentMethodRow(method, amount) {
         if (isCard && !installmentsInput.value) installmentsInput.value = '1';
         if (!isCard) {
             receivedInput.value = '0,00';
-            feeDisplay.classList.add('hidden');
+            taxaInput.value = '0,00';
         }
     };
 
-    row.querySelector('.pm-amount').addEventListener('input', () => {
-        updatePaymentMethodsTotal();
-        updateFeeDisplay();
-    });
+    row.querySelector('.pm-amount').addEventListener('input', syncFromReceived);
 
-    receivedInput.addEventListener('input', () => {
-        updateFeeDisplay();
-        updatePaymentMethodsTotal();
-    });
+    receivedInput.addEventListener('input', syncFromReceived);
+
+    taxaInput.addEventListener('input', syncFromTaxa);
 
     select.addEventListener('change', () => {
         toggleExtras();

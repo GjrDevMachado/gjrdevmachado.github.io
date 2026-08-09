@@ -758,7 +758,7 @@ function renderReports(period = currentReportPeriod, month, year) {
 
         const paymentMethodSummary = document.getElementById('payment-method-summary');
         if (paymentMethodSummary) {
-            const totals = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0 };
+            const totals = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'Cartão de Débito': 0 };
             salesTransactions.forEach(t => {
                 const effectiveAmount = saleEffectiveAmount(t);
                 const methods = parsePaymentMethods(t.method);
@@ -783,6 +783,10 @@ function renderReports(period = currentReportPeriod, month, year) {
                 <div class="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p class="text-sm text-blue-700 dark:text-blue-300 font-medium">Cartão de Crédito</p>
                     <p class="text-lg font-bold text-blue-600">${formatCurrency(totals['Cartão de Crédito'])}</p>
+                </div>
+                <div class="p-2 bg-violet-50 dark:bg-violet-900/20 rounded-lg border border-violet-200 dark:border-violet-800">
+                    <p class="text-sm text-violet-700 dark:text-violet-300 font-medium">Cartão de Débito</p>
+                    <p class="text-lg font-bold text-violet-600">${formatCurrency(totals['Cartão de Débito'])}</p>
                 </div>
             `;
         }
@@ -923,7 +927,7 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         return false;
     });
     
-    const totalsByMethod = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'total': 0 };
+    const totalsByMethod = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'Cartão de Débito': 0, 'total': 0 };
     
     recebimentos.forEach(t => {
         const methods = parsePaymentMethods(t.method);
@@ -943,7 +947,7 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
     });
     
     let summaryHtml = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <div class="p-4 bg-green-100 rounded-lg text-center shadow">
                 <p class="text-sm font-medium text-green-800">Total Dinheiro</p>
                 <p class="text-2xl font-bold text-green-900">${formatCurrency(totalsByMethod['Dinheiro'])}</p>
@@ -953,8 +957,12 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
                 <p class="text-2xl font-bold text-cyan-900">${formatCurrency(totalsByMethod['Pix'])}</p>
             </div>
             <div class="p-4 bg-blue-100 rounded-lg text-center shadow">
-                <p class="text-sm font-medium text-blue-800">Total Cartão</p>
+                <p class="text-sm font-medium text-blue-800">Total Crédito</p>
                 <p class="text-2xl font-bold text-blue-900">${formatCurrency(totalsByMethod['Cartão de Crédito'])}</p>
+            </div>
+            <div class="p-4 bg-violet-100 rounded-lg text-center shadow">
+                <p class="text-sm font-medium text-violet-800">Total Débito</p>
+                <p class="text-2xl font-bold text-violet-900">${formatCurrency(totalsByMethod['Cartão de Débito'])}</p>
             </div>
             <div class="p-4 bg-gray-200 rounded-lg text-center shadow">
                 <p class="text-sm font-medium text-gray-800">Total Geral Recebido</p>
@@ -987,6 +995,7 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
                 case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
                 case 'Pix': badgeClass = 'badge-pix'; break;
                 case 'Cartão de Crédito': badgeClass = 'badge-credito'; break;
+                case 'Cartão de Débito': badgeClass = 'badge-debito'; break;
                 default: badgeClass = ''; break;
             }
 
@@ -1051,7 +1060,7 @@ function renderCashClosingReport() {
     if(!cashClosingSummary) return;
     const today = new Date(); today.setHours(0,0,0,0);
     const todaysTransactions = transactions.filter(t => new Date(t.date) >= today);
-    const summary = { totalSales: 0, totalCost: 0, byMethod: { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0 } };
+    const summary = { totalSales: 0, totalCost: 0, byMethod: { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'Cartão de Débito': 0 } };
     todaysTransactions.filter(t => t.type === 'venda' && t.status !== 'Não Pago' && !t.reversed).forEach(sale => {
         summary.totalSales += sale.amount;
         summary.totalCost += sale.cost || 0;
@@ -1071,7 +1080,7 @@ function renderCashClosingReport() {
             summary.byMethod[receipt.method] += receipt.amount;
         }
     });
-    cashClosingSummary.innerHTML = `<div class="flex justify-between border-b pb-2 border-[var(--border-color)]"><span class="font-semibold">Total de Vendas Pagas do Dia:</span><span class="font-bold text-[var(--primary-600)]">${formatCurrency(summary.totalSales)}</span></div><div class="flex justify-between"><span class="text-sm">Lucro Líquido (de vendas pagas hoje):</span><span class="text-sm font-semibold text-[var(--secondary-600)]">${formatCurrency(summary.totalSales - summary.totalCost)}</span></div><div class="pt-4 mt-4 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-2">Recebimentos por Forma de Pagamento:</h4><div class="flex justify-between text-sm"><span>Dinheiro:</span><span>${formatCurrency(summary.byMethod['Dinheiro'])}</span></div><div class="flex justify-between text-sm"><span>Pix:</span><span>${formatCurrency(summary.byMethod['Pix'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Crédito:</span><span>${formatCurrency(summary.byMethod['Cartão de Crédito'])}</span></div></div>`;
+    cashClosingSummary.innerHTML = `<div class="flex justify-between border-b pb-2 border-[var(--border-color)]"><span class="font-semibold">Total de Vendas Pagas do Dia:</span><span class="font-bold text-[var(--primary-600)]">${formatCurrency(summary.totalSales)}</span></div><div class="flex justify-between"><span class="text-sm">Lucro Líquido (de vendas pagas hoje):</span><span class="text-sm font-semibold text-[var(--secondary-600)]">${formatCurrency(summary.totalSales - summary.totalCost)}</span></div><div class="pt-4 mt-4 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-2">Recebimentos por Forma de Pagamento:</h4><div class="flex justify-between text-sm"><span>Dinheiro:</span><span>${formatCurrency(summary.byMethod['Dinheiro'])}</span></div><div class="flex justify-between text-sm"><span>Pix:</span><span>${formatCurrency(summary.byMethod['Pix'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Crédito:</span><span>${formatCurrency(summary.byMethod['Cartão de Crédito'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Débito:</span><span>${formatCurrency(summary.byMethod['Cartão de Débito'])}</span></div></div>`;
 }
 
 function renderProductPerformanceReport() {
@@ -1843,6 +1852,10 @@ function openEditCustomerModal(customerId) {
 
 function openConfirmationModal(title, message, onConfirm) { document.getElementById('confirm-title').textContent = title; document.getElementById('confirm-message').textContent = message; confirmCallback = onConfirm; openModal('modal-confirm'); }
 
+function isCardMethod(method) {
+    return method === 'Cartão de Crédito' || method === 'Cartão de Débito';
+}
+
 function parsePaymentMethods(method) {
     if (!method) return [];
     if (typeof method === 'string') {
@@ -1862,6 +1875,7 @@ function formatPaymentMethods(method, installments) {
         const m = methods[0];
         const inst = m.installments || installments || 1;
         if (m.method === 'Cartão de Crédito') return `CRÉDITO${inst > 1 ? ` (${inst}x)` : ''}`;
+        if (m.method === 'Cartão de Débito') return 'DÉBITO';
         return m.method;
     }
     return methods.map(m => {
@@ -1869,6 +1883,7 @@ function formatPaymentMethods(method, installments) {
             const inst = m.installments || 1;
             return `CRÉDITO${inst > 1 ? ` (${inst}x)` : ''}`;
         }
+        if (m.method === 'Cartão de Débito') return 'DÉBITO';
         return m.method;
     }).join(' + ');
 }
@@ -1886,6 +1901,7 @@ function addPaymentMethodRow(method, amount) {
                 <option value="Dinheiro">Dinheiro</option>
                 <option value="Pix">Pix</option>
                 <option value="Cartão de Crédito">Cartão de Crédito</option>
+                <option value="Cartão de Débito">Cartão de Débito</option>
             </select>
             <input type="text" inputmode="decimal" class="pm-amount w-24 border rounded p-2 bg-[var(--bg-secondary)] text-sm text-right" value="${amount.toFixed(2)}">
             <button type="button" class="pm-remove text-red-500 hover:text-red-700 p-2" title="Remover"><i class="fas fa-times"></i></button>
@@ -1926,10 +1942,10 @@ function addPaymentMethodRow(method, amount) {
     };
 
     const toggleExtras = () => {
-        const isCredit = select.value === 'Cartão de Crédito';
-        extras.classList.toggle('hidden', !isCredit);
-        if (isCredit && !installmentsInput.value) installmentsInput.value = '1';
-        if (!isCredit) {
+        const isCard = isCardMethod(select.value);
+        extras.classList.toggle('hidden', !isCard);
+        if (isCard && !installmentsInput.value) installmentsInput.value = '1';
+        if (!isCard) {
             receivedInput.value = '0,00';
             feeDisplay.classList.add('hidden');
         }
@@ -1987,10 +2003,10 @@ function collectPaymentMethods() {
     rows.forEach(row => {
         const method = row.querySelector('.pm-method').value;
         const amount = parseFloat(row.querySelector('.pm-amount').value.replace(',', '.')) || 0;
-        const installments = method === 'Cartão de Crédito' ? parseInt(row.querySelector('.pm-installments').value) || 1 : 1;
+        const installments = isCardMethod(method) ? parseInt(row.querySelector('.pm-installments').value) || 1 : 1;
         if (amount > 0) {
-            const received = method === 'Cartão de Crédito' ? parseFloat(row.querySelector('.pm-received').value.replace(',', '.')) || amount : amount;
-            const fee = method === 'Cartão de Crédito' ? Math.max(0, amount - received) : 0;
+            const received = isCardMethod(method) ? parseFloat(row.querySelector('.pm-received').value.replace(',', '.')) || amount : amount;
+            const fee = isCardMethod(method) ? Math.max(0, amount - received) : 0;
             const feePct = amount > 0 ? ((fee / amount) * 100) : 0;
             methods.push({ method, amount, installments, received, fee, feePct });
             totalCalculated += amount;
@@ -2470,10 +2486,10 @@ function openSaleDetailsModal(transactionId) {
                         const methods = parsePaymentMethods(sale.method);
                         let html = '';
                         methods.forEach(m => {
-                            const label = m.method === 'Cartão de Crédito' ? 'Cartão de Crédito' + (m.installments > 1 ? ` (${m.installments}x)` : '') : m.method;
+                            const label = isCardMethod(m.method) && m.method === 'Cartão de Crédito' ? 'Cartão de Crédito' + (m.installments > 1 ? ` (${m.installments}x)` : '') : m.method;
                             const value = methods.length > 1 ? m.amount : sale.amount;
                             html += `<div class="flex justify-between"><span>${label}:</span><span>${formatCurrency(value)}</span></div>`;
-                            if (m.method === 'Cartão de Crédito' && m.received !== undefined && m.received !== null && m.received < value) {
+                            if (isCardMethod(m.method) && m.received !== undefined && m.received !== null && m.received < value) {
                                 const feePct = m.feePct || (((value - m.received) / value) * 100).toFixed(1);
                                 html += `<div class="flex justify-between text-xs text-[var(--text-secondary)] pl-4"><span>Taxa máquina (${feePct}%):</span><span class="text-red-500">-${formatCurrency(value - m.received)}</span></div>`;
                                 html += `<div class="flex justify-between text-xs text-green-600 pl-4"><span>Líquido recebido:</span><span>${formatCurrency(m.received)}</span></div>`;
@@ -2635,6 +2651,7 @@ function renderTransactionList(container, transactionList) {
                         case 'Dinheiro': badgeClass = 'badge-dinheiro'; break;
                         case 'Pix': badgeClass = 'badge-pix'; break;
                         case 'Cartão de Crédito': badgeClass = 'badge-credito'; break;
+                        case 'Cartão de Débito': badgeClass = 'badge-debito'; break;
                     }
                     paymentInfo = `<span class="payment-badge ${badgeClass}">${methodDisplay}</span>`;
                 }
@@ -2945,7 +2962,7 @@ function openEditSaleModal(transactionId) {
     const methodDisplay = formatPaymentMethods(sale.method, sale.installments);
     const parsed = parsePaymentMethods(sale.method);
     const firstMethod = parsed.length > 0 ? parsed[0].method : (sale.method || 'A Prazo');
-    if (['A Prazo', 'Dinheiro', 'Pix', 'Cartão de Crédito'].includes(firstMethod)) {
+    if (['A Prazo', 'Dinheiro', 'Pix', 'Cartão de Crédito', 'Cartão de Débito'].includes(firstMethod)) {
         form.elements.paymentMethod.value = firstMethod;
     } else {
         form.elements.paymentMethod.value = 'A Prazo';

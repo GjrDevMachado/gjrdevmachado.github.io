@@ -118,12 +118,17 @@ async function loadOrcamentoDataFromSupabase() {
             });
             orcamentoBudgetsFromDB = true;
         }
+        orcamentoLoadFromDBSuccess = true;
     } catch (error) {
         console.error("Erro ao carregar dados de orçamento do Supabase:", error);
     }
     await loadRascunhosFromSupabase();
     saveOrcamentoData();
     cleanupOldDrafts();
+    // Envia para a nuvem qualquer dado que ainda esteja apenas neste aparelho
+    if (orcamentoLoadFromDBSuccess) {
+        await mergeLocalOrcamentoToSupabase();
+    }
 }
 
 async function loadRascunhosFromSupabase() {
@@ -200,6 +205,23 @@ function saveData() {
     } catch (error) {
         console.error("Erro ao guardar dados:", error);
     }
+    syncCashBalanceToSupabase();
+}
+
+// --- SALVAR O SALDO DO CAIXA NO SUPABASE (compartilhado entre aparelhos) ---
+async function syncCashBalanceToSupabase() {
+    try {
+        const { error } = await supabaseClient.from('caixa').upsert({
+            id: 1,
+            saldo: cashBalance,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Erro ao sincronizar o caixa com o Supabase:', e.message || e);
+        return false;
+    }
 }
 
 // --- CARREGAR DADOS DO SUPABASE ---
@@ -211,6 +233,25 @@ async function loadDataFromSupabase() {
 
         const { data: produtosData } = await supabaseClient.from('produtos').select('*');
         products = (produtosData || []).map(p => ({ id: p.id, name: p.nome, price: parseFloat(p.preco), cost: parseFloat(p.custo), categoryId: p.categoria_id, barcode: p.codigo_barras, modoCalculo: p.modo_calculo || 'grafica' }));
+
+        // Carrega os dados de orçamento dos produtos (compartilhado entre aparelhos)
+        try {
+            const { data: produtoBudgetData } = await supabaseClient.from('produto_budget').select('*');
+            if (produtoBudgetData && produtoBudgetData.length > 0) {
+                const budgetMap = {};
+                produtoBudgetData.forEach(rb => {
+                    budgetMap[String(rb.produto_id)] = rb.budget_json;
+                });
+                products.forEach(p => {
+                    const stored = budgetMap[String(p.id)];
+                    if (stored) {
+                        p.budgetData = (typeof stored === 'string') ? JSON.parse(stored) : stored;
+                    }
+                });
+            }
+        } catch (e) {
+            console.error('Erro ao carregar dados de orçamento dos produtos:', e);
+        }
 
         const { data: clientesData } = await supabaseClient.from('clientes').select('*');
         customers = (clientesData && clientesData.length > 0) ? clientesData.map(c => ({ id: c.id, name: c.nome, contact: c.contato || '' })) : [{ id: 1, name: 'Cliente Balcão', contact: '' }];
@@ -283,7 +324,21 @@ async function loadDataFromSupabase() {
 
         transactions.sort((a, b) => a.date - b.date);
 
-        cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
+        // Carrega o saldo do caixa do Supabase (compartilhado entre aparelhos)
+        try {
+            const { data: caixaData } = await supabaseClient.from('caixa').select('*').eq('id', 1).maybeSingle();
+            if (caixaData && caixaData.saldo != null) {
+                cashBalance = parseFloat(caixaData.saldo) || 0.00;
+            } else {
+                cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
+            }
+        } catch (e) {
+            console.error("Erro ao carregar caixa do Supabase:", e);
+            cashBalance = JSON.parse(localStorage.getItem('cashBalance')) || 0.00;
+        }
+        localStorage.setItem('cashBalance', JSON.stringify(cashBalance));
+        syncCashBalanceToSupabase();
+
         const savedTheme = localStorage.getItem('theme') || 'light';
         applyTheme(savedTheme);
 
@@ -2829,7 +2884,11 @@ async function importAllData(event) {
                         if (itens.length > 0) await supabaseClient.from('itens_transacao').upsert(itens);
                     }
 
-                    if (importedData.cashBalance) localStorage.setItem('cashBalance', JSON.stringify(importedData.cashBalance));
+                    if (importedData.cashBalance) {
+                        localStorage.setItem('cashBalance', JSON.stringify(importedData.cashBalance));
+                        cashBalance = importedData.cashBalance;
+                        await syncCashBalanceToSupabase();
+                    }
 
                     if (importedData.machines && importedData.machines.length > 0) {
                         const maqs = importedData.machines.map(m => ({
@@ -3852,7 +3911,7 @@ function addEventListeners() {
                             precoFinal: b.precoFinal,
                             lucro: b.lucro
                         };
-                        localStorage.setItem('produtoBudgetData_' + novo.id, JSON.stringify(novo.budgetData));
+                        persistProdutoBudget(novo.id, novo.budgetData);
                         // Vincula o orçamento ao produto criado
                         const budgetToLink = savedBudgets.find(x => x.id === b.id) || b;
                         budgetToLink.produtoId = novo.id;
@@ -3921,6 +3980,7 @@ let orcamentoSuppliesFromDB = false;
 let orcamentoFilamentsFromDB = false;
 let orcamentoBudgetsFromDB = false;
 let orcamentoRascunhosFromDB = false;
+let orcamentoLoadFromDBSuccess = false;
 let savedBudgets = [];
 let currentBudgetMaterials = [];
 let currentBudgetMachines = [];
@@ -4261,21 +4321,89 @@ async function syncRascunhosToSupabase() {
     }
 }
 
-async function syncAllToSupabase() {
+// --- SALVAR OS DADOS DE ORÇAMENTO DE UM PRODUTO (local + Supabase) ---
+function persistProdutoBudget(produtoId, budgetData) {
+    try {
+        localStorage.setItem('produtoBudgetData_' + produtoId, JSON.stringify(budgetData));
+    } catch (e) { console.error(e); }
+    supabaseClient.from('produto_budget').upsert({
+        produto_id: produtoId,
+        budget_json: budgetData,
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'produto_id' })
+    .then(({ error }) => {
+        if (error) console.error('Erro ao sincronizar dados do produto:', error.message || error);
+    })
+    .catch(e => console.error('Erro ao sincronizar dados do produto:', e.message || e));
+}
+
+// --- ENVIAR TODOS OS DADOS DE ORÇAMENTO DOS PRODUTOS PARA O SUPABASE ---
+async function syncProdutoBudgetToSupabase() {
+    const rows = [];
+    products.forEach(p => {
+        if (p.budgetData) {
+            rows.push({ produto_id: p.id, budget_json: p.budgetData, updated_at: new Date().toISOString() });
+        }
+    });
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.indexOf('produtoBudgetData_') === 0) {
+            const id = parseInt(key.replace('produtoBudgetData_', ''), 10);
+            if (!products.some(p => p.id === id)) {
+                try {
+                    rows.push({ produto_id: id, budget_json: JSON.parse(localStorage.getItem(key)), updated_at: new Date().toISOString() });
+                } catch (e) { /* ignora itens invalidos */ }
+            }
+        }
+    }
+    if (rows.length === 0) return true;
+    try {
+        const { error } = await supabaseClient.from('produto_budget').upsert(rows, { onConflict: 'produto_id' });
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('Erro ao sincronizar dados dos produtos:', e.message || e);
+        return false;
+    }
+}
+
+async function syncAllToSupabase(silent = false) {
     loadOrcamentoData();
-    console.log('Máquinas para sync:', machines.length);
-    console.log('Insumos para sync:', supplyCatalog.length);
-    console.log('Orçamentos para sync:', savedBudgets.length);
-    console.log('Rascunhos para sync:', rascunhos.length);
+    if (!silent) {
+        console.log('Máquinas para sync:', machines.length);
+        console.log('Insumos para sync:', supplyCatalog.length);
+        console.log('Orçamentos para sync:', savedBudgets.length);
+        console.log('Rascunhos para sync:', rascunhos.length);
+    }
     const machinesOk = await syncMachinesToSupabase();
     const suppliesOk = await syncSuppliesToSupabase();
     const filamentosOk = await syncFilamentosToSupabase();
     const budgetsOk = await syncBudgetsToSupabase();
     const rascunhosOk = await syncRascunhosToSupabase();
-    if (machinesOk && suppliesOk && filamentosOk && budgetsOk && rascunhosOk) {
-        showToast('Dados sincronizados com a nuvem!', 'success');
+    const caixaOk = await syncCashBalanceToSupabase();
+    const produtosBudgetOk = await syncProdutoBudgetToSupabase();
+    if (machinesOk && suppliesOk && filamentosOk && budgetsOk && rascunhosOk && produtosBudgetOk) {
+        if (!silent) showToast('Dados sincronizados com a nuvem!', 'success');
     } else {
-        showToast('Sincronização parcial. Execute o SQL no Supabase primeiro.', 'error');
+        if (!silent) showToast('Sincronização parcial. Execute o SQL no Supabase primeiro.', 'error');
+    }
+}
+
+// --- MIGRAR DADOS LOCAIS (ainda não enviados) PARA O SUPABASE ---
+async function mergeLocalOrcamentoToSupabase() {
+    try {
+        loadOrcamentoData();
+        const hasLocalOnly =
+            (!orcamentoMachinesFromDB && machines.length > 0) ||
+            (!orcamentoSuppliesFromDB && supplyCatalog.length > 0) ||
+            (!orcamentoFilamentsFromDB && filamentCatalog.length > 0) ||
+            (!orcamentoBudgetsFromDB && savedBudgets.length > 0) ||
+            (!orcamentoRascunhosFromDB && rascunhos.length > 0);
+        if (hasLocalOnly) {
+            await syncAllToSupabase(true);
+        }
+    } catch (e) {
+        console.error('Erro ao migrar dados locais para a nuvem:', e.message || e);
     }
 }
 
@@ -5411,7 +5539,7 @@ async function saveBudget() {
                     precoFinal: budget.precoFinal,
                     lucro: budget.lucro
                 };
-                localStorage.setItem('produtoBudgetData_' + prod.id, JSON.stringify(prod.budgetData));
+                persistProdutoBudget(prod.id, prod.budgetData);
             }
         } catch (e) {
             if (e.code === '42703' || e.message?.includes('modo_calculo')) {

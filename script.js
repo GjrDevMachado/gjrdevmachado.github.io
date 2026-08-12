@@ -3645,8 +3645,6 @@ function addEventListeners() {
 
     safeAddListener('btn-desvincular-produto', 'click', clearProdutoVinculo);
 
-    safeAddListener('search-select-produto', 'input', function(e) { renderSelectProductList(e.target.value); });
-
     safeAddListener('select-product-list-container', 'click', function(e) {
         const btn = e.target.closest('.select-product-btn');
         if (btn) {
@@ -3695,21 +3693,6 @@ function addEventListeners() {
     safeAddListener('theme-selector', 'click', (e) => { const btn = e.target.closest('.theme-button'); if (btn) applyTheme(btn.dataset.theme); });
     safeAddListener('export-data-btn', 'click', exportAllData);
 
-    safeAddListener('logo-upload-input', 'change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        if (file.size > 2 * 1024 * 1024) {
-            showToast('A imagem deve ter no máximo 2MB!', 'error');
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            saveLogoToSupabase(ev.target.result);
-        };
-        reader.readAsDataURL(file);
-    });
-
-    safeAddListener('remove-logo-btn', 'click', removeLogoFromSupabase);
     safeAddListener('import-file-input', 'change', importAllData);
     safeAddListener('sync-data-btn', 'click', syncAllToSupabase);
     
@@ -4251,6 +4234,11 @@ async function syncFilamentosToSupabase() {
     try {
         const { error: delError } = await supabaseClient.from('filamentos').delete().neq('id', 0);
         if (delError) {
+            const msg = delError.message || '';
+            if (delError.code === '42P01' || msg.includes('Could not find the table') || msg.includes('does not exist')) {
+                console.warn('Tabela filamentos ainda não existe no Supabase. Execute supabase_rls_orcamento.sql no SQL Editor.');
+                return false;
+            }
             console.error('Erro ao limpar filamentos no Supabase:', delError.message);
             showToast('Erro SQL (filamentos): ' + delError.message, 'error');
             return false;
@@ -5599,7 +5587,7 @@ function resetBudgetForm() {
     stopAutoSave();
     const oldId = editingBudgetId;
     if (oldId) {
-        supabaseClient.from('rascunhos').delete().eq('id', oldId).catch(() => {});
+        supabaseClient.from('rascunhos').delete().eq('id', oldId).then(() => {});
         rascunhos = rascunhos.filter(r => r.id !== oldId);
     }
     document.getElementById('orc-produto').value = '';
@@ -5839,7 +5827,7 @@ function loadRascunho(id) {
     lastAutoSaveState = '';
     if (editingBudgetId && editingBudgetId !== id) {
         const oldId = editingBudgetId;
-        supabaseClient.from('rascunhos').delete().eq('id', oldId).catch(() => {});
+        supabaseClient.from('rascunhos').delete().eq('id', oldId).then(() => {});
         rascunhos = rascunhos.filter(r => r.id !== oldId);
     }
     loadBudget(id);

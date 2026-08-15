@@ -36,7 +36,8 @@ BEGIN
         'categorias', 'produtos', 'clientes', 'insumos',
         'transacoes', 'itens_transacao',
         'maquinas', 'insumos_orcamento', 'filamentos', 'orcamentos',
-        'rascunhos', 'empresa'
+        'rascunhos', 'empresa',
+        'servico_categorias', 'servicos', 'servico_transacoes'
     ]
     LOOP
         IF to_regclass(format('public.%I', t)) IS NOT NULL THEN

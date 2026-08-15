@@ -42,7 +42,7 @@
         .modal { transition: opacity 0.3s ease, transform 0.3s ease; z-index: 100; background-color: var(--bg-primary); }
         .product-card { background-color: var(--bg-primary); transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
-        .tab-button.active, .category-filter-btn.active { border-color: var(--primary-500); color: var(--primary-500); background-color: var(--bg-tertiary); }
+        .tab-button.active, .category-filter-btn.active, .category-chart-tab.active { border-color: var(--primary-500); color: var(--primary-500); background-color: var(--bg-tertiary); }
         .period-button.active { background-color: var(--primary-500); color: white; }
         .theme-button.active { box-shadow: 0 0 0 3px var(--primary-500); }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-600); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
@@ -119,6 +119,7 @@
                 <li><button data-view="maquinas-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-cogs w-4"></i> Máquinas</button></li>
                 <li><button data-view="insumos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-boxes w-4"></i> Insumos</button></li>
                 <li><button data-view="filamentos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-spool w-4"></i> Filamentos</button></li>
+                <li><button data-view="servicos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-briefcase w-4"></i> Serviços</button></li>
                 <li class="pt-4"><button onclick="logout()" class="w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-sign-out-alt w-4"></i> Sair</button></li>
             </ul>
         </nav>
@@ -204,6 +205,13 @@
                         </div>
                     </div>
                     <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
+                        <div class="bg-lime-100 p-3 rounded-full"><i class="fas fa-briefcase fa-2x text-lime-600"></i></div>
+                        <div>
+                            <p class="text-sm text-[var(--text-secondary)]">Serviços Realizados (Mês)</p>
+                            <p id="kpi-services-month" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-[var(--bg-primary)] p-4 rounded-lg shadow-md flex items-center gap-4">
                         <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-percentage fa-2x text-amber-600"></i></div>
                         <div>
                             <p class="text-sm text-[var(--text-secondary)]">Markup (Mês)</p>
@@ -246,6 +254,17 @@
                         <h3 class="text-sm font-bold mb-1 text-center">Vendas por Tipo</h3>
                         <div class="h-[120px]"><canvas id="chart-sales-types"></canvas></div>
                     </div>
+                </div>
+
+                <div class="bg-[var(--bg-primary)] p-3 rounded-lg shadow-md mt-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <h3 class="text-sm font-bold">Vendas por Categoria</h3>
+                        <div class="flex gap-2">
+                            <button class="category-chart-tab active px-3 py-1 text-xs border rounded-full border-[var(--border-color)]" data-cat-tab="produtos">Produtos</button>
+                            <button class="category-chart-tab px-3 py-1 text-xs border rounded-full border-[var(--border-color)]" data-cat-tab="servicos">Serviços</button>
+                        </div>
+                    </div>
+                    <div class="h-[220px]"><canvas id="chart-sales-category"></canvas></div>
                 </div>
 
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mt-4">
@@ -652,6 +671,29 @@
                 </div>
             </div>
 
+            <div id="servicos-view" class="hidden">
+                <header class="mb-3">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-briefcase text-indigo-600 mr-2"></i> Serviços</h1>
+                    <p class="text-[var(--text-secondary)] text-sm">Cadastre serviços (Uber, bicos, freelas, etc.) com custos como combustível, manutenção e acompanhe o lucro de cada um.</p>
+                </header>
+
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button data-modal-id="modal-servico-categorias" class="open-modal-btn bg-teal-600 text-white px-4 py-2 rounded-lg shadow hover:bg-teal-700 transition flex items-center gap-2 text-sm"><i class="fas fa-tags"></i> Gerir Categorias</button>
+                    <button data-modal-id="modal-servico" class="open-modal-btn bg-[var(--primary-600)] text-white px-4 py-2 rounded-lg shadow hover:bg-[var(--primary-700)] transition flex items-center gap-2 text-sm"><i class="fas fa-plus-circle"></i> Novo Serviço</button>
+                    <button data-modal-id="modal-servico-transacao" class="open-modal-btn bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition flex items-center gap-2 text-sm"><i class="fas fa-hand-holding-dollar"></i> Registrar Serviço Realizado</button>
+                </div>
+
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md mb-4">
+                    <h3 class="text-base font-bold mb-2"><i class="fas fa-briefcase text-indigo-600 mr-2"></i> Serviços Cadastrados</h3>
+                    <div id="servicos-list" class="overflow-x-auto"></div>
+                </div>
+
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                    <h3 class="text-base font-bold mb-2"><i class="fas fa-receipt text-green-600 mr-2"></i> Serviços Realizados</h3>
+                    <div id="servico-transacoes-list" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -825,6 +867,109 @@
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
                     <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-servico-categorias" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Gerenciar Categorias de Serviços</h3>
+            <div id="servico-categorias-list" class="space-y-2 mb-4 max-h-60 overflow-y-auto"></div>
+            <form id="add-servico-categoria-form" class="flex gap-2 border-t pt-4">
+                <input type="text" name="servicoCategoryName" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" placeholder="Nome da categoria (ex: Uber, Bicos)" required>
+                <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded">Adicionar</button>
+            </form>
+            <button type="button" class="close-modal-btn mt-4 w-full px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+        </div>
+    </div>
+
+    <div id="modal-edit-servico-categoria" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Categoria de Serviço</h3>
+            <form id="edit-servico-categoria-form" class="space-y-3">
+                <input type="hidden" name="servicoCategoryId">
+                <input type="text" name="servicoCategoryName" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-servico" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 id="servico-modal-title" class="text-xl font-bold mb-4">Novo Serviço</h3>
+            <form id="servico-form" class="space-y-4">
+                <input type="hidden" name="servicoId">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nome do Serviço</label>
+                    <input type="text" name="servicoNome" placeholder="Ex: Corrida de Uber" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Categoria</label>
+                        <select name="servicoCategoria" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Valor Base (R$)</label>
+                        <input type="number" name="servicoValorBase" placeholder="0.00" step="0.01" min="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-medium">Custos Padrão (Combustível, Manutenção, etc.)</label>
+                        <button type="button" id="add-servico-custo-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-plus"></i> Adicionar Custo</button>
+                    </div>
+                    <div id="servico-custos-container" class="space-y-2"></div>
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar Serviço</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-servico-transacao" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Registrar Serviço Realizado</h3>
+            <form id="servico-transacao-form" class="space-y-4">
+                <input type="hidden" name="transacaoId">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Serviço</label>
+                    <select id="transacao-servico-select" name="transacaoServico" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required></select>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Data</label>
+                        <input type="datetime-local" id="transacao-data-input" name="transacaoData" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Valor Recebido (R$)</label>
+                        <input type="number" id="transacao-valor-input" name="transacaoValor" placeholder="0.00" step="0.01" min="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-medium">Custos do Serviço (Combustível, Manutenção, etc.)</label>
+                        <button type="button" id="add-transacao-custo-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-plus"></i> Adicionar Custo</button>
+                    </div>
+                    <div id="transacao-custos-container" class="space-y-2"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-sm font-medium bg-[var(--bg-tertiary)] p-3 rounded-lg text-center">
+                    <div>Custos: <span id="transacao-total-custos" class="text-red-600">R$ 0,00</span></div>
+                    <div>Recebido: <span id="transacao-total-recebido" class="text-blue-600">R$ 0,00</span></div>
+                    <div>Lucro: <span id="transacao-total-lucro" class="text-green-600">R$ 0,00</span></div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Observações</label>
+                    <input type="text" name="transacaoDescricao" placeholder="Opcional" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Registrar Serviço</button>
                 </div>
             </form>
         </div>

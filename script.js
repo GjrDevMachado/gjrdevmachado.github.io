@@ -19,10 +19,17 @@ let salesChart;
 let dashboardSalesChart;
 let dashboardBudgetChart;
 let dashboardSalesTypeChart;
+let dashboardSalesCategoryChart;
 let currentReportPeriod = 'daily';
 let confirmCallback = null;
 let areEventListenersAdded = false;
 let productSalesReportData = null;
+
+// --- MÓDULO DE SERVIÇOS ---
+let serviceCategories = [];
+let services = [];
+let serviceTransactions = [];
+let dashboardSalesCategoryTab = 'produtos';
 
 let currentSaleDetails = null;
 let rascunhos = [];
@@ -341,6 +348,31 @@ async function loadDataFromSupabase() {
 
         const savedTheme = localStorage.getItem('theme') || 'light';
         applyTheme(savedTheme);
+
+        // Carrega os dados de serviços do Supabase
+        try {
+            const { data: servCategoriasData } = await supabaseClient.from('servico_categorias').select('*');
+            serviceCategories = (servCategoriasData && servCategoriasData.length > 0) ? servCategoriasData.map(c => ({ id: c.id, name: c.nome })) : [];
+
+            const { data: servicosData } = await supabaseClient.from('servicos').select('*');
+            services = (servicosData || []).map(s => ({
+                id: s.id, name: s.nome, categoryId: s.categoria_id,
+                baseValue: parseFloat(s.valor_base || 0),
+                costs: typeof s.custos_json === 'string' ? JSON.parse(s.custos_json) : (s.custos_json || [])
+            }));
+
+            const { data: servTransData } = await supabaseClient.from('servico_transacoes').select('*');
+            serviceTransactions = (servTransData || []).map(st => ({
+                id: st.id, serviceId: st.servico_id,
+                date: st.data ? new Date(st.data).getTime() : Date.now(),
+                received: parseFloat(st.valor_recebido || 0),
+                costs: typeof st.custos_json === 'string' ? JSON.parse(st.custos_json) : (st.custos_json || []),
+                lucro: parseFloat(st.lucro || 0),
+                description: st.descricao || ''
+            })).sort((a, b) => a.date - b.date);
+        } catch (e) {
+            console.error("Erro ao carregar serviços do Supabase:", e);
+        }
 
         await loadOrcamentoDataFromSupabase();
 
@@ -699,7 +731,8 @@ function renderCustomers(filter = '') {
     });
 }
 
-function getFilteredTransactions(period, month, year) {
+function getFilteredTransactions(period, month, year, source) {
+    const data = source || transactions;
     const now = new Date();
     let startDate;
     let endDate = new Date();
@@ -738,7 +771,7 @@ function getFilteredTransactions(period, month, year) {
         }
     }
     
-    return transactions.filter(t => {
+    return data.filter(t => {
         const transactionDate = new Date(t.date);
         return transactionDate >= startDate && transactionDate <= endDate;
     });
@@ -779,25 +812,33 @@ function renderReports(period = currentReportPeriod, month, year) {
             return sale.amount + totalRecebido;
         };
 
-        const totalRevenue = salesTransactions.reduce((s, t) => s + saleEffectiveAmount(t), 0);
+        const filteredServices = getFilteredTransactions(period, month, year, serviceTransactions);
+        const serviceRevenue = filteredServices.reduce((s, st) => s + (parseFloat(st.received) || 0), 0);
+        const serviceCost = filteredServices.reduce((s, st) => s + getServiceCostTotal(st), 0);
+
+        const productRevenue = salesTransactions.reduce((s, t) => s + saleEffectiveAmount(t), 0);
         const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
-        const grossRevenue = totalRevenue; 
-        const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0);
-        const profit = totalRevenue - totalCost;
+        const grossRevenue = productRevenue + serviceRevenue; 
+        const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0) + serviceCost;
+        const profit = grossRevenue - totalCost;
 
         if(salesSummary) {
-            salesSummary.className = "grid grid-cols-2 md:grid-cols-5 gap-4 text-center mb-4";
+            salesSummary.className = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center mb-4";
             salesSummary.innerHTML = `
                 <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
-                    <p class="text-sm text-[var(--text-secondary)]">Faturamento Total</p>
+                    <p class="text-sm text-[var(--text-secondary)]">Faturamento Total (Produtos + Serviços)</p>
                     <p class="text-lg font-bold">${formatCurrency(grossRevenue)}</p>
+                </div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
+                    <p class="text-sm text-[var(--text-secondary)]">Receita Serviços</p>
+                    <p class="text-lg font-bold text-teal-600">${formatCurrency(serviceRevenue)}</p>
                 </div>
                 <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
                     <p class="text-sm text-[var(--text-secondary)]">Total Descontos</p>
                     <p class="text-lg font-bold text-red-500">${formatCurrency(totalDiscounts)}</p>
                 </div>
                 <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
-                    <p class="text-sm text-[var(--text-secondary)]">Custo Produtos</p>
+                    <p class="text-sm text-[var(--text-secondary)]">Custo Total</p>
                     <p class="text-lg font-bold text-[var(--danger-600)]">${formatCurrency(totalCost)}</p>
                 </div>
                 <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
@@ -847,7 +888,7 @@ function renderReports(period = currentReportPeriod, month, year) {
         }
 
         if (period !== 'annual') {
-            renderTransactionList(transactionsList, filteredTransactions);
+            renderTransactionList(transactionsList, filteredTransactions, filteredServices);
         }
 
         const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
@@ -863,6 +904,11 @@ function renderReports(period = currentReportPeriod, month, year) {
                 else monthlyData[month].paid += effectiveAmount;
                 monthlyData[month].cost += (t.cost || 0);
                 monthlyData[month].discount += (t.discount || 0);
+            });
+            filteredServices.forEach(st => {
+                const month = new Date(st.date).getMonth();
+                monthlyData[month].paid += (parseFloat(st.received) || 0);
+                monthlyData[month].cost += getServiceCostTotal(st);
             });
 
             salesData.labels = monthNames;
@@ -922,6 +968,11 @@ function renderReports(period = currentReportPeriod, month, year) {
                     if (t.status === 'Não Pago') salesByDate[key].unpaid += effectiveAmount;
                     else salesByDate[key].paid += effectiveAmount;
                 }
+            });
+
+            filteredServices.forEach(st => {
+                const key = new Date(st.date).toLocaleDateString('en-CA');
+                if (salesByDate[key]) salesByDate[key].paid += (parseFloat(st.received) || 0);
             });
 
             if (period === 'daily') {
@@ -1134,6 +1185,10 @@ function renderCashClosingReport() {
         } else if (receipt.method && summary.byMethod.hasOwnProperty(receipt.method)) {
             summary.byMethod[receipt.method] += receipt.amount;
         }
+    });
+    serviceTransactions.filter(st => new Date(st.date) >= today).forEach(st => {
+        summary.totalSales += parseFloat(st.received) || 0;
+        summary.totalCost += getServiceCostTotal(st);
     });
     cashClosingSummary.innerHTML = `<div class="flex justify-between border-b pb-2 border-[var(--border-color)]"><span class="font-semibold">Total de Vendas Pagas do Dia:</span><span class="font-bold text-[var(--primary-600)]">${formatCurrency(summary.totalSales)}</span></div><div class="flex justify-between"><span class="text-sm">Lucro Líquido (de vendas pagas hoje):</span><span class="text-sm font-semibold text-[var(--secondary-600)]">${formatCurrency(summary.totalSales - summary.totalCost)}</span></div><div class="pt-4 mt-4 border-t border-[var(--border-color)]"><h4 class="font-semibold mb-2">Recebimentos por Forma de Pagamento:</h4><div class="flex justify-between text-sm"><span>Dinheiro:</span><span>${formatCurrency(summary.byMethod['Dinheiro'])}</span></div><div class="flex justify-between text-sm"><span>Pix:</span><span>${formatCurrency(summary.byMethod['Pix'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Crédito:</span><span>${formatCurrency(summary.byMethod['Cartão de Crédito'])}</span></div><div class="flex justify-between text-sm"><span>Cartão de Débito:</span><span>${formatCurrency(summary.byMethod['Cartão de Débito'])}</span></div></div>`;
 }
@@ -1813,6 +1868,7 @@ function resetSystem() {
         products = []; rawMaterials = []; customers = [{ id: 1, name: 'Cliente Balcão', contact: '' }];
         categories = [{ id: 1, name: 'Sem Categoria' }];
         transactions = [];
+        serviceCategories = []; services = []; serviceTransactions = [];
         cashBalance = 0;
         initializeAppUI();
         showToast('Sistema zerado com sucesso!', 'success');
@@ -1843,6 +1899,26 @@ function openModal(modalId) {
         renderCustomers();
     } else if (modalId === 'modal-categorias') {
         renderCategoriesManagement();
+    } else if (modalId === 'modal-servico-categorias') {
+        renderServiceCategoriesManagement();
+    } else if (modalId === 'modal-servico') {
+        const form = document.getElementById('servico-form');
+        const isEditing = form && form.elements.servicoId.value !== '';
+        if (isEditing) {
+            document.getElementById('servico-modal-title').textContent = 'Editar Serviço';
+        } else {
+            populateServiceCategorySelects();
+            document.getElementById('servico-modal-title').textContent = 'Novo Serviço';
+            form.reset();
+            form.elements.servicoId.value = '';
+            const container = document.getElementById('servico-custos-container');
+            container.innerHTML = '';
+            addServiceCostRow('servico-custos-container');
+        }
+    } else if (modalId === 'modal-servico-transacao') {
+        const form = document.getElementById('servico-transacao-form');
+        const isEditing = form && form.elements.transacaoId.value !== '';
+        if (!isEditing) openNewServiceTransactionModal();
     } else if (modalId === 'modal-fechamento') {
         renderCashClosingReport();
     } else if (modalId === 'modal-produto' || modalId === 'modal-edit-produto') {
@@ -1869,7 +1945,7 @@ function openModal(modalId) {
     }
 }
 
-function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } if (modalId === 'modal-relatorios') { switchView('dashboard-view'); renderDashboard(); } }
+function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } if (modalId === 'modal-servico') { const f = document.getElementById('servico-form'); if (f) f.elements.servicoId.value = ''; } else if (modalId === 'modal-servico-transacao') { const f = document.getElementById('servico-transacao-form'); if (f) f.elements.transacaoId.value = ''; } if (modalId === 'modal-relatorios') { switchView('dashboard-view'); renderDashboard(); } }
 
 function openEditProductModal(productId) {
     const product = products.find(p => p.id === productId); if (!product) return;
@@ -2658,10 +2734,11 @@ function populateMonthYearSelectors() {
     yearSelect.value = now.getFullYear();
 }
 
-function renderTransactionList(container, transactionList) {
+function renderTransactionList(container, transactionList, serviceList) {
     if (!container) return;
     container.innerHTML = '';
-    if (transactionList.length === 0) {
+    const serviceTrans = serviceList || [];
+    if (transactionList.length === 0 && serviceTrans.length === 0) {
         container.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhuma transação encontrada para este período.</p>`;
         return;
     }
@@ -2718,6 +2795,16 @@ function renderTransactionList(container, transactionList) {
         if (t.type === 'saida') { color = 'text-red-600'; icon = 'fa-arrow-up'; }
         if (t.type === 'estorno') { color = 'text-yellow-600'; icon = 'fa-undo'; }
         container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)] ${rowClass}"><div class="flex items-center gap-3"><i class="fas ${icon} ${color}"></i><div><p class="font-semibold capitalize">${t.description}</p><p class="text-sm flex items-center">${new Date(t.date).toLocaleString('pt-BR')}${paymentInfo}</p></div></div><div class="text-right"><div><p class="font-bold ${color}">${formatCurrency(displayAmount)}</p>${profitHtml}${discountHtml}</div><div class="mt-1">${actionsHtml}</div></div></div>`;
+    });
+    [...serviceTrans].reverse().forEach(st => {
+        const received = parseFloat(st.received) || 0;
+        const profit = getServiceProfit(st);
+        const costTotal = getServiceCostTotal(st);
+        const svc = services.find(s => s.id === st.serviceId);
+        const serviceName = svc ? svc.name : (st.description || 'Serviço');
+        const profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
+        const costHtml = costTotal > 0 ? `<span class="text-xs text-gray-500">Custos: ${formatCurrency(costTotal)}</span>` : '';
+        container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><div class="flex items-center gap-3"><i class="fas fa-briefcase text-teal-600"></i><div><p class="font-semibold">${serviceName}${st.description && st.description !== serviceName ? ' - ' + st.description : ''}</p><p class="text-sm flex items-center">${new Date(st.date).toLocaleString('pt-BR')} &middot; <span class="text-teal-600 ml-1">SERVIÇO</span></p></div></div><div class="text-right"><div><p class="font-bold text-teal-600">${formatCurrency(received)}</p>${profitHtml}</div><div class="mt-1 text-xs">${costHtml}</div></div></div>`;
     });
 }
 
@@ -2800,6 +2887,7 @@ function exportAllData() {
     const allData = {
         products, customers, transactions, cashBalance, rawMaterials, categories,
         machines, supplyCatalog, filamentCatalog, savedBudgets, rascunhos,
+        serviceCategories, services, serviceTransactions,
         theme: document.documentElement.getAttribute('data-theme'),
         backupDate: new Date().toISOString()
     };
@@ -2966,6 +3054,31 @@ async function importAllData(event) {
                         await supabaseClient.from('rascunhos').upsert(rasc);
                     }
 
+                    if (importedData.serviceCategories && importedData.serviceCategories.length > 0) {
+                        const servCats = importedData.serviceCategories.map(c => ({ id: c.id, nome: c.name }));
+                        await supabaseClient.from('servico_categorias').upsert(servCats);
+                    }
+
+                    if (importedData.services && importedData.services.length > 0) {
+                        const servs = importedData.services.map(s => ({
+                            id: s.id, nome: s.name, categoria_id: s.categoryId || null,
+                            valor_base: s.baseValue || 0, custos_json: JSON.stringify(s.costs || [])
+                        }));
+                        await supabaseClient.from('servicos').upsert(servs);
+                    }
+
+                    if (importedData.serviceTransactions && importedData.serviceTransactions.length > 0) {
+                        const servTrans = importedData.serviceTransactions.map(st => ({
+                            id: st.id, servico_id: st.serviceId,
+                            data: new Date(st.date).toISOString(),
+                            valor_recebido: st.received || 0,
+                            custos_json: JSON.stringify(st.costs || []),
+                            lucro: st.lucro || ((st.received || 0) - (st.costs || []).reduce((s, c) => s + (parseFloat(c.value) || 0), 0)),
+                            descricao: st.description || ''
+                        }));
+                        await supabaseClient.from('servico_transacoes').upsert(servTrans);
+                    }
+
                     if (importedData.filamentCatalog) {
                         localStorage.setItem('orcamentoFilaments', JSON.stringify(importedData.filamentCatalog));
                         if (importedData.filamentCatalog.length > 0) {
@@ -3106,6 +3219,9 @@ function switchView(viewId) {
     if (viewId === 'filamentos-view') {
         renderFilamentosView();
     }
+    if (viewId === 'servicos-view') {
+        renderServicesView();
+    }
 }
 
 function renderDashboard() {
@@ -3129,6 +3245,20 @@ function renderDashboard() {
         t.type === 'venda' && !t.reversed
     );
 
+    const todaysServices = serviceTransactions.filter(st =>
+        st.date >= startOfToday.getTime() && st.date <= endOfToday.getTime()
+    );
+
+    const monthServices = serviceTransactions.filter(st =>
+        st.date >= startOfMonth.getTime() && st.date <= endOfToday.getTime()
+    );
+
+    const serviceAmountToday = todaysServices.reduce((sum, st) => sum + (parseFloat(st.received) || 0), 0);
+    const serviceProfitToday = todaysServices.reduce((sum, st) => sum + getServiceProfit(st), 0);
+    const serviceAmountMonth = monthServices.reduce((sum, st) => sum + (parseFloat(st.received) || 0), 0);
+    const serviceProfitMonth = monthServices.reduce((sum, st) => sum + getServiceProfit(st), 0);
+    const serviceCostMonth = monthServices.reduce((sum, st) => sum + getServiceCostTotal(st), 0);
+
     const saleEffectiveAmount = (s) => {
         if (s.type !== 'venda') return s.amount;
         const recebimentos = transactions.filter(r =>
@@ -3138,19 +3268,22 @@ function renderDashboard() {
         return (s.amount || 0) + totalRecebido;
     };
 
-    const salesToday = todaysTransactions.reduce((sum, t) => sum + saleEffectiveAmount(t), 0);
-    const profitToday = todaysTransactions.reduce((sum, t) => sum + (saleEffectiveAmount(t) - (t.cost || 0)), 0);
+    const salesToday = todaysTransactions.reduce((sum, t) => sum + saleEffectiveAmount(t), 0) + serviceAmountToday;
+    const profitToday = todaysTransactions.reduce((sum, t) => sum + (saleEffectiveAmount(t) - (t.cost || 0)), 0) + serviceProfitToday;
     const unpaidAmount = transactions.filter(t => t.status === 'Não Pago' && !t.reversed).reduce((sum, t) => sum + (t.amount || 0), 0);
-    const salesCountToday = todaysTransactions.length;
+    const salesCountToday = todaysTransactions.length + todaysServices.length;
     const averageTicket = salesCountToday > 0 ? salesToday / salesCountToday : 0;
 
-    const salesMonth = monthTransactions.reduce((sum, t) => sum + saleEffectiveAmount(t), 0);
-    const profitMonth = monthTransactions.reduce((sum, t) => sum + (saleEffectiveAmount(t) - (t.cost || 0)), 0);
-    const costMonth = monthTransactions.reduce((sum, t) => sum + (t.cost || 0), 0);
-    const salesCountMonth = monthTransactions.length;
+    const productSalesMonth = monthTransactions.reduce((sum, t) => sum + saleEffectiveAmount(t), 0);
+    const productProfitMonth = monthTransactions.reduce((sum, t) => sum + (saleEffectiveAmount(t) - (t.cost || 0)), 0);
+    const productCostMonth = monthTransactions.reduce((sum, t) => sum + (t.cost || 0), 0);
+    const salesMonth = productSalesMonth + serviceAmountMonth;
+    const profitMonth = productProfitMonth + serviceProfitMonth;
+    const costMonth = productCostMonth + serviceCostMonth;
+    const salesCountMonth = monthTransactions.length + monthServices.length;
     const avgTicketMonth = salesCountMonth > 0 ? salesMonth / salesCountMonth : 0;
     const productsSoldMonth = monthTransactions.reduce((sum, t) => sum + (t.items ? t.items.reduce((s, i) => s + i.quantity, 0) : 0), 0);
-    const markupMonth = costMonth > 0 ? (profitMonth / costMonth) * 100 : 0;
+    const markupMonth = productCostMonth > 0 ? (productProfitMonth / productCostMonth) * 100 : 0;
     const marginMonth = salesMonth > 0 ? (profitMonth / salesMonth) * 100 : 0;
 
     const budgetsThisMonth = savedBudgets.filter(b => {
@@ -3167,21 +3300,31 @@ function renderDashboard() {
     document.getElementById('kpi-profit-month').textContent = formatCurrency(profitMonth);
     document.getElementById('kpi-avg-ticket-month').textContent = formatCurrency(avgTicketMonth);
     document.getElementById('kpi-products-sold-month').textContent = productsSoldMonth;
+    document.getElementById('kpi-services-month').textContent = monthServices.length;
     document.getElementById('kpi-markup-month').textContent = markupMonth.toFixed(2) + '%';
     document.getElementById('kpi-margin-month').textContent = marginMonth.toFixed(2) + '%';
     document.getElementById('kpi-budgets-month').textContent = budgetsThisMonth.length;
     document.getElementById('kpi-drafts-pending').textContent = rascunhos.length;
 
     const recentTransactionsList = document.getElementById('recent-transactions-list');
-    if (recentTransactionsList) renderTransactionList(recentTransactionsList, transactions.slice(-5));
+    if (recentTransactionsList) {
+        const recentActivities = [
+            ...transactions.map(t => ({ date: t.date, kind: 't', data: t })),
+            ...serviceTransactions.map(st => ({ date: st.date, kind: 's', data: st }))
+        ].sort((a, b) => b.date - a.date).slice(0, 5);
+        renderTransactionList(recentTransactionsList,
+            recentActivities.filter(a => a.kind === 't').map(a => a.data),
+            recentActivities.filter(a => a.kind === 's').map(a => a.data));
+    }
 
-    renderSalesTrendChart(monthTransactions);
+    renderSalesTrendChart(monthTransactions, monthServices);
     renderBudgetTypeChart(budgetsThisMonth);
     renderSalesTypeChart(monthTransactions);
+    renderSalesCategoryChart(monthTransactions);
     renderTopProducts(monthTransactions);
 }
 
-function renderSalesTrendChart(monthTransactions) {
+function renderSalesTrendChart(monthTransactions, monthServices) {
     const canvas = document.getElementById('chart-sales-trend');
     if (!canvas) return;
     if (dashboardSalesChart) { dashboardSalesChart.destroy(); dashboardSalesChart = null; }
@@ -3196,6 +3339,11 @@ function renderSalesTrendChart(monthTransactions) {
         const d = new Date(t.date);
         const day = d.getDate();
         dailySales[day] = (dailySales[day] || 0) + t.amount;
+    });
+    (monthServices || []).forEach(st => {
+        const d = new Date(st.date);
+        const day = d.getDate();
+        dailySales[day] = (dailySales[day] || 0) + (parseFloat(st.received) || 0);
     });
 
     const labels = Object.keys(dailySales).map(d => parseInt(d));
@@ -3409,6 +3557,606 @@ function renderTopProducts(monthTransactions) {
     container.innerHTML = html;
 }
 
+// ===================================================================================
+// MÓDULO DE SERVIÇOS (Uber, Bicos, etc.) + GRÁFICO DE PIZZA POR CATEGORIA
+// ===================================================================================
+
+function getServiceCostTotal(st) {
+    return (st.costs || []).reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+}
+
+function getServiceProfit(st) {
+    return (parseFloat(st.received) || 0) - getServiceCostTotal(st);
+}
+
+function getServiceCategoryName(catId) {
+    const c = serviceCategories.find(c => c.id === catId);
+    return c ? c.name : 'Sem Categoria';
+}
+
+function renderSalesCategoryChart(monthTransactions) {
+    const canvas = document.getElementById('chart-sales-category');
+    if (!canvas) return;
+    if (dashboardSalesCategoryChart) { dashboardSalesCategoryChart.destroy(); dashboardSalesCategoryChart = null; }
+
+    if (dashboardSalesCategoryTab === 'servicos') {
+        renderServiceCategoryChart();
+    } else {
+        renderProductCategoryChart(monthTransactions);
+    }
+}
+
+function renderProductCategoryChart(monthTransactions) {
+    const canvas = document.getElementById('chart-sales-category');
+    if (!canvas) return;
+
+    const byCat = {};
+    const catIds = new Set(categories.map(c => c.id));
+    catIds.add('unknown');
+
+    monthTransactions.forEach(t => {
+        if (!t.items) return;
+        t.items.forEach(item => {
+            const product = products.find(p => String(p.id) === String(item.id));
+            const catId = product && product.categoryId != null ? product.categoryId : 'unknown';
+            const itemTotal = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 1);
+            byCat[catId] = (byCat[catId] || 0) + itemTotal;
+        });
+    });
+
+    const labels = [];
+    const data = [];
+    catIds.forEach(catId => {
+        const value = byCat[catId] || 0;
+        if (value > 0) {
+            const cat = categories.find(c => c.id == catId);
+            labels.push(cat ? cat.name : 'Sem Categoria');
+            data.push(value);
+        }
+    });
+
+    const hasData = data.length > 0;
+    if (!hasData) {
+        const ctx = canvas.getContext('2d');
+        dashboardSalesCategoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Produtos'],
+                datasets: [{ data: [1], backgroundColor: ['#e5e7eb'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, tooltip: { enabled: false } }
+            }
+        });
+        return;
+    }
+
+    const colors = ['#3b82f6', '#a855f7', '#22c55e', '#f59e0b', '#ec4899', '#14b8a6', '#6366f1', '#ef4444', '#10b981', '#f97316'];
+    const ctx = canvas.getContext('2d');
+    dashboardSalesCategoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors,
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.label + ': ' + formatCurrency(ctx.parsed)
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderServiceCategoryChart() {
+    const canvas = document.getElementById('chart-sales-category');
+    if (!canvas) return;
+
+    const byCat = {};
+    serviceTransactions.forEach(st => {
+        const svc = services.find(s => s.id === st.serviceId);
+        const catId = svc && svc.categoryId != null ? svc.categoryId : 'unknown';
+        byCat[catId] = (byCat[catId] || 0) + (parseFloat(st.received) || 0);
+    });
+
+    const labels = [];
+    const data = [];
+    Object.keys(byCat).forEach(catId => {
+        const value = byCat[catId];
+        if (value > 0) {
+            labels.push(catId === 'unknown' ? 'Sem Categoria' : getServiceCategoryName(parseInt(catId)));
+            data.push(value);
+        }
+    });
+
+    const hasData = data.length > 0;
+    if (!hasData) {
+        const ctx = canvas.getContext('2d');
+        dashboardSalesCategoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Serviços'],
+                datasets: [{ data: [1], backgroundColor: ['#e5e7eb'], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, tooltip: { enabled: false } }
+            }
+        });
+        return;
+    }
+
+    const colors = ['#14b8a6', '#8b5cf6', '#f59e0b', '#3b82f6', '#ef4444', '#22c55e', '#ec4899', '#6366f1', '#10b981', '#f97316'];
+    const ctx = canvas.getContext('2d');
+    dashboardSalesCategoryChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors,
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.label + ': ' + formatCurrency(ctx.parsed)
+                    }
+                }
+            }
+        }
+    });
+}
+
+// --- CATEGORIAS DE SERVIÇOS ---
+
+function renderServiceCategoriesManagement() {
+    const list = document.getElementById('servico-categorias-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (serviceCategories.length === 0) {
+        list.innerHTML = '<p class="text-center text-gray-500 py-2">Nenhuma categoria cadastrada.</p>';
+        return;
+    }
+    serviceCategories.forEach(cat => {
+        const serviceCount = services.filter(s => s.categoryId === cat.id).length;
+        list.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><p>${cat.name} <span class="text-sm text-[var(--text-secondary)]">(${serviceCount} serviços)</span></p><div><button data-id="${cat.id}" class="edit-servico-categoria-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${cat.id}" class="delete-servico-categoria-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></div>`;
+    });
+}
+
+function populateServiceCategorySelects() {
+    const selects = ['servicoCategoria'];
+    selects.forEach(name => {
+        const select = document.querySelector(`#servico-form select[name="${name}"]`);
+        if (!select) return;
+        select.innerHTML = '<option value="">Sem Categoria</option>';
+        serviceCategories.forEach(cat => {
+            select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+        });
+    });
+}
+
+async function addServiceCategory(name) {
+    if (!name.trim()) { showToast('O nome da categoria não pode estar vazio.', 'error'); return; }
+    if (serviceCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) { showToast('Categoria já existe.', 'error'); return; }
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient.from('servico_categorias').insert([{ id: Date.now(), nome: name.trim() }]);
+        if (error) throw error;
+        showToast('Categoria adicionada!', 'success');
+        await loadDataFromSupabase();
+        renderServiceCategoriesManagement();
+    } catch (error) {
+        console.error("Erro ao salvar categoria de serviço:", error);
+        showToast('Erro ao salvar categoria no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function openEditServiceCategoryModal(categoryId) {
+    const category = serviceCategories.find(c => c.id === categoryId);
+    if (!category) return;
+    const form = document.getElementById('edit-servico-categoria-form');
+    form.elements.servicoCategoryId.value = category.id;
+    form.elements.servicoCategoryName.value = category.name;
+    openModal('modal-edit-servico-categoria');
+}
+
+async function handleEditServiceCategory(e) {
+    e.preventDefault();
+    const form = e.target;
+    const categoryId = parseInt(form.elements.servicoCategoryId.value);
+    const newName = form.elements.servicoCategoryName.value;
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient
+            .from('servico_categorias')
+            .update({ nome: newName })
+            .eq('id', categoryId);
+        if (error) throw error;
+        showToast('Categoria atualizada!', 'success');
+        closeModal('modal-edit-servico-categoria');
+        await loadDataFromSupabase();
+        renderServiceCategoriesManagement();
+    } catch (error) {
+        console.error("Erro ao editar categoria de serviço:", error);
+        showToast("Erro ao atualizar categoria.", "error");
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function deleteServiceCategory(categoryId) {
+    openConfirmationModal('Excluir Categoria de Serviço?', 'Os serviços desta categoria ficarão sem categoria. Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            await supabaseClient.from('servicos').update({ categoria_id: null }).eq('categoria_id', categoryId);
+            const { error } = await supabaseClient.from('servico_categorias').delete().eq('id', categoryId);
+            if (error) throw error;
+            showToast('Categoria excluída com sucesso.', 'success');
+            await loadDataFromSupabase();
+            renderServiceCategoriesManagement();
+        } catch (error) {
+            console.error("Erro ao excluir categoria de serviço:", error);
+            showToast('Erro ao excluir categoria no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+}
+
+// --- CUSTOS (linhas dinâmicas) ---
+
+function addServiceCostRow(containerId, name = '', value = '') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'service-cost-row grid grid-cols-[1fr_1fr_auto] gap-2 items-center';
+    row.innerHTML = `
+        <input type="text" class="service-cost-name w-full border rounded p-1.5 text-sm bg-[var(--bg-secondary)]" placeholder="Custo (ex: Combustível)" value="${name}">
+        <input type="number" class="service-cost-value w-full border rounded p-1.5 text-sm bg-[var(--bg-secondary)]" placeholder="Valor (R$)" step="0.01" min="0" value="${value}">
+        <button type="button" class="remove-service-cost-btn text-red-500 hover:text-red-700 p-1" title="Remover custo"><i class="fas fa-times"></i></button>
+    `;
+    container.appendChild(row);
+    updateServiceTransacaoSummary();
+}
+
+function handleRemoveServiceCostRow(e) {
+    const btn = e.target.closest('.remove-service-cost-btn');
+    if (btn) btn.closest('.service-cost-row').remove();
+    updateServiceTransacaoSummary();
+}
+
+function collectServiceCostRows(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return [];
+    const costs = [];
+    container.querySelectorAll('.service-cost-row').forEach(row => {
+        const name = row.querySelector('.service-cost-name').value.trim();
+        const value = parseFloat(row.querySelector('.service-cost-value').value) || 0;
+        if (name) costs.push({ name, value });
+        else if (value > 0) costs.push({ name: 'Custo', value });
+    });
+    return costs;
+}
+
+function updateServiceTransacaoSummary() {
+    const totalCostsEl = document.getElementById('transacao-total-custos');
+    if (!totalCostsEl) return;
+    const costs = collectServiceCostRows('transacao-custos-container');
+    const totalCosts = costs.reduce((s, c) => s + c.value, 0);
+    const receivedInput = document.getElementById('transacao-valor-input');
+    const received = receivedInput ? (parseFloat(receivedInput.value) || 0) : 0;
+    const lucroEl = document.getElementById('transacao-total-lucro');
+    const receivedEl = document.getElementById('transacao-total-recebido');
+    totalCostsEl.textContent = formatCurrency(totalCosts);
+    if (receivedEl) receivedEl.textContent = formatCurrency(received);
+    if (lucroEl) lucroEl.textContent = formatCurrency(received - totalCosts);
+}
+
+// --- SERVIÇOS (CRUD) ---
+
+async function addService(name, categoryId, baseValue, costs) {
+    if (!name.trim()) { showToast('Informe o nome do serviço.', 'error'); return; }
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient.from('servicos').insert([{
+            id: Date.now(),
+            nome: name.trim(),
+            categoria_id: categoryId ? parseInt(categoryId) : null,
+            valor_base: parseFloat(baseValue) || 0,
+            custos_json: JSON.stringify(costs || [])
+        }]);
+        if (error) throw error;
+        showToast('Serviço adicionado!', 'success');
+        closeModal('modal-servico');
+        await loadDataFromSupabase();
+        renderServicesView();
+    } catch (error) {
+        console.error("Erro ao salvar serviço:", error);
+        showToast('Erro ao salvar serviço no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+async function editService(id, name, categoryId, baseValue, costs) {
+    if (!name.trim()) { showToast('Informe o nome do serviço.', 'error'); return; }
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient.from('servicos')
+            .update({
+                nome: name.trim(),
+                categoria_id: categoryId ? parseInt(categoryId) : null,
+                valor_base: parseFloat(baseValue) || 0,
+                custos_json: JSON.stringify(costs || [])
+            })
+            .eq('id', id);
+        if (error) throw error;
+        showToast('Serviço atualizado!', 'success');
+        closeModal('modal-servico');
+        await loadDataFromSupabase();
+        renderServicesView();
+    } catch (error) {
+        console.error("Erro ao editar serviço:", error);
+        showToast('Erro ao atualizar serviço no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function openEditServiceModal(serviceId) {
+    const service = services.find(s => s.id === serviceId);
+    if (!service) return;
+    const form = document.getElementById('servico-form');
+    form.reset();
+    form.elements.servicoId.value = service.id;
+    document.getElementById('servico-modal-title').textContent = 'Editar Serviço';
+    form.elements.servicoNome.value = service.name;
+    populateServiceCategorySelects();
+    form.elements.servicoCategoria.value = service.categoryId || '';
+    form.elements.servicoValorBase.value = service.baseValue || '';
+    const container = document.getElementById('servico-custos-container');
+    container.innerHTML = '';
+    if (service.costs && service.costs.length > 0) {
+        service.costs.forEach(c => addServiceCostRow('servico-custos-container', c.name, c.value));
+    } else {
+        addServiceCostRow('servico-custos-container');
+    }
+    openModal('modal-servico');
+}
+
+function deleteService(serviceId) {
+    openConfirmationModal('Excluir Serviço?', 'O serviço será removido. Os serviços realizados vinculados serão mantidos como "Serviço Excluído". Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('servicos').delete().eq('id', serviceId);
+            if (error) throw error;
+            showToast('Serviço excluído com sucesso.', 'success');
+            await loadDataFromSupabase();
+            renderServicesView();
+        } catch (error) {
+            console.error("Erro ao excluir serviço:", error);
+            showToast('Erro ao excluir serviço no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+}
+
+// --- SERVIÇOS REALIZADOS (transações) ---
+
+function renderServicesView() {
+    renderServicesList();
+    renderServiceTransactionsList();
+}
+
+function renderServicesList() {
+    const list = document.getElementById('servicos-list');
+    if (!list) return;
+    if (services.length === 0) {
+        list.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum serviço cadastrado.</p>';
+        return;
+    }
+    let html = `<table class="w-full text-left text-sm"><thead><tr class="border-b">
+        <th class="p-2">Serviço</th><th class="p-2">Categoria</th>
+        <th class="p-2 text-right">Valor Base</th><th class="p-2 text-right">Custos Padrão</th>
+        <th class="p-2 text-right">Lucro Base</th><th class="p-2 text-center">Ações</th>
+    </tr></thead><tbody>`;
+    services.forEach(s => {
+        const totalCosts = (s.costs || []).reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        const baseLucro = (parseFloat(s.baseValue) || 0) - totalCosts;
+        const costNames = (s.costs || []).map(c => c.name).join(', ');
+        html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2 font-medium">${s.name}</td>
+            <td class="p-2">${getServiceCategoryName(s.categoryId)}</td>
+            <td class="p-2 text-right">${formatCurrency(s.baseValue)}</td>
+            <td class="p-2 text-right text-red-500">${formatCurrency(totalCosts)} ${costNames ? `<span class="text-xs text-[var(--text-tertiary)]">(${costNames})</span>` : ''}</td>
+            <td class="p-2 text-right ${baseLucro >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(baseLucro)}</td>
+            <td class="p-2 text-center whitespace-nowrap">
+                <button data-id="${s.id}" class="edit-servico-btn text-blue-500 p-1" title="Editar"><i class="fas fa-edit"></i></button>
+                <button data-id="${s.id}" class="delete-servico-btn text-red-500 p-1" title="Excluir"><i class="fas fa-trash"></i></button>
+            </td></tr>`;
+    });
+    html += '</tbody></table>';
+    list.innerHTML = html;
+}
+
+function renderServiceTransactionsList() {
+    const list = document.getElementById('servico-transacoes-list');
+    if (!list) return;
+    const sorted = [...serviceTransactions].sort((a, b) => b.date - a.date);
+    if (sorted.length === 0) {
+        list.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum serviço realizado registrado.</p>';
+        return;
+    }
+    let totalRecebido = 0, totalCustos = 0, totalLucro = 0;
+    let html = `<table class="w-full text-left text-sm"><thead><tr class="border-b">
+        <th class="p-2">Data</th><th class="p-2">Serviço</th><th class="p-2">Categoria</th>
+        <th class="p-2 text-right">Recebido</th><th class="p-2 text-right">Custos</th>
+        <th class="p-2 text-right">Lucro</th><th class="p-2 text-center">Ações</th>
+    </tr></thead><tbody>`;
+    sorted.forEach(st => {
+        const svc = services.find(s => s.id === st.serviceId);
+        const totalCosts = (st.costs || []).reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        const lucro = (parseFloat(st.received) || 0) - totalCosts;
+        totalRecebido += parseFloat(st.received) || 0;
+        totalCustos += totalCosts;
+        totalLucro += lucro;
+        html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2">${new Date(st.date).toLocaleString('pt-BR')}</td>
+            <td class="p-2 font-medium">${svc ? svc.name : 'Serviço Excluído'}</td>
+            <td class="p-2">${svc ? getServiceCategoryName(svc.categoryId) : '-'}</td>
+            <td class="p-2 text-right text-blue-600">${formatCurrency(st.received)}</td>
+            <td class="p-2 text-right text-red-500">${formatCurrency(totalCosts)}</td>
+            <td class="p-2 text-right font-semibold ${lucro >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(lucro)}</td>
+            <td class="p-2 text-center whitespace-nowrap">
+                <button data-id="${st.id}" class="edit-servico-transacao-btn text-blue-500 p-1" title="Editar"><i class="fas fa-edit"></i></button>
+                <button data-id="${st.id}" class="delete-servico-transacao-btn text-red-500 p-1" title="Excluir"><i class="fas fa-trash"></i></button>
+            </td></tr>`;
+    });
+    html += `</tbody><tfoot><tr class="border-t-2 font-bold">
+        <td class="p-2" colspan="3">Total</td>
+        <td class="p-2 text-right text-blue-600">${formatCurrency(totalRecebido)}</td>
+        <td class="p-2 text-right text-red-500">${formatCurrency(totalCustos)}</td>
+        <td class="p-2 text-right ${totalLucro >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(totalLucro)}</td>
+        <td class="p-2"></td>
+    </tr></tfoot></table>`;
+    list.innerHTML = html;
+}
+
+function populateServiceTransactionSelects() {
+    const select = document.getElementById('transacao-servico-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">Selecione um serviço...</option>';
+    services.forEach(s => {
+        select.innerHTML += `<option value="${s.id}">${s.name} (${getServiceCategoryName(s.categoryId)})</option>`;
+    });
+}
+
+function prefillServiceTransactionForm(serviceId) {
+    const svc = services.find(s => s.id == serviceId);
+    const container = document.getElementById('transacao-custos-container');
+    if (!container) return;
+    container.innerHTML = '';
+    if (svc && svc.costs && svc.costs.length > 0) {
+        svc.costs.forEach(c => addServiceCostRow('transacao-custos-container', c.name, c.value));
+    } else {
+        addServiceCostRow('transacao-custos-container');
+    }
+    const valorInput = document.getElementById('transacao-valor-input');
+    if (valorInput && !valorInput.value) valorInput.value = svc ? (svc.baseValue || '') : '';
+    updateServiceTransacaoSummary();
+}
+
+function openNewServiceTransactionModal() {
+    populateServiceTransactionSelects();
+    const form = document.getElementById('servico-transacao-form');
+    form.reset();
+    form.elements.transacaoId.value = '';
+    document.getElementById('transacao-custos-container').innerHTML = '';
+    addServiceCostRow('transacao-custos-container');
+    const dataInput = document.getElementById('transacao-data-input');
+    if (dataInput) dataInput.value = localISOString();
+    updateServiceTransacaoSummary();
+}
+
+function openEditServiceTransactionModal(transactionId) {
+    const st = serviceTransactions.find(x => x.id === transactionId);
+    if (!st) return;
+    populateServiceTransactionSelects();
+    const form = document.getElementById('servico-transacao-form');
+    form.reset();
+    form.elements.transacaoId.value = st.id;
+    form.elements.transacaoServico.value = st.serviceId || '';
+    const dataInput = document.getElementById('transacao-data-input');
+    if (dataInput) dataInput.value = localISOString(new Date(st.date));
+    const valorInput = document.getElementById('transacao-valor-input');
+    if (valorInput) valorInput.value = st.received || '';
+    form.elements.transacaoDescricao.value = st.description || '';
+    const container = document.getElementById('transacao-custos-container');
+    container.innerHTML = '';
+    if (st.costs && st.costs.length > 0) {
+        st.costs.forEach(c => addServiceCostRow('transacao-custos-container', c.name, c.value));
+    } else {
+        addServiceCostRow('transacao-custos-container');
+    }
+    updateServiceTransacaoSummary();
+    openModal('modal-servico-transacao');
+}
+
+async function saveServiceTransaction(data) {
+    const totalCosts = (data.costs || []).reduce((s, c) => s + (parseFloat(c.value) || 0), 0);
+    const received = parseFloat(data.received) || 0;
+    const lucro = received - totalCosts;
+    const payload = {
+        servico_id: parseInt(data.serviceId),
+        data: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+        valor_recebido: received,
+        custos_json: JSON.stringify(data.costs || []),
+        lucro,
+        descricao: (data.description || '').trim()
+    };
+
+    toggleLoading(true);
+    try {
+        if (data.id) {
+            const { error } = await supabaseClient.from('servico_transacoes').update(payload).eq('id', data.id);
+            if (error) throw error;
+        } else {
+            payload.id = Date.now();
+            const { error } = await supabaseClient.from('servico_transacoes').insert([payload]);
+            if (error) throw error;
+        }
+        showToast('Serviço registrado com sucesso!', 'success');
+        closeModal('modal-servico-transacao');
+        await loadDataFromSupabase();
+        renderServicesView();
+    } catch (error) {
+        console.error("Erro ao salvar serviço realizado:", error);
+        showToast('Erro ao salvar serviço no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function deleteServiceTransaction(transactionId) {
+    openConfirmationModal('Excluir Registro de Serviço?', 'Esta ação é irreversível. Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('servico_transacoes').delete().eq('id', transactionId);
+            if (error) throw error;
+            showToast('Registro excluído com sucesso.', 'success');
+            await loadDataFromSupabase();
+            renderServicesView();
+        } catch (error) {
+            console.error("Erro ao excluir registro de serviço:", error);
+            showToast('Erro ao excluir registro no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+}
+
 function openDiscountModal(itemIndex) {
     const form = document.getElementById('discount-form');
     form.reset();
@@ -3558,6 +4306,37 @@ function addEventListeners() {
 
     safeAddListener('add-category-form', 'submit', function(e) { e.preventDefault(); addCategory(this.elements.categoryName.value); this.reset(); });
     safeAddListener('edit-category-form', 'submit', handleEditCategory);
+
+    safeAddListener('add-servico-categoria-form', 'submit', function(e) { e.preventDefault(); addServiceCategory(this.elements.servicoCategoryName.value); this.reset(); });
+    safeAddListener('edit-servico-categoria-form', 'submit', handleEditServiceCategory);
+    safeAddListener('servico-form', 'submit', function(e) {
+        e.preventDefault();
+        const id = this.elements.servicoId.value;
+        const nome = this.elements.servicoNome.value;
+        const categoria = this.elements.servicoCategoria.value;
+        const valorBase = this.elements.servicoValorBase.value;
+        const costs = collectServiceCostRows('servico-custos-container');
+        if (id) editService(parseInt(id), nome, categoria, valorBase, costs);
+        else addService(nome, categoria, valorBase, costs);
+    });
+    safeAddListener('servico-transacao-form', 'submit', function(e) {
+        e.preventDefault();
+        const id = this.elements.transacaoId.value;
+        const serviceId = this.elements.transacaoServico.value;
+        if (!serviceId) { showToast('Selecione um serviço.', 'error'); return; }
+        const date = this.elements.transacaoData.value;
+        const received = this.elements.transacaoValor.value;
+        const costs = collectServiceCostRows('transacao-custos-container');
+        const description = this.elements.transacaoDescricao.value;
+        saveServiceTransaction({ id: id ? parseInt(id) : null, serviceId, date, received, costs, description });
+    });
+    safeAddListener('add-servico-custo-btn', 'click', () => addServiceCostRow('servico-custos-container'));
+    safeAddListener('add-transacao-custo-btn', 'click', () => addServiceCostRow('transacao-custos-container'));
+    safeAddListener('servico-custos-container', 'click', handleRemoveServiceCostRow);
+    safeAddListener('transacao-custos-container', 'click', handleRemoveServiceCostRow);
+    safeAddListener('transacao-custos-container', 'input', updateServiceTransacaoSummary);
+    safeAddListener('transacao-servico-select', 'change', (e) => prefillServiceTransactionForm(e.target.value));
+    safeAddListener('transacao-valor-input', 'input', updateServiceTransacaoSummary);
     safeAddListener('add-raw-material-form', 'submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
     
     safeAddListener('edit-raw-material-form', 'submit', async function(e) {
@@ -3755,6 +4534,23 @@ function addEventListeners() {
             openEditCategoryModal(parseInt(dataset.id));
         } else if (classList.contains('delete-category-btn')) {
             deleteCategory(parseInt(dataset.id));
+        } else if (classList.contains('edit-servico-categoria-btn')) {
+            openEditServiceCategoryModal(parseInt(dataset.id));
+        } else if (classList.contains('delete-servico-categoria-btn')) {
+            deleteServiceCategory(parseInt(dataset.id));
+        } else if (classList.contains('edit-servico-btn')) {
+            openEditServiceModal(parseInt(dataset.id));
+        } else if (classList.contains('delete-servico-btn')) {
+            deleteService(parseInt(dataset.id));
+        } else if (classList.contains('edit-servico-transacao-btn')) {
+            openEditServiceTransactionModal(parseInt(dataset.id));
+        } else if (classList.contains('delete-servico-transacao-btn')) {
+            deleteServiceTransaction(parseInt(dataset.id));
+        } else if (classList.contains('category-chart-tab')) {
+            document.querySelectorAll('.category-chart-tab').forEach(btn => btn.classList.remove('active'));
+            target.classList.add('active');
+            dashboardSalesCategoryTab = dataset.catTab || 'produtos';
+            renderDashboard();
         } else if (classList.contains('edit-stock-item-btn')) {
             openEditRawMaterialModal(parseInt(dataset.id));
         } else if (classList.contains('delete-stock-item-btn')) {

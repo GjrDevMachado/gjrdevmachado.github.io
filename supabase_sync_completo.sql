@@ -25,7 +25,43 @@ CREATE TABLE IF NOT EXISTS produto_budget (
 
 ALTER TABLE produto_budget ENABLE ROW LEVEL SECURITY;
 
--- 3) Garante RLS + politicas para TODAS as tabelas do sistema
+-- 3) TABELA PRODUTO_CATEGORIAS (categorias dos produtos de compra/venda)
+CREATE TABLE IF NOT EXISTS produto_categorias (
+    id BIGINT PRIMARY KEY,
+    nome TEXT NOT NULL
+);
+
+ALTER TABLE produto_categorias ENABLE ROW LEVEL SECURITY;
+
+-- 4) TABELA PRODUTOS_REVENDA (produtos para compra e revenda com estoque)
+CREATE TABLE IF NOT EXISTS produtos_revenda (
+    id BIGINT PRIMARY KEY,
+    nome TEXT NOT NULL,
+    categoria_id BIGINT,
+    preco_compra NUMERIC(12,2) NOT NULL DEFAULT 0,
+    preco_venda NUMERIC(12,2) NOT NULL DEFAULT 0,
+    quantidade NUMERIC(12,2) NOT NULL DEFAULT 0,
+    custos_json JSONB NOT NULL DEFAULT '[]'::jsonb
+);
+
+ALTER TABLE produtos_revenda ENABLE ROW LEVEL SECURITY;
+
+-- 5) TABELA PRODUTO_TRANSACOES (compras e vendas registradas)
+CREATE TABLE IF NOT EXISTS produto_transacoes (
+    id BIGINT PRIMARY KEY,
+    produto_id BIGINT,
+    tipo TEXT NOT NULL DEFAULT 'venda',
+    data TIMESTAMPTZ DEFAULT now(),
+    quantidade NUMERIC(12,2) NOT NULL DEFAULT 0,
+    valor_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+    custos_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    lucro NUMERIC(12,2) NOT NULL DEFAULT 0,
+    descricao TEXT
+);
+
+ALTER TABLE produto_transacoes ENABLE ROW LEVEL SECURITY;
+
+-- 6) Garante RLS + politicas para TODAS as tabelas do sistema
 --    (se a politica ja existir, nao cria de novo)
 DO $$
 DECLARE
@@ -37,7 +73,8 @@ BEGIN
         'transacoes', 'itens_transacao',
         'maquinas', 'insumos_orcamento', 'filamentos', 'orcamentos',
         'rascunhos', 'empresa',
-        'servico_categorias', 'servicos', 'servico_transacoes'
+        'servico_categorias', 'servicos', 'servico_transacoes',
+        'produto_categorias', 'produtos_revenda', 'produto_transacoes'
     ]
     LOOP
         IF to_regclass(format('public.%I', t)) IS NOT NULL THEN

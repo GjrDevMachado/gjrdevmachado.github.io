@@ -21,6 +21,15 @@ let dashboardBudgetChart;
 let dashboardSalesTypeChart;
 let dashboardSalesCategoryChart;
 let currentReportPeriod = 'daily';
+let reportFilters = {
+    dateFrom: null,
+    dateTo: null,
+    customerId: '',
+    paymentMethod: '',
+    categoryId: '',
+    includeServices: true,
+    includeResale: true
+};
 let confirmCallback = null;
 let areEventListenersAdded = false;
 let productSalesReportData = null;
@@ -29,7 +38,11 @@ let productSalesReportData = null;
 let serviceCategories = [];
 let services = [];
 let serviceTransactions = [];
-let dashboardSalesCategoryTab = 'produtos';
+
+// --- MÓDULO DE PRODUTOS DE COMPRA E VENDA ---
+let productCategories = [];
+let resaleProducts = [];
+let productTransactions = [];
 
 let currentSaleDetails = null;
 let rascunhos = [];
@@ -372,6 +385,34 @@ async function loadDataFromSupabase() {
             })).sort((a, b) => a.date - b.date);
         } catch (e) {
             console.error("Erro ao carregar serviços do Supabase:", e);
+        }
+
+        // Carrega os dados de produtos de compra e venda do Supabase
+        try {
+            const { data: prodCategoriasData } = await supabaseClient.from('produto_categorias').select('*');
+            productCategories = (prodCategoriasData && prodCategoriasData.length > 0) ? prodCategoriasData.map(c => ({ id: c.id, name: c.nome })) : [];
+
+            const { data: produtosRevendaData } = await supabaseClient.from('produtos_revenda').select('*');
+            resaleProducts = (produtosRevendaData || []).map(p => ({
+                id: p.id, name: p.nome, categoryId: p.categoria_id,
+                buyPrice: parseFloat(p.preco_compra || 0),
+                sellPrice: parseFloat(p.preco_venda || 0),
+                quantity: parseFloat(p.quantidade || 0),
+                costs: typeof p.custos_json === 'string' ? JSON.parse(p.custos_json) : (p.custos_json || [])
+            }));
+
+            const { data: prodTransData } = await supabaseClient.from('produto_transacoes').select('*');
+            productTransactions = (prodTransData || []).map(t => ({
+                id: t.id, productId: t.produto_id, tipo: t.tipo || 'venda',
+                date: t.data ? new Date(t.data).getTime() : Date.now(),
+                quantity: parseFloat(t.quantidade || 1),
+                valor: parseFloat(t.valor_total || 0),
+                costs: typeof t.custos_json === 'string' ? JSON.parse(t.custos_json) : (t.custos_json || []),
+                lucro: parseFloat(t.lucro || 0),
+                description: t.descricao || ''
+            })).sort((a, b) => a.date - b.date);
+        } catch (e) {
+            console.error("Erro ao carregar produtos de compra e venda do Supabase:", e);
         }
 
         await loadOrcamentoDataFromSupabase();
@@ -731,13 +772,17 @@ function renderCustomers(filter = '') {
     });
 }
 
-function getFilteredTransactions(period, month, year, source) {
-    const data = source || transactions;
+function getReportDateRange(period, month, year) {
     const now = new Date();
     let startDate;
     let endDate = new Date();
 
-    if (period === 'annual') {
+    if (reportFilters.dateFrom && reportFilters.dateTo) {
+        startDate = new Date(reportFilters.dateFrom);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(reportFilters.dateTo);
+        endDate.setHours(23, 59, 59, 999);
+    } else if (period === 'annual') {
         const selectedYear = parseInt(year) || now.getFullYear();
         startDate = new Date(selectedYear, 0, 1);
         endDate = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
@@ -749,32 +794,160 @@ function getFilteredTransactions(period, month, year, source) {
         endDate.setHours(23, 59, 59, 999);
     } else {
         switch(period) {
-            case 'daily': 
-                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); 
+            case 'daily':
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 break;
-            case 'weekly': 
+            case 'weekly':
                 startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const dayOfWeek = startDate.getDay();
                 const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
                 startDate.setDate(startDate.getDate() - daysToMonday);
                 startDate.setHours(0, 0, 0, 0);
-                
+
                 endDate = new Date(startDate);
                 endDate.setDate(endDate.getDate() + 6);
                 endDate.setHours(23, 59, 59, 999);
                 break;
-            default: 
-                startDate = new Date(); 
+            default:
+                startDate = new Date();
                 startDate.setDate(startDate.getDate() - 7);
                 startDate.setHours(0, 0, 0, 0);
                 break;
         }
     }
-    
-    return data.filter(t => {
+
+    return { startDate, endDate };
+}
+
+function applyReportTransactionFilters(t) {
+    if (reportFilters.customerId) {
+        const cid = parseInt(reportFilters.customerId);
+        if (t.type === 'venda') {
+            if ((t.customerId || null) !== cid) return false;
+        } else if (t.type === 'recebimento') {
+            const match = t.description && t.description.match(/#(\d+)/);
+            const saleId = match ? parseInt(match[1]) : null;
+            const sale = saleId != null ? transactions.find(x => x.id === saleId) : null;
+            if (!sale || (sale.customerId || null) !== cid) return false;
+        } else {
+            return false;
+        }
+    }
+
+    if (reportFilters.paymentMethod) {
+        if (reportFilters.paymentMethod === 'NaoPago') {
+            if (t.status !== 'Não Pago') return false;
+        } else {
+            const methods = parsePaymentMethods(t.method);
+            if (!methods.some(m => m.method === reportFilters.paymentMethod)) return false;
+        }
+    }
+
+    if (reportFilters.categoryId) {
+        if (t.type !== 'venda' || !t.items) return false;
+        const catId = reportFilters.categoryId;
+        const matches = t.items.some(item => {
+            const product = products.find(p => String(p.id) === String(item.id));
+            const pCat = product && product.categoryId != null ? String(product.categoryId) : 'unknown';
+            return pCat === catId;
+        });
+        if (!matches) return false;
+    }
+
+    return true;
+}
+
+function getFilteredTransactions(period, month, year, source) {
+    const data = source || transactions;
+    const { startDate, endDate } = getReportDateRange(period, month, year);
+
+    const filtered = data.filter(t => {
         const transactionDate = new Date(t.date);
         return transactionDate >= startDate && transactionDate <= endDate;
     });
+
+    if (!source) {
+        return filtered.filter(t => applyReportTransactionFilters(t));
+    }
+    return filtered;
+}
+
+function populateReportFilters() {
+    const customerSelect = document.getElementById('report-filter-customer');
+    if (customerSelect) {
+        const current = customerSelect.value;
+        customerSelect.innerHTML = '<option value="">Todos</option>';
+        const sorted = [...customers].sort((a, b) => a.name.localeCompare(b.name));
+        sorted.forEach(c => {
+            customerSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        });
+        customerSelect.value = current;
+    }
+
+    const categorySelect = document.getElementById('report-filter-category');
+    if (categorySelect) {
+        const current = categorySelect.value;
+        categorySelect.innerHTML = '<option value="">Todas</option>';
+        categories.forEach(cat => {
+            categorySelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+        });
+        categorySelect.innerHTML += '<option value="unknown">Sem Categoria</option>';
+        categorySelect.value = current;
+    }
+}
+
+function rerenderActiveReportTab() {
+    const activeTabButton = document.querySelector('.tab-button.active');
+    const activeTab = activeTabButton ? activeTabButton.dataset.tab : 'vendas';
+    if (activeTab === 'vendas' || activeTab === 'recebimentos' || activeTab === 'vendas-cliente') {
+        setReportPeriod(currentReportPeriod);
+    } else if (activeTab === 'desempenho-produtos') {
+        renderProductPerformanceReport();
+    } else if (activeTab === 'vendas-produto') {
+        displayProductSalesReport(
+            document.getElementById('sales-report-product-select')?.value,
+            document.getElementById('sales-report-customer-search')?.value
+        );
+    }
+}
+
+function applyReportFilters() {
+    const dateFrom = document.getElementById('report-date-from');
+    const dateTo = document.getElementById('report-date-to');
+    reportFilters.dateFrom = dateFrom && dateFrom.value ? new Date(dateFrom.value + 'T00:00:00') : null;
+    reportFilters.dateTo = dateTo && dateTo.value ? new Date(dateTo.value + 'T00:00:00') : null;
+    reportFilters.customerId = document.getElementById('report-filter-customer')?.value || '';
+    reportFilters.paymentMethod = document.getElementById('report-filter-payment')?.value || '';
+    reportFilters.categoryId = document.getElementById('report-filter-category')?.value || '';
+    reportFilters.includeServices = document.getElementById('report-include-services')?.checked ?? true;
+    reportFilters.includeResale = document.getElementById('report-include-resale')?.checked ?? true;
+
+    rerenderActiveReportTab();
+}
+
+function clearReportFilters() {
+    const from = document.getElementById('report-date-from');
+    const to = document.getElementById('report-date-to');
+    const customer = document.getElementById('report-filter-customer');
+    const payment = document.getElementById('report-filter-payment');
+    const category = document.getElementById('report-filter-category');
+    const services = document.getElementById('report-include-services');
+    const resale = document.getElementById('report-include-resale');
+    if (from) from.value = '';
+    if (to) to.value = '';
+    if (customer) customer.value = '';
+    if (payment) payment.value = '';
+    if (category) category.value = '';
+    if (services) services.checked = true;
+    if (resale) resale.checked = true;
+    reportFilters.dateFrom = null;
+    reportFilters.dateTo = null;
+    reportFilters.customerId = '';
+    reportFilters.paymentMethod = '';
+    reportFilters.categoryId = '';
+    reportFilters.includeServices = true;
+    reportFilters.includeResale = true;
+    rerenderActiveReportTab();
 }
 
 function switchTab(tabName) {
@@ -797,9 +970,10 @@ function renderReports(period = currentReportPeriod, month, year) {
         const filteredTransactions = getFilteredTransactions(period, month, year);
         const annualSummaryTable = document.getElementById('annual-summary-table');
         const transactionsList = document.getElementById('transactions-list');
-        
-        if(transactionsList) transactionsList.classList.toggle('hidden', period === 'annual');
-        if(annualSummaryTable) annualSummaryTable.classList.toggle('hidden', period !== 'annual');
+        const useCustomRange = reportFilters.dateFrom && reportFilters.dateTo;
+
+        if(transactionsList) transactionsList.classList.toggle('hidden', period === 'annual' && !useCustomRange);
+        if(annualSummaryTable) annualSummaryTable.classList.toggle('hidden', period !== 'annual' || useCustomRange);
 
         const salesSummary = document.getElementById('sales-summary');
         const salesTransactions = filteredTransactions.filter(t => t.type === 'venda' && !t.reversed);
@@ -812,26 +986,37 @@ function renderReports(period = currentReportPeriod, month, year) {
             return sale.amount + totalRecebido;
         };
 
-        const filteredServices = getFilteredTransactions(period, month, year, serviceTransactions);
+        const filteredServices = reportFilters.includeServices ? getFilteredTransactions(period, month, year, serviceTransactions) : [];
         const serviceRevenue = filteredServices.reduce((s, st) => s + (parseFloat(st.received) || 0), 0);
         const serviceCost = filteredServices.reduce((s, st) => s + getServiceCostTotal(st), 0);
 
+        const { startDate: rangeStart, endDate: rangeEnd } = getReportDateRange(period, month, year);
+        const filteredProductSales = reportFilters.includeResale ? productTransactions.filter(pt =>
+            pt.tipo === 'venda' && pt.date >= rangeStart.getTime() && pt.date <= rangeEnd.getTime()
+        ) : [];
+        const resaleRevenue = filteredProductSales.reduce((s, pt) => s + (parseFloat(pt.valor) || 0), 0);
+        const resaleCost = filteredProductSales.reduce((s, pt) => s + ((parseFloat(pt.valor) || 0) - (parseFloat(pt.lucro) || 0)), 0);
+
         const productRevenue = salesTransactions.reduce((s, t) => s + saleEffectiveAmount(t), 0);
         const totalDiscounts = salesTransactions.reduce((s, t) => s + (t.discount || 0), 0);
-        const grossRevenue = productRevenue + serviceRevenue; 
-        const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0) + serviceCost;
+        const grossRevenue = productRevenue + serviceRevenue + resaleRevenue; 
+        const totalCost = salesTransactions.reduce((s, t) => s + (t.cost || 0), 0) + serviceCost + resaleCost;
         const profit = grossRevenue - totalCost;
 
         if(salesSummary) {
-            salesSummary.className = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center mb-4";
+            salesSummary.className = "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 text-center mb-4";
             salesSummary.innerHTML = `
                 <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
-                    <p class="text-sm text-[var(--text-secondary)]">Faturamento Total (Produtos + Serviços)</p>
+                    <p class="text-sm text-[var(--text-secondary)]">Faturamento Total (Produtos + Serviços + Revenda)</p>
                     <p class="text-lg font-bold">${formatCurrency(grossRevenue)}</p>
                 </div>
                 <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
                     <p class="text-sm text-[var(--text-secondary)]">Receita Serviços</p>
                     <p class="text-lg font-bold text-teal-600">${formatCurrency(serviceRevenue)}</p>
+                </div>
+                <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
+                    <p class="text-sm text-[var(--text-secondary)]">Receita Revenda</p>
+                    <p class="text-lg font-bold text-blue-600">${formatCurrency(resaleRevenue)}</p>
                 </div>
                 <div class="p-2 bg-[var(--bg-tertiary)] rounded-lg">
                     <p class="text-sm text-[var(--text-secondary)]">Total Descontos</p>
@@ -887,13 +1072,13 @@ function renderReports(period = currentReportPeriod, month, year) {
             `;
         }
 
-        if (period !== 'annual') {
-            renderTransactionList(transactionsList, filteredTransactions, filteredServices);
+        if (period !== 'annual' || useCustomRange) {
+            renderTransactionList(transactionsList, filteredTransactions, reportFilters.includeServices ? filteredServices : [], reportFilters.includeResale ? filteredProductSales : []);
         }
 
         const salesData = { labels: [], datasets: [ { label: 'Vendas Pagas', data: [], backgroundColor: 'rgba(5, 150, 105, 0.6)' }, { label: 'Vendas Não Pagas', data: [], backgroundColor: 'rgba(220, 38, 38, 0.6)' } ] };
         
-        if (period === 'annual') {
+        if (period === 'annual' && !useCustomRange) {
             const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
             const monthlyData = Array(12).fill(0).map(() => ({ paid: 0, unpaid: 0, cost: 0, discount: 0 }));
 
@@ -909,6 +1094,11 @@ function renderReports(period = currentReportPeriod, month, year) {
                 const month = new Date(st.date).getMonth();
                 monthlyData[month].paid += (parseFloat(st.received) || 0);
                 monthlyData[month].cost += getServiceCostTotal(st);
+            });
+            filteredProductSales.forEach(pt => {
+                const month = new Date(pt.date).getMonth();
+                monthlyData[month].paid += (parseFloat(pt.valor) || 0);
+                monthlyData[month].cost += (parseFloat(pt.valor) || 0) - (parseFloat(pt.lucro) || 0);
             });
 
             salesData.labels = monthNames;
@@ -951,6 +1141,10 @@ function renderReports(period = currentReportPeriod, month, year) {
                 startDateForLoop = new Date(selectedYear, selectedMonth, 1);
                 endDateForLoop = new Date(selectedYear, selectedMonth + 1, 0);
                 endDateForLoop.setHours(23,59,59,999);
+            } else if (useCustomRange) {
+                const range = getReportDateRange(period, month, year);
+                startDateForLoop = new Date(range.startDate);
+                endDateForLoop = new Date(range.endDate);
             }
 
             let loopDate = new Date(startDateForLoop);
@@ -973,6 +1167,11 @@ function renderReports(period = currentReportPeriod, month, year) {
             filteredServices.forEach(st => {
                 const key = new Date(st.date).toLocaleDateString('en-CA');
                 if (salesByDate[key]) salesByDate[key].paid += (parseFloat(st.received) || 0);
+            });
+
+            filteredProductSales.forEach(pt => {
+                const key = new Date(pt.date).toLocaleDateString('en-CA');
+                if (salesByDate[key]) salesByDate[key].paid += (parseFloat(pt.valor) || 0);
             });
 
             if (period === 'daily') {
@@ -1198,7 +1397,15 @@ function renderProductPerformanceReport() {
     if(!container) return;
     const productPerformance = {};
 
-    transactions.filter(t => t.type === 'venda' && !t.reversed).forEach(sale => {
+    const monthSelect = document.getElementById('report-month-select');
+    const yearSelect = document.getElementById('report-year-select');
+    const filteredSales = getFilteredTransactions(
+        currentReportPeriod,
+        monthSelect ? monthSelect.value : undefined,
+        yearSelect ? yearSelect.value : undefined
+    );
+
+    filteredSales.filter(t => t.type === 'venda' && !t.reversed).forEach(sale => {
         sale.items.forEach(item => {
             if (!productPerformance[item.id]) {
                 productPerformance[item.id] = {
@@ -1869,6 +2076,7 @@ function resetSystem() {
         categories = [{ id: 1, name: 'Sem Categoria' }];
         transactions = [];
         serviceCategories = []; services = []; serviceTransactions = [];
+        productCategories = []; resaleProducts = []; productTransactions = [];
         cashBalance = 0;
         initializeAppUI();
         showToast('Sistema zerado com sucesso!', 'success');
@@ -1889,6 +2097,7 @@ function openModal(modalId) {
 
     if (modalId === 'modal-relatorios') {
         populateMonthYearSelectors();
+        populateReportFilters();
         switchTab('vendas');
         setReportPeriod('daily');
     } else if (modalId === 'modal-contas-receber') {
@@ -1901,6 +2110,22 @@ function openModal(modalId) {
         renderCategoriesManagement();
     } else if (modalId === 'modal-servico-categorias') {
         renderServiceCategoriesManagement();
+    } else if (modalId === 'modal-produto-categorias') {
+        renderProductCategoriesManagement();
+    } else if (modalId === 'modal-produto-cadastro') {
+        const form = document.getElementById('produto-form');
+        const isEditing = form && form.elements.produtoId.value !== '';
+        if (isEditing) {
+            document.getElementById('produto-modal-title').textContent = 'Editar Produto';
+        } else {
+            populateProductCategorySelects();
+            document.getElementById('produto-modal-title').textContent = 'Novo Produto';
+            form.reset();
+            form.elements.produtoId.value = '';
+            const container = document.getElementById('produto-custos-container');
+            container.innerHTML = '';
+            addServiceCostRow('produto-custos-container');
+        }
     } else if (modalId === 'modal-servico') {
         const form = document.getElementById('servico-form');
         const isEditing = form && form.elements.servicoId.value !== '';
@@ -1945,7 +2170,7 @@ function openModal(modalId) {
     }
 }
 
-function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } if (modalId === 'modal-servico') { const f = document.getElementById('servico-form'); if (f) f.elements.servicoId.value = ''; } else if (modalId === 'modal-servico-transacao') { const f = document.getElementById('servico-transacao-form'); if (f) f.elements.transacaoId.value = ''; } if (modalId === 'modal-relatorios') { switchView('dashboard-view'); renderDashboard(); } }
+function closeModal(modalId) { const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId; if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); } if (modalId === 'modal-servico') { const f = document.getElementById('servico-form'); if (f) f.elements.servicoId.value = ''; } else if (modalId === 'modal-servico-transacao') { const f = document.getElementById('servico-transacao-form'); if (f) f.elements.transacaoId.value = ''; } else if (modalId === 'modal-produto-cadastro') { const f = document.getElementById('produto-form'); if (f) f.elements.produtoId.value = ''; } else if (modalId === 'modal-produto-transacao') { const f = document.getElementById('produto-transacao-form'); if (f) f.elements.transacaoId.value = ''; } if (modalId === 'modal-relatorios') { switchView('dashboard-view'); renderDashboard(); } }
 
 function openEditProductModal(productId) {
     const product = products.find(p => p.id === productId); if (!product) return;
@@ -2734,11 +2959,12 @@ function populateMonthYearSelectors() {
     yearSelect.value = now.getFullYear();
 }
 
-function renderTransactionList(container, transactionList, serviceList) {
+function renderTransactionList(container, transactionList, serviceList, productList) {
     if (!container) return;
     container.innerHTML = '';
     const serviceTrans = serviceList || [];
-    if (transactionList.length === 0 && serviceTrans.length === 0) {
+    const productTrans = productList || [];
+    if (transactionList.length === 0 && serviceTrans.length === 0 && productTrans.length === 0) {
         container.innerHTML = `<p class="text-center text-gray-500 mt-4">Nenhuma transação encontrada para este período.</p>`;
         return;
     }
@@ -2805,6 +3031,14 @@ function renderTransactionList(container, transactionList, serviceList) {
         const profitHtml = `<span class="text-xs ${profit >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(profit)}</span>`;
         const costHtml = costTotal > 0 ? `<span class="text-xs text-gray-500">Custos: ${formatCurrency(costTotal)}</span>` : '';
         container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><div class="flex items-center gap-3"><i class="fas fa-briefcase text-teal-600"></i><div><p class="font-semibold">${serviceName}${st.description && st.description !== serviceName ? ' - ' + st.description : ''}</p><p class="text-sm flex items-center">${new Date(st.date).toLocaleString('pt-BR')} &middot; <span class="text-teal-600 ml-1">SERVIÇO</span></p></div></div><div class="text-right"><div><p class="font-bold text-teal-600">${formatCurrency(received)}</p>${profitHtml}</div><div class="mt-1 text-xs">${costHtml}</div></div></div>`;
+    });
+    [...productTrans].reverse().forEach(pt => {
+        const valor = parseFloat(pt.valor) || 0;
+        const lucro = parseFloat(pt.lucro) || 0;
+        const prod = resaleProducts.find(p => p.id === pt.productId);
+        const prodName = prod ? prod.name : 'Produto Excluído';
+        const profitHtml = `<span class="text-xs ${lucro >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(lucro)}</span>`;
+        container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><div class="flex items-center gap-3"><i class="fas fa-box text-blue-600"></i><div><p class="font-semibold">${prodName}${pt.description ? ' - ' + pt.description : ''}</p><p class="text-sm flex items-center">${new Date(pt.date).toLocaleString('pt-BR')} &middot; <span class="text-blue-600 ml-1">REVENDA</span></p></div></div><div class="text-right"><div><p class="font-bold text-blue-600">${formatCurrency(valor)}</p>${profitHtml}</div></div></div>`;
     });
 }
 
@@ -2888,6 +3122,7 @@ function exportAllData() {
         products, customers, transactions, cashBalance, rawMaterials, categories,
         machines, supplyCatalog, filamentCatalog, savedBudgets, rascunhos,
         serviceCategories, services, serviceTransactions,
+        productCategories, resaleProducts, productTransactions,
         theme: document.documentElement.getAttribute('data-theme'),
         backupDate: new Date().toISOString()
     };
@@ -3079,6 +3314,31 @@ async function importAllData(event) {
                         await supabaseClient.from('servico_transacoes').upsert(servTrans);
                     }
 
+                    if (importedData.productCategories && importedData.productCategories.length > 0) {
+                        const prodCats = importedData.productCategories.map(c => ({ id: c.id, nome: c.name }));
+                        await supabaseClient.from('produto_categorias').upsert(prodCats);
+                    }
+
+                    if (importedData.resaleProducts && importedData.resaleProducts.length > 0) {
+                        const prodsRev = importedData.resaleProducts.map(p => ({
+                            id: p.id, nome: p.name, categoria_id: p.categoryId || null,
+                            preco_compra: p.buyPrice || 0, preco_venda: p.sellPrice || 0,
+                            quantidade: p.quantity || 0, custos_json: JSON.stringify(p.costs || [])
+                        }));
+                        await supabaseClient.from('produtos_revenda').upsert(prodsRev);
+                    }
+
+                    if (importedData.productTransactions && importedData.productTransactions.length > 0) {
+                        const prodTrans = importedData.productTransactions.map(pt => ({
+                            id: pt.id, produto_id: pt.productId, tipo: pt.tipo || 'venda',
+                            data: new Date(pt.date).toISOString(),
+                            quantidade: pt.quantity || 0, valor_total: pt.valor || 0,
+                            custos_json: JSON.stringify(pt.costs || []),
+                            lucro: pt.lucro || 0, descricao: pt.description || ''
+                        }));
+                        await supabaseClient.from('produto_transacoes').upsert(prodTrans);
+                    }
+
                     if (importedData.filamentCatalog) {
                         localStorage.setItem('orcamentoFilaments', JSON.stringify(importedData.filamentCatalog));
                         if (importedData.filamentCatalog.length > 0) {
@@ -3187,11 +3447,10 @@ async function handleEditSale(e) {
 
 function switchView(viewId) {
     stopAutoSave();
-    document.getElementById('dashboard-view').classList.add('hidden');
-    document.getElementById('pos-view').classList.add('hidden');
-    document.getElementById('orcamento-view').classList.add('hidden');
-    document.getElementById('maquinas-view').classList.add('hidden');
-    document.getElementById('insumos-view').classList.add('hidden');
+    ['dashboard-view', 'pos-view', 'orcamento-view', 'maquinas-view', 'insumos-view', 'filamentos-view', 'produtos-view', 'servicos-view'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
     document.getElementById(viewId).classList.remove('hidden');
     document.querySelectorAll('.sidebar-item').forEach(btn => {
         btn.classList.remove('active');
@@ -3221,6 +3480,9 @@ function switchView(viewId) {
     }
     if (viewId === 'servicos-view') {
         renderServicesView();
+    }
+    if (viewId === 'produtos-view') {
+        renderProductsView();
     }
 }
 
@@ -3579,21 +3841,21 @@ function renderSalesCategoryChart(monthTransactions) {
     if (!canvas) return;
     if (dashboardSalesCategoryChart) { dashboardSalesCategoryChart.destroy(); dashboardSalesCategoryChart = null; }
 
-    if (dashboardSalesCategoryTab === 'servicos') {
-        renderServiceCategoryChart();
-    } else {
-        renderProductCategoryChart(monthTransactions);
-    }
-}
+    const colors = ['#3b82f6', '#a855f7', '#22c55e', '#f59e0b', '#ec4899', '#14b8a6', '#6366f1', '#ef4444', '#10b981', '#f97316'];
+    const labels = [];
+    const data = [];
+    const bgColors = [];
+    let colorIndex = 0;
 
-function renderProductCategoryChart(monthTransactions) {
-    const canvas = document.getElementById('chart-sales-category');
-    if (!canvas) return;
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    const periodStart = startOfMonth.getTime();
+    const periodEnd = endOfToday.getTime();
 
     const byCat = {};
-    const catIds = new Set(categories.map(c => c.id));
-    catIds.add('unknown');
-
     monthTransactions.forEach(t => {
         if (!t.items) return;
         t.items.forEach(item => {
@@ -3604,24 +3866,40 @@ function renderProductCategoryChart(monthTransactions) {
         });
     });
 
-    const labels = [];
-    const data = [];
-    catIds.forEach(catId => {
-        const value = byCat[catId] || 0;
+    Object.keys(byCat).forEach(catId => {
+        const value = byCat[catId];
         if (value > 0) {
             const cat = categories.find(c => c.id == catId);
             labels.push(cat ? cat.name : 'Sem Categoria');
             data.push(value);
+            bgColors.push(colors[colorIndex++ % colors.length]);
         }
     });
 
-    const hasData = data.length > 0;
-    if (!hasData) {
+    const produtosResale = productTransactions
+        .filter(pt => pt.tipo === 'venda' && pt.date >= periodStart && pt.date <= periodEnd)
+        .reduce((s, pt) => s + (parseFloat(pt.valor) || 0), 0);
+    if (produtosResale > 0) {
+        labels.push('Produtos');
+        data.push(produtosResale);
+        bgColors.push(colors[colorIndex++ % colors.length]);
+    }
+
+    const servicos = serviceTransactions
+        .filter(st => st.date >= periodStart && st.date <= periodEnd)
+        .reduce((s, st) => s + (parseFloat(st.received) || 0), 0);
+    if (servicos > 0) {
+        labels.push('Serviços');
+        data.push(servicos);
+        bgColors.push(colors[colorIndex++ % colors.length]);
+    }
+
+    if (data.length === 0) {
         const ctx = canvas.getContext('2d');
         dashboardSalesCategoryChart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Produtos'],
+                labels: ['Vendas'],
                 datasets: [{ data: [1], backgroundColor: ['#e5e7eb'], borderWidth: 0 }]
             },
             options: {
@@ -3632,7 +3910,6 @@ function renderProductCategoryChart(monthTransactions) {
         return;
     }
 
-    const colors = ['#3b82f6', '#a855f7', '#22c55e', '#f59e0b', '#ec4899', '#14b8a6', '#6366f1', '#ef4444', '#10b981', '#f97316'];
     const ctx = canvas.getContext('2d');
     dashboardSalesCategoryChart = new Chart(ctx, {
         type: 'doughnut',
@@ -3640,71 +3917,7 @@ function renderProductCategoryChart(monthTransactions) {
             labels,
             datasets: [{
                 data,
-                backgroundColor: colors,
-                borderWidth: 2, borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom' },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ctx.label + ': ' + formatCurrency(ctx.parsed)
-                    }
-                }
-            }
-        }
-    });
-}
-
-function renderServiceCategoryChart() {
-    const canvas = document.getElementById('chart-sales-category');
-    if (!canvas) return;
-
-    const byCat = {};
-    serviceTransactions.forEach(st => {
-        const svc = services.find(s => s.id === st.serviceId);
-        const catId = svc && svc.categoryId != null ? svc.categoryId : 'unknown';
-        byCat[catId] = (byCat[catId] || 0) + (parseFloat(st.received) || 0);
-    });
-
-    const labels = [];
-    const data = [];
-    Object.keys(byCat).forEach(catId => {
-        const value = byCat[catId];
-        if (value > 0) {
-            labels.push(catId === 'unknown' ? 'Sem Categoria' : getServiceCategoryName(parseInt(catId)));
-            data.push(value);
-        }
-    });
-
-    const hasData = data.length > 0;
-    if (!hasData) {
-        const ctx = canvas.getContext('2d');
-        dashboardSalesCategoryChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Serviços'],
-                datasets: [{ data: [1], backgroundColor: ['#e5e7eb'], borderWidth: 0 }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' }, tooltip: { enabled: false } }
-            }
-        });
-        return;
-    }
-
-    const colors = ['#14b8a6', '#8b5cf6', '#f59e0b', '#3b82f6', '#ef4444', '#22c55e', '#ec4899', '#6366f1', '#10b981', '#f97316'];
-    const ctx = canvas.getContext('2d');
-    dashboardSalesCategoryChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels,
-            datasets: [{
-                data,
-                backgroundColor: colors,
+                backgroundColor: bgColors,
                 borderWidth: 2, borderColor: '#fff'
             }]
         },
@@ -3836,12 +4049,14 @@ function addServiceCostRow(containerId, name = '', value = '') {
     `;
     container.appendChild(row);
     updateServiceTransacaoSummary();
+    updateProductTransacaoSummary();
 }
 
 function handleRemoveServiceCostRow(e) {
     const btn = e.target.closest('.remove-service-cost-btn');
     if (btn) btn.closest('.service-cost-row').remove();
     updateServiceTransacaoSummary();
+    updateProductTransacaoSummary();
 }
 
 function collectServiceCostRows(containerId) {
@@ -4157,6 +4372,532 @@ function deleteServiceTransaction(transactionId) {
     });
 }
 
+// ===================================================================================
+// MÓDULO DE PRODUTOS DE COMPRA E VENDA (Revenda)
+// ===================================================================================
+
+function getProductCategoryName(catId) {
+    const c = productCategories.find(c => c.id === catId);
+    return c ? c.name : 'Sem Categoria';
+}
+
+function getProductTotalCosts(product) {
+    return (product.costs || []).reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+}
+
+// --- CATEGORIAS DE PRODUTOS ---
+
+function renderProductCategoriesManagement() {
+    const list = document.getElementById('produto-categorias-list');
+    if (!list) return;
+    list.innerHTML = '';
+    if (productCategories.length === 0) {
+        list.innerHTML = '<p class="text-center text-gray-500 py-2">Nenhuma categoria cadastrada.</p>';
+        return;
+    }
+    productCategories.forEach(cat => {
+        const productCount = resaleProducts.filter(p => p.categoryId === cat.id).length;
+        list.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><p>${cat.name} <span class="text-sm text-[var(--text-secondary)]">(${productCount} produtos)</span></p><div><button data-id="${cat.id}" class="edit-produto-categoria-btn text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button data-id="${cat.id}" class="delete-produto-categoria-btn text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div></div>`;
+    });
+}
+
+function populateProductCategorySelects() {
+    const select = document.querySelector('#produto-form select[name="produtoCategoria"]');
+    if (!select) return;
+    select.innerHTML = '<option value="">Sem Categoria</option>';
+    productCategories.forEach(cat => {
+        select.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+    });
+}
+
+async function addProductCategory(name) {
+    if (!name.trim()) { showToast('O nome da categoria não pode estar vazio.', 'error'); return; }
+    if (productCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) { showToast('Categoria já existe.', 'error'); return; }
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient.from('produto_categorias').insert([{ id: Date.now(), nome: name.trim() }]);
+        if (error) throw error;
+        showToast('Categoria adicionada!', 'success');
+        await loadDataFromSupabase();
+        renderProductCategoriesManagement();
+    } catch (error) {
+        console.error("Erro ao salvar categoria de produto:", error);
+        showToast('Erro ao salvar categoria no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function openEditProductCategoryModal(categoryId) {
+    const category = productCategories.find(c => c.id === categoryId);
+    if (!category) return;
+    const form = document.getElementById('edit-produto-categoria-form');
+    form.elements.produtoCategoryId.value = category.id;
+    form.elements.produtoCategoryName.value = category.name;
+    openModal('modal-edit-produto-categoria');
+}
+
+async function handleEditProductCategory(e) {
+    e.preventDefault();
+    const form = e.target;
+    const categoryId = parseInt(form.elements.produtoCategoryId.value);
+    const newName = form.elements.produtoCategoryName.value;
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient
+            .from('produto_categorias')
+            .update({ nome: newName })
+            .eq('id', categoryId);
+        if (error) throw error;
+        showToast('Categoria atualizada!', 'success');
+        closeModal('modal-edit-produto-categoria');
+        await loadDataFromSupabase();
+        renderProductCategoriesManagement();
+    } catch (error) {
+        console.error("Erro ao editar categoria de produto:", error);
+        showToast("Erro ao atualizar categoria.", "error");
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function deleteProductCategory(categoryId) {
+    openConfirmationModal('Excluir Categoria de Produto?', 'Os produtos desta categoria ficarão sem categoria. Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            await supabaseClient.from('produtos_revenda').update({ categoria_id: null }).eq('categoria_id', categoryId);
+            const { error } = await supabaseClient.from('produto_categorias').delete().eq('id', categoryId);
+            if (error) throw error;
+            showToast('Categoria excluída com sucesso.', 'success');
+            await loadDataFromSupabase();
+            renderProductCategoriesManagement();
+        } catch (error) {
+            console.error("Erro ao excluir categoria de produto:", error);
+            showToast('Erro ao excluir categoria no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+}
+
+// --- PRODUTOS (CRUD) ---
+
+async function addProductResale(name, categoryId, buyPrice, sellPrice, quantity, costs) {
+    if (!name.trim()) { showToast('Informe o nome do produto.', 'error'); return; }
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient.from('produtos_revenda').insert([{
+            id: Date.now(),
+            nome: name.trim(),
+            categoria_id: categoryId ? parseInt(categoryId) : null,
+            preco_compra: parseFloat(buyPrice) || 0,
+            preco_venda: parseFloat(sellPrice) || 0,
+            quantidade: parseFloat(quantity) || 0,
+            custos_json: JSON.stringify(costs || [])
+        }]);
+        if (error) throw error;
+        showToast('Produto adicionado!', 'success');
+        closeModal('modal-produto-cadastro');
+        await loadDataFromSupabase();
+        renderProductsView();
+    } catch (error) {
+        console.error("Erro ao salvar produto:", error);
+        showToast('Erro ao salvar produto no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+async function editProductResale(id, name, categoryId, buyPrice, sellPrice, quantity, costs) {
+    if (!name.trim()) { showToast('Informe o nome do produto.', 'error'); return; }
+
+    toggleLoading(true);
+    try {
+        const { error } = await supabaseClient.from('produtos_revenda')
+            .update({
+                nome: name.trim(),
+                categoria_id: categoryId ? parseInt(categoryId) : null,
+                preco_compra: parseFloat(buyPrice) || 0,
+                preco_venda: parseFloat(sellPrice) || 0,
+                quantidade: parseFloat(quantity) || 0,
+                custos_json: JSON.stringify(costs || [])
+            })
+            .eq('id', id);
+        if (error) throw error;
+        showToast('Produto atualizado!', 'success');
+        closeModal('modal-produto-cadastro');
+        await loadDataFromSupabase();
+        renderProductsView();
+    } catch (error) {
+        console.error("Erro ao editar produto:", error);
+        showToast('Erro ao atualizar produto no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function openEditProductResaleModal(productId) {
+    const product = resaleProducts.find(p => p.id === productId);
+    if (!product) return;
+    const form = document.getElementById('produto-form');
+    form.reset();
+    form.elements.produtoId.value = product.id;
+    document.getElementById('produto-modal-title').textContent = 'Editar Produto';
+    form.elements.produtoNome.value = product.name;
+    populateProductCategorySelects();
+    form.elements.produtoCategoria.value = product.categoryId || '';
+    form.elements.produtoQuantidade.value = product.quantity || 0;
+    form.elements.produtoPrecoCompra.value = product.buyPrice || '';
+    form.elements.produtoPrecoVenda.value = product.sellPrice || '';
+    const container = document.getElementById('produto-custos-container');
+    container.innerHTML = '';
+    if (product.costs && product.costs.length > 0) {
+        product.costs.forEach(c => addServiceCostRow('produto-custos-container', c.name, c.value));
+    } else {
+        addServiceCostRow('produto-custos-container');
+    }
+    openModal('modal-produto-cadastro');
+}
+
+function deleteProductResale(productId) {
+    openConfirmationModal('Excluir Produto?', 'O produto será removido. As compras e vendas vinculadas serão mantidas como "Produto Excluído". Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            const { error } = await supabaseClient.from('produtos_revenda').delete().eq('id', productId);
+            if (error) throw error;
+            showToast('Produto excluído com sucesso.', 'success');
+            await loadDataFromSupabase();
+            renderProductsView();
+        } catch (error) {
+            console.error("Erro ao excluir produto:", error);
+            showToast('Erro ao excluir produto no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+}
+
+// --- COMPRAS E VENDAS (transações) ---
+
+function renderProductsView() {
+    renderProductsList();
+    renderProductTransactionsList();
+}
+
+function renderProductsList() {
+    const list = document.getElementById('produtos-list');
+    if (!list) return;
+    if (resaleProducts.length === 0) {
+        list.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum produto cadastrado.</p>';
+        return;
+    }
+    let totalEstoque = 0, totalInvestido = 0;
+    let html = `<table class="w-full text-left text-sm"><thead><tr class="border-b">
+        <th class="p-2">Produto</th><th class="p-2">Categoria</th>
+        <th class="p-2 text-right">Preço Compra</th><th class="p-2 text-right">Preço Venda</th>
+        <th class="p-2 text-right">Estoque</th><th class="p-2 text-right">Valor em Estoque</th>
+        <th class="p-2 text-center">Ações</th>
+    </tr></thead><tbody>`;
+    resaleProducts.forEach(p => {
+        const estoqueValor = (parseFloat(p.quantity) || 0) * (parseFloat(p.buyPrice) || 0);
+        totalEstoque += parseFloat(p.quantity) || 0;
+        totalInvestido += estoqueValor;
+        html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2 font-medium">${p.name}</td>
+            <td class="p-2">${getProductCategoryName(p.categoryId)}</td>
+            <td class="p-2 text-right">${formatCurrency(p.buyPrice)}</td>
+            <td class="p-2 text-right">${formatCurrency(p.sellPrice)}</td>
+            <td class="p-2 text-right font-semibold">${p.quantity}</td>
+            <td class="p-2 text-right text-amber-600">${formatCurrency(estoqueValor)}</td>
+            <td class="p-2 text-center whitespace-nowrap">
+                <button data-id="${p.id}" class="edit-produto-btn text-blue-500 p-1" title="Editar"><i class="fas fa-edit"></i></button>
+                <button data-id="${p.id}" class="delete-produto-btn text-red-500 p-1" title="Excluir"><i class="fas fa-trash"></i></button>
+            </td></tr>`;
+    });
+    html += `</tbody><tfoot><tr class="border-t-2 font-bold">
+        <td class="p-2" colspan="4">Total</td>
+        <td class="p-2 text-right">${totalEstoque}</td>
+        <td class="p-2 text-right text-amber-600">${formatCurrency(totalInvestido)}</td>
+        <td class="p-2"></td>
+    </tr></tfoot></table>`;
+    list.innerHTML = html;
+}
+
+function renderProductTransactionsList() {
+    const list = document.getElementById('produto-transacoes-list');
+    if (!list) return;
+    const sorted = [...productTransactions].sort((a, b) => b.date - a.date);
+    if (sorted.length === 0) {
+        list.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhuma compra ou venda registrada.</p>';
+        return;
+    }
+    let totalCompras = 0, totalVendas = 0, totalCustos = 0, totalLucro = 0;
+    let html = `<table class="w-full text-left text-sm"><thead><tr class="border-b">
+        <th class="p-2">Data</th><th class="p-2">Tipo</th><th class="p-2">Produto</th>
+        <th class="p-2 text-right">Qtd</th><th class="p-2 text-right">Valor</th>
+        <th class="p-2 text-right">Custos</th><th class="p-2 text-right">Lucro</th>
+        <th class="p-2 text-center">Ações</th>
+    </tr></thead><tbody>`;
+    sorted.forEach(t => {
+        const prod = resaleProducts.find(p => p.id === t.productId);
+        const prodName = prod ? prod.name : 'Produto Excluído';
+        const totalCosts = (t.costs || []).reduce((sum, c) => sum + (parseFloat(c.value) || 0), 0);
+        const isCompra = t.tipo === 'compra';
+        if (isCompra) totalCompras += parseFloat(t.valor) || 0;
+        else totalVendas += parseFloat(t.valor) || 0;
+        totalCustos += totalCosts;
+        totalLucro += parseFloat(t.lucro) || 0;
+        const tipoBadge = isCompra
+            ? '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-semibold">COMPRA</span>'
+            : '<span class="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">VENDA</span>';
+        const valorClass = isCompra ? 'text-amber-600' : 'text-blue-600';
+        const lucroHtml = isCompra ? '<span class="text-gray-400">-</span>' : `<span class="${parseFloat(t.lucro) >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(t.lucro)}</span>`;
+        html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
+            <td class="p-2">${new Date(t.date).toLocaleString('pt-BR')}</td>
+            <td class="p-2">${tipoBadge}</td>
+            <td class="p-2 font-medium">${prodName}</td>
+            <td class="p-2 text-right">${t.quantity}</td>
+            <td class="p-2 text-right ${valorClass}">${formatCurrency(t.valor)}</td>
+            <td class="p-2 text-right text-red-500">${formatCurrency(totalCosts)}</td>
+            <td class="p-2 text-right">${lucroHtml}</td>
+            <td class="p-2 text-center whitespace-nowrap">
+                <button data-id="${t.id}" class="edit-produto-transacao-btn text-blue-500 p-1" title="Editar"><i class="fas fa-edit"></i></button>
+                <button data-id="${t.id}" class="delete-produto-transacao-btn text-red-500 p-1" title="Excluir"><i class="fas fa-trash"></i></button>
+            </td></tr>`;
+    });
+    html += `</tbody><tfoot><tr class="border-t-2 font-bold">
+        <td class="p-2" colspan="3">Total</td>
+        <td class="p-2"></td>
+        <td class="p-2 text-right"><span class="text-amber-600">C ${formatCurrency(totalCompras)}</span> / <span class="text-blue-600">V ${formatCurrency(totalVendas)}</span></td>
+        <td class="p-2 text-right text-red-500">${formatCurrency(totalCustos)}</td>
+        <td class="p-2 text-right ${totalLucro >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(totalLucro)}</td>
+        <td class="p-2"></td>
+    </tr></tfoot></table>`;
+    list.innerHTML = html;
+}
+
+function populateProductTransactionSelects() {
+    const select = document.getElementById('produto-transacao-produto-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">Selecione um produto...</option>';
+    resaleProducts.forEach(p => {
+        select.innerHTML += `<option value="${p.id}">${p.name} (${getProductCategoryName(p.categoryId)})</option>`;
+    });
+}
+
+function prefillProductTransactionForm(productId) {
+    const prod = resaleProducts.find(p => p.id == productId);
+    const form = document.getElementById('produto-transacao-form');
+    const container = document.getElementById('produto-transacao-custos-container');
+    const estoqueInfo = document.getElementById('produto-transacao-estoque-info');
+    if (container) {
+        container.innerHTML = '';
+        if (prod && prod.costs && prod.costs.length > 0) {
+            prod.costs.forEach(c => addServiceCostRow('produto-transacao-custos-container', c.name, c.value));
+        } else {
+            addServiceCostRow('produto-transacao-custos-container');
+        }
+    }
+    if (estoqueInfo) estoqueInfo.textContent = prod ? (prod.quantity + ' un') : '-';
+    const valorInput = document.getElementById('produto-transacao-valor-input');
+    const tipo = form ? form.elements.transacaoTipo.value : 'venda';
+    if (valorInput && !valorInput.value) {
+        valorInput.value = prod ? (tipo === 'compra' ? (prod.buyPrice || '') : (prod.sellPrice || '')) : '';
+    }
+    updateProductTransacaoSummary();
+}
+
+function updateProductTransacaoSummary() {
+    const totalCustosEl = document.getElementById('produto-transacao-total-custos');
+    if (!totalCustosEl) return;
+    const form = document.getElementById('produto-transacao-form');
+    const tipo = (form && form.elements.transacaoTipo.value) || 'venda';
+    const costs = collectServiceCostRows('produto-transacao-custos-container');
+    const totalCosts = costs.reduce((s, c) => s + c.value, 0);
+    const valorInput = document.getElementById('produto-transacao-valor-input');
+    const valor = valorInput ? (parseFloat(valorInput.value) || 0) : 0;
+    const qtdInput = document.getElementById('produto-transacao-quantidade-input');
+    const qtd = qtdInput ? (parseFloat(qtdInput.value) || 0) : 0;
+    const select = document.getElementById('produto-transacao-produto-select');
+    const prod = resaleProducts.find(p => p.id == (select ? select.value : ''));
+    const valorEl = document.getElementById('produto-transacao-total-valor');
+    const resultadoEl = document.getElementById('produto-transacao-total-resultado');
+    const resultadoLabel = document.getElementById('produto-transacao-resultado-label');
+    const valorLabel = document.getElementById('produto-transacao-valor-label');
+    const hint = document.getElementById('produto-transacao-hint');
+
+    totalCustosEl.textContent = formatCurrency(totalCosts);
+    if (valorEl) valorEl.textContent = formatCurrency(valor);
+
+    if (tipo === 'compra') {
+        if (valorLabel) valorLabel.textContent = 'Valor Gasto (R$)';
+        if (resultadoLabel) resultadoLabel.firstChild.textContent = 'Total Investido: ';
+        if (resultadoEl) { resultadoEl.textContent = formatCurrency(valor + totalCosts); resultadoEl.className = 'text-amber-600'; }
+        if (hint) hint.textContent = 'A compra adiciona a quantidade ao estoque. O total investido é o valor gasto mais os custos extras.';
+    } else {
+        if (valorLabel) valorLabel.textContent = 'Valor Recebido (R$)';
+        if (resultadoLabel) resultadoLabel.firstChild.textContent = 'Lucro: ';
+        const custoMercadoria = (prod ? (parseFloat(prod.buyPrice) || 0) : 0) * qtd;
+        const lucro = valor - custoMercadoria - totalCosts;
+        if (resultadoEl) { resultadoEl.textContent = formatCurrency(lucro); resultadoEl.className = lucro >= 0 ? 'text-green-600' : 'text-red-600'; }
+        if (hint) hint.textContent = 'O lucro da venda já desconta o custo de compra (quantidade x preço de compra) e os custos extras.';
+    }
+}
+
+function openNewProductTransactionModal(tipo) {
+    populateProductTransactionSelects();
+    const form = document.getElementById('produto-transacao-form');
+    form.reset();
+    form.elements.transacaoId.value = '';
+    form.elements.transacaoTipo.value = tipo === 'compra' ? 'compra' : 'venda';
+    document.getElementById('produto-transacao-modal-title').textContent = tipo === 'compra' ? 'Registrar Compra' : 'Registrar Venda';
+    document.getElementById('produto-transacao-custos-container').innerHTML = '';
+    addServiceCostRow('produto-transacao-custos-container');
+    const estoqueInfo = document.getElementById('produto-transacao-estoque-info');
+    if (estoqueInfo) estoqueInfo.textContent = '-';
+    const qtdInput = document.getElementById('produto-transacao-quantidade-input');
+    if (qtdInput) qtdInput.value = 1;
+    const dataInput = document.getElementById('produto-transacao-data-input');
+    if (dataInput) dataInput.value = localISOString();
+    updateProductTransacaoSummary();
+    openModal('modal-produto-transacao');
+}
+
+function openEditProductTransactionModal(transactionId) {
+    const tx = productTransactions.find(x => x.id === transactionId);
+    if (!tx) return;
+    populateProductTransactionSelects();
+    const form = document.getElementById('produto-transacao-form');
+    form.reset();
+    form.elements.transacaoId.value = tx.id;
+    form.elements.transacaoTipo.value = tx.tipo || 'venda';
+    form.elements.transacaoProduto.value = tx.productId || '';
+    document.getElementById('produto-transacao-modal-title').textContent = (tx.tipo === 'compra') ? 'Editar Compra' : 'Editar Venda';
+    const dataInput = document.getElementById('produto-transacao-data-input');
+    if (dataInput) dataInput.value = localISOString(new Date(tx.date));
+    const qtdInput = document.getElementById('produto-transacao-quantidade-input');
+    if (qtdInput) qtdInput.value = tx.quantity || 1;
+    const valorInput = document.getElementById('produto-transacao-valor-input');
+    if (valorInput) valorInput.value = tx.valor || '';
+    form.elements.transacaoDescricao.value = tx.description || '';
+    const container = document.getElementById('produto-transacao-custos-container');
+    container.innerHTML = '';
+    if (tx.costs && tx.costs.length > 0) {
+        tx.costs.forEach(c => addServiceCostRow('produto-transacao-custos-container', c.name, c.value));
+    } else {
+        addServiceCostRow('produto-transacao-custos-container');
+    }
+    const estoqueInfo = document.getElementById('produto-transacao-estoque-info');
+    if (estoqueInfo) {
+        const prod = resaleProducts.find(p => p.id === tx.productId);
+        estoqueInfo.textContent = prod ? (prod.quantity + ' un') : '-';
+    }
+    updateProductTransacaoSummary();
+    openModal('modal-produto-transacao');
+}
+
+async function saveProductTransaction(data) {
+    const tipo = data.tipo || 'venda';
+    const produtoId = parseInt(data.produtoId);
+    const prod = resaleProducts.find(p => p.id === produtoId);
+    if (!prod) { showToast('Selecione um produto.', 'error'); return; }
+    const qtd = parseFloat(data.quantity) || 0;
+    if (qtd <= 0) { showToast('Informe uma quantidade válida.', 'error'); return; }
+    const valor = parseFloat(data.valor) || 0;
+    const costs = data.costs || [];
+    const totalCosts = costs.reduce((s, c) => s + (parseFloat(c.value) || 0), 0);
+
+    const delta = tipo === 'compra' ? qtd : -qtd;
+    let baseQtd = parseFloat(prod.quantity) || 0;
+    if (data.id) {
+        const old = productTransactions.find(x => x.id === data.id);
+        if (old) {
+            const oldDelta = old.tipo === 'compra' ? (parseFloat(old.quantity) || 0) : -(parseFloat(old.quantity) || 0);
+            baseQtd = baseQtd - oldDelta;
+        }
+    }
+    if (tipo === 'venda' && qtd > baseQtd) {
+        showToast(`Estoque insuficiente. Disponível: ${baseQtd} un`, 'error');
+        return;
+    }
+    const newQtd = Math.max(0, baseQtd + delta);
+    const custoMercadoria = tipo === 'venda' ? (parseFloat(prod.buyPrice) || 0) * qtd : 0;
+    const lucro = tipo === 'venda' ? (valor - custoMercadoria - totalCosts) : 0;
+
+    const payload = {
+        produto_id: produtoId,
+        tipo,
+        data: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+        quantidade: qtd,
+        valor_total: valor,
+        custos_json: JSON.stringify(costs),
+        lucro,
+        descricao: (data.description || '').trim()
+    };
+
+    toggleLoading(true);
+    try {
+        if (data.id) {
+            const old = productTransactions.find(x => x.id === data.id);
+            if (old && old.productId !== produtoId) {
+                const oldProd = resaleProducts.find(p => p.id === old.productId);
+                if (oldProd) {
+                    const oldDelta = old.tipo === 'compra' ? (parseFloat(old.quantity) || 0) : -(parseFloat(old.quantity) || 0);
+                    const revertedQtd = Math.max(0, (parseFloat(oldProd.quantity) || 0) - oldDelta);
+                    await supabaseClient.from('produtos_revenda').update({ quantidade: revertedQtd }).eq('id', old.productId);
+                }
+            }
+            const { error } = await supabaseClient.from('produto_transacoes').update(payload).eq('id', data.id);
+            if (error) throw error;
+            await supabaseClient.from('produtos_revenda').update({ quantidade: newQtd }).eq('id', produtoId);
+        } else {
+            payload.id = Date.now();
+            const { error } = await supabaseClient.from('produto_transacoes').insert([payload]);
+            if (error) throw error;
+            await supabaseClient.from('produtos_revenda').update({ quantidade: newQtd }).eq('id', produtoId);
+        }
+        showToast(tipo === 'compra' ? 'Compra registrada!' : 'Venda registrada!', 'success');
+        closeModal('modal-produto-transacao');
+        await loadDataFromSupabase();
+        renderProductsView();
+    } catch (error) {
+        console.error("Erro ao salvar transação de produto:", error);
+        showToast('Erro ao salvar transação no banco.', 'error');
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+function deleteProductTransaction(transactionId) {
+    openConfirmationModal('Excluir Transação?', 'A transação será removida e o estoque do produto será ajustado. Deseja continuar?', async () => {
+        toggleLoading(true);
+        try {
+            const tx = productTransactions.find(x => x.id === transactionId);
+            if (tx) {
+                const prod = resaleProducts.find(p => p.id === tx.productId);
+                if (prod) {
+                    const delta = tx.tipo === 'compra' ? (parseFloat(tx.quantity) || 0) : -(parseFloat(tx.quantity) || 0);
+                    const newQtd = Math.max(0, (parseFloat(prod.quantity) || 0) - delta);
+                    await supabaseClient.from('produtos_revenda').update({ quantidade: newQtd }).eq('id', tx.productId);
+                }
+            }
+            const { error } = await supabaseClient.from('produto_transacoes').delete().eq('id', transactionId);
+            if (error) throw error;
+            showToast('Transação excluída com sucesso.', 'success');
+            await loadDataFromSupabase();
+            renderProductsView();
+        } catch (error) {
+            console.error("Erro ao excluir transação:", error);
+            showToast('Erro ao excluir transação no banco.', 'error');
+        } finally {
+            toggleLoading(false);
+        }
+    });
+}
+
 function openDiscountModal(itemIndex) {
     const form = document.getElementById('discount-form');
     form.reset();
@@ -4337,6 +5078,43 @@ function addEventListeners() {
     safeAddListener('transacao-custos-container', 'input', updateServiceTransacaoSummary);
     safeAddListener('transacao-servico-select', 'change', (e) => prefillServiceTransactionForm(e.target.value));
     safeAddListener('transacao-valor-input', 'input', updateServiceTransacaoSummary);
+
+    safeAddListener('add-produto-categoria-form', 'submit', function(e) { e.preventDefault(); addProductCategory(this.elements.produtoCategoryName.value); this.reset(); });
+    safeAddListener('edit-produto-categoria-form', 'submit', handleEditProductCategory);
+    safeAddListener('produto-form', 'submit', function(e) {
+        e.preventDefault();
+        const id = this.elements.produtoId.value;
+        const nome = this.elements.produtoNome.value;
+        const categoria = this.elements.produtoCategoria.value;
+        const buyPrice = this.elements.produtoPrecoCompra.value;
+        const sellPrice = this.elements.produtoPrecoVenda.value;
+        const quantity = this.elements.produtoQuantidade.value;
+        const costs = collectServiceCostRows('produto-custos-container');
+        if (id) editProductResale(parseInt(id), nome, categoria, buyPrice, sellPrice, quantity, costs);
+        else addProductResale(nome, categoria, buyPrice, sellPrice, quantity, costs);
+    });
+    safeAddListener('produto-transacao-form', 'submit', function(e) {
+        e.preventDefault();
+        const id = this.elements.transacaoId.value;
+        const tipo = this.elements.transacaoTipo.value;
+        const produtoId = this.elements.transacaoProduto.value;
+        if (!produtoId) { showToast('Selecione um produto.', 'error'); return; }
+        const date = this.elements.transacaoData.value;
+        const quantity = this.elements.transacaoQuantidade.value;
+        const valor = this.elements.transacaoValor.value;
+        const costs = collectServiceCostRows('produto-transacao-custos-container');
+        const description = this.elements.transacaoDescricao.value;
+        saveProductTransaction({ id: id ? parseInt(id) : null, tipo, produtoId, date, quantity, valor, costs, description });
+    });
+    safeAddListener('add-produto-custo-btn', 'click', () => addServiceCostRow('produto-custos-container'));
+    safeAddListener('add-produto-transacao-custo-btn', 'click', () => addServiceCostRow('produto-transacao-custos-container'));
+    safeAddListener('produto-custos-container', 'click', handleRemoveServiceCostRow);
+    safeAddListener('produto-transacao-custos-container', 'click', handleRemoveServiceCostRow);
+    safeAddListener('produto-transacao-custos-container', 'input', updateProductTransacaoSummary);
+    safeAddListener('produto-transacao-produto-select', 'change', (e) => prefillProductTransactionForm(e.target.value));
+    safeAddListener('produto-transacao-valor-input', 'input', updateProductTransacaoSummary);
+    safeAddListener('produto-transacao-quantidade-input', 'input', updateProductTransacaoSummary);
+
     safeAddListener('add-raw-material-form', 'submit', function(e) { e.preventDefault(); addRawMaterial(this.elements.rawMaterialName.value, this.elements.rawMaterialStock.value, this.elements.rawMaterialUnit.value, this.elements.rawMaterialTotalCost.value, this.elements.rawMaterialSupplier.value, this.elements.rawMaterialReceiptDate.value); this.reset(); });
     
     safeAddListener('edit-raw-material-form', 'submit', async function(e) {
@@ -4501,6 +5279,15 @@ function addEventListeners() {
     };
     safeAddListener('report-month-select', 'change', handleMonthYearChange);
     safeAddListener('report-year-select', 'change', handleMonthYearChange);
+
+    safeAddListener('report-date-from', 'change', applyReportFilters);
+    safeAddListener('report-date-to', 'change', applyReportFilters);
+    safeAddListener('report-filter-customer', 'change', applyReportFilters);
+    safeAddListener('report-filter-payment', 'change', applyReportFilters);
+    safeAddListener('report-filter-category', 'change', applyReportFilters);
+    safeAddListener('report-include-services', 'change', applyReportFilters);
+    safeAddListener('report-include-resale', 'change', applyReportFilters);
+    safeAddListener('clear-report-filters', 'click', clearReportFilters);
     
     safeAddListener('sales-report-product-select', 'change', (e) => {
         document.getElementById('sales-report-customer-search').value = '';
@@ -4546,11 +5333,18 @@ function addEventListeners() {
             openEditServiceTransactionModal(parseInt(dataset.id));
         } else if (classList.contains('delete-servico-transacao-btn')) {
             deleteServiceTransaction(parseInt(dataset.id));
-        } else if (classList.contains('category-chart-tab')) {
-            document.querySelectorAll('.category-chart-tab').forEach(btn => btn.classList.remove('active'));
-            target.classList.add('active');
-            dashboardSalesCategoryTab = dataset.catTab || 'produtos';
-            renderDashboard();
+        } else if (classList.contains('edit-produto-categoria-btn')) {
+            openEditProductCategoryModal(parseInt(dataset.id));
+        } else if (classList.contains('delete-produto-categoria-btn')) {
+            deleteProductCategory(parseInt(dataset.id));
+        } else if (classList.contains('edit-produto-btn')) {
+            openEditProductResaleModal(parseInt(dataset.id));
+        } else if (classList.contains('delete-produto-btn')) {
+            deleteProductResale(parseInt(dataset.id));
+        } else if (classList.contains('edit-produto-transacao-btn')) {
+            openEditProductTransactionModal(parseInt(dataset.id));
+        } else if (classList.contains('delete-produto-transacao-btn')) {
+            deleteProductTransaction(parseInt(dataset.id));
         } else if (classList.contains('edit-stock-item-btn')) {
             openEditRawMaterialModal(parseInt(dataset.id));
         } else if (classList.contains('delete-stock-item-btn')) {
@@ -4572,6 +5366,12 @@ function addEventListeners() {
         } else if (classList.contains('tab-button')) {
             switchTab(dataset.tab);
         } else if (classList.contains('period-button')) {
+            const fromInput = document.getElementById('report-date-from');
+            const toInput = document.getElementById('report-date-to');
+            if (fromInput) fromInput.value = '';
+            if (toInput) toInput.value = '';
+            reportFilters.dateFrom = null;
+            reportFilters.dateTo = null;
             setReportPeriod(dataset.period);
         } else if (classList.contains('customer-details-row')) {
             openCustomerDetailsModal(dataset.customerId);

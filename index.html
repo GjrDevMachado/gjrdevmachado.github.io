@@ -119,6 +119,7 @@
                 <li><button data-view="maquinas-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-cogs w-4"></i> Máquinas</button></li>
                 <li><button data-view="insumos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-boxes w-4"></i> Insumos</button></li>
                 <li><button data-view="filamentos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-spool w-4"></i> Filamentos</button></li>
+                <li><button data-view="produtos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-cart-plus w-4"></i> Produtos</button></li>
                 <li><button data-view="servicos-view" class="sidebar-item w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-[var(--primary-600)] hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-briefcase w-4"></i> Serviços</button></li>
                 <li class="pt-4"><button onclick="logout()" class="w-full text-left flex items-center gap-2 px-3 py-1.5 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-colors duration-200 text-sm"><i class="fas fa-sign-out-alt w-4"></i> Sair</button></li>
             </ul>
@@ -257,13 +258,7 @@
                 </div>
 
                 <div class="bg-[var(--bg-primary)] p-3 rounded-lg shadow-md mt-4">
-                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <h3 class="text-sm font-bold">Vendas por Categoria</h3>
-                        <div class="flex gap-2">
-                            <button class="category-chart-tab active px-3 py-1 text-xs border rounded-full border-[var(--border-color)]" data-cat-tab="produtos">Produtos</button>
-                            <button class="category-chart-tab px-3 py-1 text-xs border rounded-full border-[var(--border-color)]" data-cat-tab="servicos">Serviços</button>
-                        </div>
-                    </div>
+                    <h3 class="text-sm font-bold mb-2">Vendas por Categoria</h3>
                     <div class="h-[220px]"><canvas id="chart-sales-category"></canvas></div>
                 </div>
 
@@ -694,6 +689,30 @@
                 </div>
             </div>
 
+            <div id="produtos-view" class="hidden">
+                <header class="mb-3">
+                    <h1 class="text-2xl font-bold"><i class="fas fa-cart-plus text-blue-600 mr-2"></i> Produtos (Compra e Venda)</h1>
+                    <p class="text-[var(--text-secondary)] text-sm">Cadastre produtos para compra e revenda, com preço de compra, preço de venda e estoque, e registre as compras e vendas de cada produto acompanhando o lucro.</p>
+                </header>
+
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <button data-modal-id="modal-produto-categorias" class="open-modal-btn bg-teal-600 text-white px-4 py-2 rounded-lg shadow hover:bg-teal-700 transition flex items-center gap-2 text-sm"><i class="fas fa-tags"></i> Gerir Categorias</button>
+                    <button data-modal-id="modal-produto-cadastro" class="open-modal-btn bg-[var(--primary-600)] text-white px-4 py-2 rounded-lg shadow hover:bg-[var(--primary-700)] transition flex items-center gap-2 text-sm"><i class="fas fa-plus-circle"></i> Novo Produto</button>
+                    <button type="button" onclick="openNewProductTransactionModal('compra')" class="bg-amber-600 text-white px-4 py-2 rounded-lg shadow hover:bg-amber-700 transition flex items-center gap-2 text-sm"><i class="fas fa-arrow-down"></i> Registrar Compra</button>
+                    <button type="button" onclick="openNewProductTransactionModal('venda')" class="bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition flex items-center gap-2 text-sm"><i class="fas fa-arrow-up"></i> Registrar Venda</button>
+                </div>
+
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md mb-4">
+                    <h3 class="text-base font-bold mb-2"><i class="fas fa-cart-plus text-blue-600 mr-2"></i> Produtos Cadastrados</h3>
+                    <div id="produtos-list" class="overflow-x-auto"></div>
+                </div>
+
+                <div class="bg-[var(--bg-primary)] p-3 sm:p-4 rounded-lg shadow-md">
+                    <h3 class="text-base font-bold mb-2"><i class="fas fa-exchange-alt text-amber-600 mr-2"></i> Compras e Vendas Registradas</h3>
+                    <div id="produto-transacoes-list" class="overflow-x-auto"></div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -716,6 +735,41 @@
                          <select id="report-month-select" class="border rounded-md p-2 bg-[var(--bg-tertiary)] text-sm"></select>
                          <select id="report-year-select" class="border rounded-md p-2 bg-[var(--bg-tertiary)] text-sm"></select>
                     </div>
+                </div>
+
+                <div class="flex flex-wrap items-end gap-2 mb-4 p-3 bg-[var(--bg-tertiary)] rounded-lg">
+                    <div>
+                        <label class="block text-xs font-medium mb-1">De</label>
+                        <input type="date" id="report-date-from" class="border rounded p-2 bg-[var(--bg-secondary)] text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Até</label>
+                        <input type="date" id="report-date-to" class="border rounded p-2 bg-[var(--bg-secondary)] text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Cliente</label>
+                        <select id="report-filter-customer" class="border rounded p-2 bg-[var(--bg-secondary)] text-sm"><option value="">Todos</option></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Forma de Pagamento</label>
+                        <select id="report-filter-payment" class="border rounded p-2 bg-[var(--bg-secondary)] text-sm">
+                            <option value="">Todas</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Pix">Pix</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                            <option value="NaoPago">Não Pago (Fiado)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1">Categoria</label>
+                        <select id="report-filter-category" class="border rounded p-2 bg-[var(--bg-secondary)] text-sm"><option value="">Todas</option></select>
+                    </div>
+                    <div class="flex items-center gap-3 pb-1">
+                        <label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" id="report-include-services" checked> Serviços</label>
+                        <label class="flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" id="report-include-resale" checked> Prod. Revenda</label>
+                    </div>
+                    <button type="button" id="clear-report-filters" class="text-sm bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"><i class="fas fa-eraser"></i> Limpar Filtros</button>
                 </div>
 
                 <div class="mb-4 border-b flex flex-wrap">
@@ -970,6 +1024,131 @@
                 <div class="flex justify-end gap-3 mt-4">
                     <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
                     <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Registrar Serviço</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-produto-categorias" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Gerenciar Categorias de Produtos</h3>
+            <div id="produto-categorias-list" class="space-y-2 mb-4 max-h-60 overflow-y-auto"></div>
+            <form id="add-produto-categoria-form" class="flex gap-2 border-t pt-4">
+                <input type="text" name="produtoCategoryName" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" placeholder="Nome da categoria (ex: Eletrônicos, Roupas)" required>
+                <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded">Adicionar</button>
+            </form>
+            <button type="button" class="close-modal-btn mt-4 w-full px-4 py-2 rounded bg-gray-300 text-gray-800">Fechar</button>
+        </div>
+    </div>
+
+    <div id="modal-edit-produto-categoria" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-md rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 class="text-xl font-bold mb-4">Editar Categoria de Produto</h3>
+            <form id="edit-produto-categoria-form" class="space-y-3">
+                <input type="hidden" name="produtoCategoryId">
+                <input type="text" name="produtoCategoryName" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-produto-cadastro" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 id="produto-modal-title" class="text-xl font-bold mb-4">Novo Produto</h3>
+            <form id="produto-form" class="space-y-4">
+                <input type="hidden" name="produtoId">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nome do Produto</label>
+                    <input type="text" name="produtoNome" placeholder="Ex: Fone Bluetooth" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Categoria</label>
+                        <select name="produtoCategoria" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Quantidade Inicial (Estoque)</label>
+                        <input type="number" name="produtoQuantidade" step="any" min="0" value="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Preço de Compra (R$)</label>
+                        <input type="number" name="produtoPrecoCompra" placeholder="0.00" step="0.01" min="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Preço de Venda (R$)</label>
+                        <input type="number" name="produtoPrecoVenda" placeholder="0.00" step="0.01" min="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-medium">Custos Padrão (Frete, Taxas, Embalagem, etc.)</label>
+                        <button type="button" id="add-produto-custo-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-plus"></i> Adicionar Custo</button>
+                    </div>
+                    <div id="produto-custos-container" class="space-y-2"></div>
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-[var(--primary-600)] text-white">Salvar Produto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-produto-transacao" class="fixed inset-0 hidden items-center justify-center modal-backdrop">
+        <div class="modal w-full max-w-lg rounded-lg shadow-xl p-6 bg-[var(--bg-primary)]">
+            <h3 id="produto-transacao-modal-title" class="text-xl font-bold mb-4">Registrar Venda</h3>
+            <form id="produto-transacao-form" class="space-y-4">
+                <input type="hidden" name="transacaoId">
+                <input type="hidden" name="transacaoTipo">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Produto</label>
+                    <select id="produto-transacao-produto-select" name="transacaoProduto" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required></select>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Data</label>
+                        <input type="datetime-local" id="produto-transacao-data-input" name="transacaoData" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Quantidade</label>
+                        <input type="number" id="produto-transacao-quantidade-input" name="transacaoQuantidade" value="1" step="any" min="0.01" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label id="produto-transacao-valor-label" class="block text-sm font-medium mb-1">Valor Recebido (R$)</label>
+                        <input type="number" id="produto-transacao-valor-input" name="transacaoValor" placeholder="0.00" step="0.01" min="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Estoque Atual</label>
+                        <div id="produto-transacao-estoque-info" class="w-full border rounded p-2 bg-gray-100 text-gray-700 text-sm">-</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-medium">Custos Extras (Frete, Taxas, etc.)</label>
+                        <button type="button" id="add-produto-transacao-custo-btn" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-plus"></i> Adicionar Custo</button>
+                    </div>
+                    <div id="produto-transacao-custos-container" class="space-y-2"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-sm font-medium bg-[var(--bg-tertiary)] p-3 rounded-lg text-center">
+                    <div>Custos: <span id="produto-transacao-total-custos" class="text-red-600">R$ 0,00</span></div>
+                    <div id="produto-transacao-valor-col">Valor: <span id="produto-transacao-total-valor" class="text-blue-600">R$ 0,00</span></div>
+                    <div id="produto-transacao-resultado-label">Lucro: <span id="produto-transacao-total-resultado" class="text-green-600">R$ 0,00</span></div>
+                </div>
+                <p id="produto-transacao-hint" class="text-xs text-[var(--text-tertiary)]">O lucro da venda já desconta o custo de compra (quantidade x preço de compra) e os custos extras.</p>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Observações</label>
+                    <input type="text" name="transacaoDescricao" placeholder="Opcional" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button type="button" class="close-modal-btn px-4 py-2 rounded bg-gray-300 text-gray-800">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded bg-green-600 text-white">Registrar</button>
                 </div>
             </form>
         </div>

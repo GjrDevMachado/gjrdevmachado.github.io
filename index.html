@@ -1064,18 +1064,22 @@
                     <label class="block text-sm font-medium mb-1">Nome do Produto</label>
                     <input type="text" name="produtoNome" placeholder="Ex: Fone Bluetooth" class="w-full border rounded p-2 bg-[var(--bg-secondary)]" required>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Categoria</label>
-                        <select name="produtoCategoria" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Quantidade Inicial (Estoque)</label>
-                        <input type="number" name="produtoQuantidade" step="any" min="0" value="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
-                    </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Categoria</label>
+                    <select name="produtoCategoria" class="w-full border rounded p-2 bg-[var(--bg-secondary)]"></select>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Data de Compra</label>
+                    <input type="date" name="produtoDataCompra" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Quantidade Inicial (Estoque)</label>
+                    <input type="number" name="produtoQuantidade" step="any" min="0" value="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
+                </div>
+                <div>
                         <label class="block text-sm font-medium mb-1">Preço de Compra (R$)</label>
                         <input type="number" name="produtoPrecoCompra" placeholder="0.00" step="0.01" min="0" class="w-full border rounded p-2 bg-[var(--bg-secondary)]">
                     </div>

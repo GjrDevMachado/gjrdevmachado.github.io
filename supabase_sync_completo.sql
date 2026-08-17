@@ -41,8 +41,15 @@ CREATE TABLE IF NOT EXISTS produtos_revenda (
     preco_compra NUMERIC(12,2) NOT NULL DEFAULT 0,
     preco_venda NUMERIC(12,2) NOT NULL DEFAULT 0,
     quantidade NUMERIC(12,2) NOT NULL DEFAULT 0,
-    custos_json JSONB NOT NULL DEFAULT '[]'::jsonb
+    custos_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+    data_compra DATE
 );
+
+-- Adiciona a coluna se a tabela ja existir sem ela
+DO $$ BEGIN
+    ALTER TABLE produtos_revenda ADD COLUMN IF NOT EXISTS data_compra DATE;
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
 
 ALTER TABLE produtos_revenda ENABLE ROW LEVEL SECURITY;
 

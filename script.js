@@ -398,7 +398,8 @@ async function loadDataFromSupabase() {
                 buyPrice: parseFloat(p.preco_compra || 0),
                 sellPrice: parseFloat(p.preco_venda || 0),
                 quantity: parseFloat(p.quantidade || 0),
-                costs: typeof p.custos_json === 'string' ? JSON.parse(p.custos_json) : (p.custos_json || [])
+                costs: typeof p.custos_json === 'string' ? JSON.parse(p.custos_json) : (p.custos_json || []),
+                purchaseDate: p.data_compra || null
             }));
 
             const { data: prodTransData } = await supabaseClient.from('produto_transacoes').select('*');
@@ -1231,7 +1232,15 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         }
         return false;
     });
-    
+
+    const filteredServices = reportFilters.includeServices !== false ? getFilteredTransactions(period, month, year, serviceTransactions) : [];
+    const { startDate: rStart, endDate: rEnd } = getReportDateRange(period, month, year);
+    const filteredProductSales = reportFilters.includeResale !== false ? productTransactions.filter(pt =>
+        pt.tipo === 'venda' && pt.date >= rStart.getTime() && pt.date <= rEnd.getTime()
+    ) : [];
+    const servicesTotal = filteredServices.reduce((s, st) => s + (parseFloat(st.received) || 0), 0);
+    const resaleTotal = filteredProductSales.reduce((s, pt) => s + (parseFloat(pt.valor) || 0), 0);
+
     const totalsByMethod = { 'Dinheiro': 0, 'Pix': 0, 'Cartão de Crédito': 0, 'Cartão de Débito': 0, 'total': 0 };
     
     recebimentos.forEach(t => {
@@ -1250,9 +1259,10 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         }
         totalsByMethod.total += t.amount;
     });
+    totalsByMethod.total += servicesTotal + resaleTotal;
     
     let summaryHtml = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
             <div class="p-4 bg-green-100 rounded-lg text-center shadow">
                 <p class="text-sm font-medium text-green-800">Total Dinheiro</p>
                 <p class="text-2xl font-bold text-green-900">${formatCurrency(totalsByMethod['Dinheiro'])}</p>
@@ -1268,6 +1278,10 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
             <div class="p-4 bg-violet-100 rounded-lg text-center shadow">
                 <p class="text-sm font-medium text-violet-800">Total Débito</p>
                 <p class="text-2xl font-bold text-violet-900">${formatCurrency(totalsByMethod['Cartão de Débito'])}</p>
+            </div>
+            <div class="p-4 bg-teal-100 rounded-lg text-center shadow">
+                <p class="text-sm font-medium text-teal-800">Serviços + Revenda</p>
+                <p class="text-2xl font-bold text-teal-900">${formatCurrency(servicesTotal + resaleTotal)}</p>
             </div>
             <div class="p-4 bg-gray-200 rounded-lg text-center shadow">
                 <p class="text-sm font-medium text-gray-800">Total Geral Recebido</p>
@@ -1287,7 +1301,7 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
         </thead>
         <tbody>`;
         
-    if (recebimentos.length === 0) {
+    if (recebimentos.length === 0 && filteredServices.length === 0 && filteredProductSales.length === 0) {
         tableHtml += '<tr><td colspan="4" class="text-center p-4 text-gray-500">Nenhum recebimento no período.</td></tr>';
     } else {
         recebimentos.sort((a, b) => b.date - a.date).forEach(t => {
@@ -1310,6 +1324,33 @@ function renderRecebimentosReport(period = currentReportPeriod, month, year) {
                     <td class="p-2">${t.description}</td>
                     <td class="p-2"><span class="payment-badge ${badgeClass}">${methodText}</span></td>
                     <td class="p-2 text-right font-semibold text-green-600">${formatCurrency(t.amount)}</td>
+                </tr>
+            `;
+        });
+
+        filteredServices.sort((a, b) => b.date - a.date).forEach(st => {
+            const svc = services.find(s => s.id === st.serviceId);
+            const serviceName = svc ? svc.name : (st.description || 'Serviço');
+            tableHtml += `
+                <tr class="border-b hover:bg-[var(--bg-tertiary)]">
+                    <td class="p-2">${new Date(st.date).toLocaleString('pt-BR')}</td>
+                    <td class="p-2">${serviceName} <span class="text-xs font-semibold text-teal-600 ml-1">SERVIÇO</span></td>
+                    <td class="p-2">—</td>
+                    <td class="p-2 text-right font-semibold text-teal-600">${formatCurrency(parseFloat(st.received) || 0)}</td>
+                </tr>
+            `;
+        });
+
+        filteredProductSales.sort((a, b) => b.date - a.date).forEach(pt => {
+            const prod = resaleProducts.find(p => p.id === pt.productId);
+            const prodName = prod ? prod.name : 'Produto Excluído';
+            const purchaseDateStr = prod && prod.purchaseDate ? new Date(prod.purchaseDate + 'T00:00:00').toLocaleDateString('pt-BR') : '';
+            tableHtml += `
+                <tr class="border-b hover:bg-[var(--bg-tertiary)]">
+                    <td class="p-2">${new Date(pt.date).toLocaleString('pt-BR')}</td>
+                    <td class="p-2">${prodName} <span class="text-xs font-semibold text-blue-600 ml-1">REVENDA</span>${purchaseDateStr ? ' <span class="text-xs text-gray-500 ml-1">(Compra: ' + purchaseDateStr + ')</span>' : ''}</td>
+                    <td class="p-2">—</td>
+                    <td class="p-2 text-right font-semibold text-blue-600">${formatCurrency(parseFloat(pt.valor) || 0)}</td>
                 </tr>
             `;
         });
@@ -3037,8 +3078,9 @@ function renderTransactionList(container, transactionList, serviceList, productL
         const lucro = parseFloat(pt.lucro) || 0;
         const prod = resaleProducts.find(p => p.id === pt.productId);
         const prodName = prod ? prod.name : 'Produto Excluído';
+        const purchaseDateStr = prod && prod.purchaseDate ? new Date(prod.purchaseDate + 'T00:00:00').toLocaleDateString('pt-BR') : '';
         const profitHtml = `<span class="text-xs ${lucro >= 0 ? 'text-green-500' : 'text-red-500'}">Lucro: ${formatCurrency(lucro)}</span>`;
-        container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><div class="flex items-center gap-3"><i class="fas fa-box text-blue-600"></i><div><p class="font-semibold">${prodName}${pt.description ? ' - ' + pt.description : ''}</p><p class="text-sm flex items-center">${new Date(pt.date).toLocaleString('pt-BR')} &middot; <span class="text-blue-600 ml-1">REVENDA</span></p></div></div><div class="text-right"><div><p class="font-bold text-blue-600">${formatCurrency(valor)}</p>${profitHtml}</div></div></div>`;
+        container.innerHTML += `<div class="flex justify-between items-center p-2 border-b border-[var(--border-color)]"><div class="flex items-center gap-3"><i class="fas fa-box text-blue-600"></i><div><p class="font-semibold">${prodName}${pt.description ? ' - ' + pt.description : ''}</p><p class="text-sm flex items-center">${new Date(pt.date).toLocaleString('pt-BR')} &middot; <span class="text-blue-600 ml-1">REVENDA</span>${purchaseDateStr ? ' &middot; <span class="text-xs text-gray-500 ml-1">Compra: ' + purchaseDateStr + '</span>' : ''}</p></div></div><div class="text-right"><div><p class="font-bold text-blue-600">${formatCurrency(valor)}</p>${profitHtml}</div></div></div>`;
     });
 }
 
@@ -3323,7 +3365,8 @@ async function importAllData(event) {
                         const prodsRev = importedData.resaleProducts.map(p => ({
                             id: p.id, nome: p.name, categoria_id: p.categoryId || null,
                             preco_compra: p.buyPrice || 0, preco_venda: p.sellPrice || 0,
-                            quantidade: p.quantity || 0, custos_json: JSON.stringify(p.costs || [])
+                            quantidade: p.quantity || 0, custos_json: JSON.stringify(p.costs || []),
+                            data_compra: p.purchaseDate || null
                         }));
                         await supabaseClient.from('produtos_revenda').upsert(prodsRev);
                     }
@@ -4484,7 +4527,7 @@ function deleteProductCategory(categoryId) {
 
 // --- PRODUTOS (CRUD) ---
 
-async function addProductResale(name, categoryId, buyPrice, sellPrice, quantity, costs) {
+async function addProductResale(name, categoryId, buyPrice, sellPrice, quantity, costs, purchaseDate) {
     if (!name.trim()) { showToast('Informe o nome do produto.', 'error'); return; }
 
     toggleLoading(true);
@@ -4496,7 +4539,8 @@ async function addProductResale(name, categoryId, buyPrice, sellPrice, quantity,
             preco_compra: parseFloat(buyPrice) || 0,
             preco_venda: parseFloat(sellPrice) || 0,
             quantidade: parseFloat(quantity) || 0,
-            custos_json: JSON.stringify(costs || [])
+            custos_json: JSON.stringify(costs || []),
+            data_compra: purchaseDate || null
         }]);
         if (error) throw error;
         showToast('Produto adicionado!', 'success');
@@ -4511,7 +4555,7 @@ async function addProductResale(name, categoryId, buyPrice, sellPrice, quantity,
     }
 }
 
-async function editProductResale(id, name, categoryId, buyPrice, sellPrice, quantity, costs) {
+async function editProductResale(id, name, categoryId, buyPrice, sellPrice, quantity, costs, purchaseDate) {
     if (!name.trim()) { showToast('Informe o nome do produto.', 'error'); return; }
 
     toggleLoading(true);
@@ -4523,7 +4567,8 @@ async function editProductResale(id, name, categoryId, buyPrice, sellPrice, quan
                 preco_compra: parseFloat(buyPrice) || 0,
                 preco_venda: parseFloat(sellPrice) || 0,
                 quantidade: parseFloat(quantity) || 0,
-                custos_json: JSON.stringify(costs || [])
+                custos_json: JSON.stringify(costs || []),
+                data_compra: purchaseDate || null
             })
             .eq('id', id);
         if (error) throw error;
@@ -4552,6 +4597,7 @@ function openEditProductResaleModal(productId) {
     form.elements.produtoQuantidade.value = product.quantity || 0;
     form.elements.produtoPrecoCompra.value = product.buyPrice || '';
     form.elements.produtoPrecoVenda.value = product.sellPrice || '';
+    form.elements.produtoDataCompra.value = product.purchaseDate || '';
     const container = document.getElementById('produto-custos-container');
     container.innerHTML = '';
     if (product.costs && product.costs.length > 0) {
@@ -4597,6 +4643,7 @@ function renderProductsList() {
     let totalEstoque = 0, totalInvestido = 0;
     let html = `<table class="w-full text-left text-sm"><thead><tr class="border-b">
         <th class="p-2">Produto</th><th class="p-2">Categoria</th>
+        <th class="p-2">Data Compra</th>
         <th class="p-2 text-right">Preço Compra</th><th class="p-2 text-right">Preço Venda</th>
         <th class="p-2 text-right">Estoque</th><th class="p-2 text-right">Valor em Estoque</th>
         <th class="p-2 text-center">Ações</th>
@@ -4605,9 +4652,11 @@ function renderProductsList() {
         const estoqueValor = (parseFloat(p.quantity) || 0) * (parseFloat(p.buyPrice) || 0);
         totalEstoque += parseFloat(p.quantity) || 0;
         totalInvestido += estoqueValor;
+        const dataCompraStr = p.purchaseDate ? new Date(p.purchaseDate + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
         html += `<tr class="border-b hover:bg-[var(--bg-tertiary)]">
             <td class="p-2 font-medium">${p.name}</td>
             <td class="p-2">${getProductCategoryName(p.categoryId)}</td>
+            <td class="p-2">${dataCompraStr}</td>
             <td class="p-2 text-right">${formatCurrency(p.buyPrice)}</td>
             <td class="p-2 text-right">${formatCurrency(p.sellPrice)}</td>
             <td class="p-2 text-right font-semibold">${p.quantity}</td>
@@ -4618,7 +4667,7 @@ function renderProductsList() {
             </td></tr>`;
     });
     html += `</tbody><tfoot><tr class="border-t-2 font-bold">
-        <td class="p-2" colspan="4">Total</td>
+        <td class="p-2" colspan="5">Total</td>
         <td class="p-2 text-right">${totalEstoque}</td>
         <td class="p-2 text-right text-amber-600">${formatCurrency(totalInvestido)}</td>
         <td class="p-2"></td>
@@ -5081,18 +5130,19 @@ function addEventListeners() {
 
     safeAddListener('add-produto-categoria-form', 'submit', function(e) { e.preventDefault(); addProductCategory(this.elements.produtoCategoryName.value); this.reset(); });
     safeAddListener('edit-produto-categoria-form', 'submit', handleEditProductCategory);
-    safeAddListener('produto-form', 'submit', function(e) {
-        e.preventDefault();
-        const id = this.elements.produtoId.value;
-        const nome = this.elements.produtoNome.value;
-        const categoria = this.elements.produtoCategoria.value;
-        const buyPrice = this.elements.produtoPrecoCompra.value;
-        const sellPrice = this.elements.produtoPrecoVenda.value;
-        const quantity = this.elements.produtoQuantidade.value;
-        const costs = collectServiceCostRows('produto-custos-container');
-        if (id) editProductResale(parseInt(id), nome, categoria, buyPrice, sellPrice, quantity, costs);
-        else addProductResale(nome, categoria, buyPrice, sellPrice, quantity, costs);
-    });
+safeAddListener('produto-form', 'submit', function(e) {
+    e.preventDefault();
+    const id = this.elements.produtoId.value;
+    const nome = this.elements.produtoNome.value;
+    const categoria = this.elements.produtoCategoria.value;
+    const buyPrice = this.elements.produtoPrecoCompra.value;
+    const sellPrice = this.elements.produtoPrecoVenda.value;
+    const quantity = this.elements.produtoQuantidade.value;
+    const costs = collectServiceCostRows('produto-custos-container');
+    const purchaseDate = this.elements.produtoDataCompra.value;
+    if (id) editProductResale(parseInt(id), nome, categoria, buyPrice, sellPrice, quantity, costs, purchaseDate);
+    else addProductResale(nome, categoria, buyPrice, sellPrice, quantity, costs, purchaseDate);
+});
     safeAddListener('produto-transacao-form', 'submit', function(e) {
         e.preventDefault();
         const id = this.elements.transacaoId.value;
